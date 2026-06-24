@@ -1,10 +1,11 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 
 	"github.com/traP-jp/h26_07/backend/internal/config"
 	"github.com/traP-jp/h26_07/backend/internal/handler"
@@ -13,11 +14,25 @@ import (
 
 func New(cfg config.Config) *echo.Echo {
 	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
 
 	e.Use(middleware.Recover())
-	e.Use(middleware.Logger())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogMethod:  true,
+		LogURI:     true,
+		LogStatus:  true,
+		LogLatency: true,
+		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
+			slog.InfoContext(
+				c.Request().Context(),
+				"request",
+				slog.String("method", v.Method),
+				slog.String("uri", v.URI),
+				slog.Int("status", v.Status),
+				slog.Duration("latency", v.Latency),
+			)
+			return nil
+		},
+	}))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: cfg.CORSAllowOrigins,
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions},

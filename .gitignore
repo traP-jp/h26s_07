@@ -6,6 +6,7 @@ frontend/dist/
 frontend/.eslintcache
 
 backend/bin/
+backend/server
 backend/tmp/
 
 *.exe

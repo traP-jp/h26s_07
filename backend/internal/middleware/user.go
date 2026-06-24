@@ -3,7 +3,7 @@ package middleware
 import (
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 const userContextKey = "authenticatedUser"
@@ -13,7 +13,7 @@ type AuthenticatedUser struct {
 }
 
 func ForwardedUser(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userID := strings.TrimSpace(c.Request().Header.Get("X-Forwarded-User"))
 		if userID == "" {
 			userID = "traP"
@@ -27,7 +27,7 @@ func ForwardedUser(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func GetAuthenticatedUser(c echo.Context) (AuthenticatedUser, bool) {
+func GetAuthenticatedUser(c *echo.Context) (AuthenticatedUser, bool) {
 	user, ok := c.Get(userContextKey).(AuthenticatedUser)
 	return user, ok
 }

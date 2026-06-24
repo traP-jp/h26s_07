@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	authmiddleware "github.com/traP-jp/h26_07/backend/internal/middleware"
 )
@@ -19,7 +19,7 @@ func NewUserHandler() *UserHandler {
 	return &UserHandler{}
 }
 
-func (h *UserHandler) GetMe(c echo.Context) error {
+func (h *UserHandler) GetMe(c *echo.Context) error {
 	user, ok := authmiddleware.GetAuthenticatedUser(c)
 	if !ok {
 		return c.NoContent(http.StatusUnauthorized)
