@@ -19,6 +19,17 @@ description = "フロントエンド用の API スキーマ型を生成"
 dir = "frontend"
 run = "pnpm exec openapi-typescript ../openapi.yaml -o src/api/schema.d.ts --root-types --root-types-no-schema-prefix"
 
+[tasks."backend:gen:api"]
+description = "バックエンド用の API 型を生成"
+run = "mise --cd backend run gen:api"
+
+[tasks.codegen]
+description = "OpenAPI spec から backend/frontend のコードを生成"
+run = [
+  "mise run backend:gen:api",
+  "mise run frontend:gen:api-schema",
+]
+
 [tasks.frontend]
 description = "フロントエンドを起動"
 dir = "frontend"

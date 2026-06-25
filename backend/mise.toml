@@ -3,7 +3,14 @@ go = "1.26.4"
 
 [tasks.init]
 description = "バックエンドの依存関係を取得"
-run = "go mod download"
+run = [
+  "go mod download",
+  "mise run gen:api",
+]
+
+[tasks."gen:api"]
+description = "OpenAPI spec からバックエンド用の Go 型を生成"
+run = "go tool oapi-codegen -config oapi-codegen.yaml ../openapi.yaml"
 
 [tasks.dev]
 description = "バックエンドを起動"

@@ -53,3 +53,15 @@ $ mise run fmt # コードを整形
 
 $ mise run test # テストを実行
 ```
+
+## Codegen
+
+```sh
+$ mise run codegen # backend/frontend の生成コードを更新
+```
+
+backendだけ
+
+```sh
+$ cd backend && mise run gen:api
+```

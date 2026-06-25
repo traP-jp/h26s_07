@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/traP-jp/h26_07/backend/internal/config"
-	"github.com/traP-jp/h26_07/backend/internal/handler"
+	"github.com/traP-jp/h26_07/backend/internal/openapi"
 )
 
 func TestHealthz(t *testing.T) {
@@ -34,7 +34,7 @@ func TestGetMeUsesForwardedUser(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 
-	var body handler.UserResponse
+	var body openapi.User
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestGetMeFallsBackToDeveloper(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 
-	var body handler.UserResponse
+	var body openapi.User
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
