@@ -1,0 +1,18 @@
+[tools]
+node = "24.17.0"
+
+[tasks.init]
+description = "フロントエンドの依存関係を取得"
+run = "corepack pnpm install"
+
+[tasks."gen:api-schema"]
+description = "OpenAPI spec からフロントエンド用の API スキーマ型を生成"
+run = "corepack pnpm exec openapi-typescript ../openapi.yaml -o src/api/schema.d.ts --root-types --root-types-no-schema-prefix"
+
+[tasks.dev]
+description = "フロントエンドを起動"
+run = "corepack pnpm run dev"
+
+[tasks.mock]
+description = "モック API に接続してフロントエンドを起動"
+run = "VITE_API_MOCK=true corepack pnpm run dev"

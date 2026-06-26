@@ -5,7 +5,7 @@ go = "1.26.4"
 [tasks.init]
 description = "開発環境を初期化"
 run = [
-  "pnpm --dir frontend install",
+  "mise --cd frontend run init",
   "mise --cd backend run init",
   "mise run hooks:install",
 ]
@@ -16,8 +16,7 @@ run = "git config core.hooksPath .githooks"
 
 [tasks."frontend:gen:api-schema"]
 description = "フロントエンド用の API スキーマ型を生成"
-dir = "frontend"
-run = "pnpm exec openapi-typescript ../openapi.yaml -o src/api/schema.d.ts --root-types --root-types-no-schema-prefix"
+run = "mise --cd frontend run gen:api-schema"
 
 [tasks."backend:gen:api"]
 description = "バックエンド用の API 型を生成"
@@ -32,13 +31,11 @@ run = [
 
 [tasks.frontend]
 description = "フロントエンドを起動"
-dir = "frontend"
-run = "pnpm run dev"
+run = "mise --cd frontend run dev"
 
 [tasks."frontend:mock"]
 description = "モック API に接続してフロントエンドを起動"
-dir = "frontend"
-run = "VITE_API_MOCK=true pnpm run dev"
+run = "mise --cd frontend run mock"
 
 [tasks.backend]
 description = "バックエンドを起動"
