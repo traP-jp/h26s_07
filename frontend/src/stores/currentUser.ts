@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { apiClient } from '@/api/apiClient'
@@ -6,35 +6,30 @@ import { apiClient } from '@/api/apiClient'
 import type { UserId } from '@/api/schema'
 
 export const useCurrentUserStore = defineStore('currentUser', () => {
-  const userId = ref<UserId | null>(null)
+  const currentUserId = ref<UserId | null>(null)
 
-  async function fetchUserId() {
-    const { data, error } = await apiClient.GET('/api/me')
-
-    if (error !== undefined) {
-      userId.value = null
-      throw new Error('Failed to fetch current user')
-    }
-
-    userId.value = data.userId
-  }
-
-  async function ensureUserId() {
-    if (userId.value !== null) {
+  async function init() {
+    if (currentUserId.value !== null) {
       return
     }
 
-    await fetchUserId()
-  }
+    const { data, error } = await apiClient.GET('/api/me')
 
-  function clear() {
-    userId.value = null
+    if (error !== undefined || data === undefined) {
+      throw new Error('Failed to fetch current user')
+    }
+
+    currentUserId.value = data.userId
   }
 
   return {
-    userId,
-    fetchUserId,
-    ensureUserId,
-    clear,
+    userId: computed(() => {
+      if (currentUserId.value === null) {
+        throw new Error('ユーザー情報が初期化されていません')
+      }
+
+      return currentUserId.value
+    }),
+    init,
   }
 })
