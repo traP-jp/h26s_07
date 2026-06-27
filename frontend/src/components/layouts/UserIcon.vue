@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { UserId } from '@/api/schema'
 const userId = defineProps<{
-  userId: string
+  userId: UserId
 }>()
 const url = computed(() => `https://q.trap.jp/api/v3/public/icon/${userId.userId}`)
 </script>
