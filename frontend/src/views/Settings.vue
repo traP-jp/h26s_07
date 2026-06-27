@@ -193,7 +193,7 @@ const cancelEdit = () => {
           </UFieldGroup>
           <UButton
             variant="soft"
-            to="participantrUrl"
+            :to="participantrUrl"
             target="_blank"
             icon="i-lucide-square-arrow-out-up-right"
             >参加画面へ移動</UButton
@@ -232,7 +232,7 @@ const cancelEdit = () => {
           </UFieldGroup>
           <UButton
             variant="soft"
-            to="displayUrl"
+            :to="displayUrl"
             target="_blank"
             icon="i-lucide-square-arrow-out-up-right"
             >表示画面へ移動</UButton
@@ -271,7 +271,7 @@ const cancelEdit = () => {
           </UFieldGroup>
           <UButton
             variant="soft"
-            to="controlerUrl"
+            :to="controlerUrl"
             target="_blank"
             icon="i-lucide-square-arrow-out-up-right"
             >操作画面へ移動</UButton
