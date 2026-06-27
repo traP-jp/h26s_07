@@ -63,5 +63,7 @@ func registerRoutes(e *echo.Echo, db *gorm.DB) {
 		roomService := service.NewRoomService(transactionRunner, roomRepository)
 		roomHandler := handler.NewRoomHandler(roomService)
 		api.POST("/rooms", roomHandler.PostRoom)
+		api.GET("/rooms/:roomId", roomHandler.GetRoom)
+		api.GET("/rooms", roomHandler.ListRooms)
 	}
 }

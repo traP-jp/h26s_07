@@ -58,6 +58,10 @@ func (s *RoomService) CreateRoom(ctx context.Context, settings model.RoomSetting
 	return room, nil
 }
 
-//func (s *RoomService) GetRoom(ctx context.Context, roomID model.RoomID) (*model.Room, error) {}
+func (s *RoomService) GetRoom(ctx context.Context, roomID model.RoomID) (*model.Room, error) {
+	return s.roomRepository.FindByID(ctx, roomID)
+}
 
-//func (s *RoomService) ListRooms(ctx context.Context) ([]model.RoomSummary, error) {}
+func (s *RoomService) ListRooms(ctx context.Context) ([]model.RoomSummary, error) {
+	return s.roomRepository.List(ctx)
+}
