@@ -5,12 +5,12 @@ import CardCell from '@/components/layouts/CardCell.vue'
 const props = withDefaults(
   defineProps<{
     card: Card
-    cardNo?: string
     cellSize?: number
   }>(),
   { cellSize: 48, cardNo: '0000' },
 )
 
+const cardNo = props.card.cardNumber
 const size = props.cellSize
 const title = ['B', 'I', 'N', 'G', 'O']
 </script>
@@ -41,9 +41,7 @@ const title = ['B', 'I', 'N', 'G', 'O']
     </div>
 
     <div class="bingo-footer">
-      <span class="card-no" :style="{ fontSize: `${size * 0.2}px` }"
-        >Card No. {{ props.cardNo }}</span
-      >
+      <span class="card-no" :style="{ fontSize: `${size * 0.2}px` }">Card No. {{ cardNo }}</span>
     </div>
   </div>
 </template>
