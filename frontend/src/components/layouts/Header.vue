@@ -3,8 +3,8 @@ import { useCurrentUserStore } from '@/stores/currentUser'
 import { computed } from 'vue'
 
 const currentUserStore = useCurrentUserStore()
-const userId = computed(() => currentUserStore.userId)
-const iconUrl = computed(() => `https://q.trap.jp/api/v3/public/icon/${userId.value}`)
+const userId = currentUserStore.userId
+const iconUrl = computed(() => `https://q.trap.jp/api/v3/public/icon/${userId}`)
 </script>
 
 <template>
