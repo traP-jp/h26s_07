@@ -4,7 +4,10 @@
 package openapi
 
 import (
+	"encoding/json"
 	"time"
+
+	"github.com/oapi-codegen/runtime"
 )
 
 const (
@@ -710,8 +713,10 @@ type DisplayShowQRCodeEvent struct {
 // DisplayShowQRCodeEventType defines model for DisplayShowQRCodeEvent.Type.
 type DisplayShowQRCodeEventType string
 
-// DisplayWebSocketEvent defines model for DisplayWebSocketEvent.
-type DisplayWebSocketEvent = WebSocketEventBase
+// DisplayWebSocketEvent display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。
+type DisplayWebSocketEvent struct {
+	union json.RawMessage
+}
 
 // EmptyObject defines model for EmptyObject.
 type EmptyObject = map[string]interface{}
@@ -903,8 +908,10 @@ type ParticipantSummary struct {
 	User     User     `json:"user"`
 }
 
-// ParticipantWebSocketEvent defines model for ParticipantWebSocketEvent.
-type ParticipantWebSocketEvent = WebSocketEventBase
+// ParticipantWebSocketEvent participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。
+type ParticipantWebSocketEvent struct {
+	union json.RawMessage
+}
 
 // PickCanceledBody defines model for PickCanceledBody.
 type PickCanceledBody = EmptyObject
@@ -1029,3 +1036,543 @@ type CreateMessageJSONRequestBody = CreateMessageRequest
 
 // UpdateGameSettingsJSONRequestBody defines body for UpdateGameSettings for application/json ContentType.
 type UpdateGameSettingsJSONRequestBody = UpdateGameSettingsRequest
+
+// AsDisplayInitializedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayInitializedEvent
+func (t DisplayWebSocketEvent) AsDisplayInitializedEvent() (DisplayInitializedEvent, error) {
+	var body DisplayInitializedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayInitializedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayInitializedEvent
+func (t *DisplayWebSocketEvent) FromDisplayInitializedEvent(v DisplayInitializedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayInitializedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayInitializedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayInitializedEvent(v DisplayInitializedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayGameStartedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayGameStartedEvent
+func (t DisplayWebSocketEvent) AsDisplayGameStartedEvent() (DisplayGameStartedEvent, error) {
+	var body DisplayGameStartedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayGameStartedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayGameStartedEvent
+func (t *DisplayWebSocketEvent) FromDisplayGameStartedEvent(v DisplayGameStartedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayGameStartedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayGameStartedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayGameStartedEvent(v DisplayGameStartedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayPickStartedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayPickStartedEvent
+func (t DisplayWebSocketEvent) AsDisplayPickStartedEvent() (DisplayPickStartedEvent, error) {
+	var body DisplayPickStartedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayPickStartedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayPickStartedEvent
+func (t *DisplayWebSocketEvent) FromDisplayPickStartedEvent(v DisplayPickStartedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayPickStartedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayPickStartedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayPickStartedEvent(v DisplayPickStartedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayPickCanceledEvent returns the union data inside the DisplayWebSocketEvent as a DisplayPickCanceledEvent
+func (t DisplayWebSocketEvent) AsDisplayPickCanceledEvent() (DisplayPickCanceledEvent, error) {
+	var body DisplayPickCanceledEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayPickCanceledEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayPickCanceledEvent
+func (t *DisplayWebSocketEvent) FromDisplayPickCanceledEvent(v DisplayPickCanceledEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayPickCanceledEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayPickCanceledEvent
+func (t *DisplayWebSocketEvent) MergeDisplayPickCanceledEvent(v DisplayPickCanceledEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayPickFinishedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayPickFinishedEvent
+func (t DisplayWebSocketEvent) AsDisplayPickFinishedEvent() (DisplayPickFinishedEvent, error) {
+	var body DisplayPickFinishedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayPickFinishedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayPickFinishedEvent
+func (t *DisplayWebSocketEvent) FromDisplayPickFinishedEvent(v DisplayPickFinishedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayPickFinishedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayPickFinishedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayPickFinishedEvent(v DisplayPickFinishedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayGameFinishedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayGameFinishedEvent
+func (t DisplayWebSocketEvent) AsDisplayGameFinishedEvent() (DisplayGameFinishedEvent, error) {
+	var body DisplayGameFinishedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayGameFinishedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayGameFinishedEvent
+func (t *DisplayWebSocketEvent) FromDisplayGameFinishedEvent(v DisplayGameFinishedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayGameFinishedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayGameFinishedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayGameFinishedEvent(v DisplayGameFinishedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayShowQRCodeEvent returns the union data inside the DisplayWebSocketEvent as a DisplayShowQRCodeEvent
+func (t DisplayWebSocketEvent) AsDisplayShowQRCodeEvent() (DisplayShowQRCodeEvent, error) {
+	var body DisplayShowQRCodeEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayShowQRCodeEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayShowQRCodeEvent
+func (t *DisplayWebSocketEvent) FromDisplayShowQRCodeEvent(v DisplayShowQRCodeEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayShowQRCodeEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayShowQRCodeEvent
+func (t *DisplayWebSocketEvent) MergeDisplayShowQRCodeEvent(v DisplayShowQRCodeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayHideQRCodeEvent returns the union data inside the DisplayWebSocketEvent as a DisplayHideQRCodeEvent
+func (t DisplayWebSocketEvent) AsDisplayHideQRCodeEvent() (DisplayHideQRCodeEvent, error) {
+	var body DisplayHideQRCodeEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayHideQRCodeEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayHideQRCodeEvent
+func (t *DisplayWebSocketEvent) FromDisplayHideQRCodeEvent(v DisplayHideQRCodeEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayHideQRCodeEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayHideQRCodeEvent
+func (t *DisplayWebSocketEvent) MergeDisplayHideQRCodeEvent(v DisplayHideQRCodeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayMessageCreatedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayMessageCreatedEvent
+func (t DisplayWebSocketEvent) AsDisplayMessageCreatedEvent() (DisplayMessageCreatedEvent, error) {
+	var body DisplayMessageCreatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayMessageCreatedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayMessageCreatedEvent
+func (t *DisplayWebSocketEvent) FromDisplayMessageCreatedEvent(v DisplayMessageCreatedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayMessageCreatedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayMessageCreatedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayMessageCreatedEvent(v DisplayMessageCreatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayAllPickedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayAllPickedEvent
+func (t DisplayWebSocketEvent) AsDisplayAllPickedEvent() (DisplayAllPickedEvent, error) {
+	var body DisplayAllPickedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayAllPickedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayAllPickedEvent
+func (t *DisplayWebSocketEvent) FromDisplayAllPickedEvent(v DisplayAllPickedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayAllPickedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayAllPickedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayAllPickedEvent(v DisplayAllPickedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayGameSettingsUpdatedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayGameSettingsUpdatedEvent
+func (t DisplayWebSocketEvent) AsDisplayGameSettingsUpdatedEvent() (DisplayGameSettingsUpdatedEvent, error) {
+	var body DisplayGameSettingsUpdatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayGameSettingsUpdatedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayGameSettingsUpdatedEvent
+func (t *DisplayWebSocketEvent) FromDisplayGameSettingsUpdatedEvent(v DisplayGameSettingsUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayGameSettingsUpdatedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayGameSettingsUpdatedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayGameSettingsUpdatedEvent(v DisplayGameSettingsUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DisplayWebSocketEvent) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DisplayWebSocketEvent) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsParticipantInitializedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantInitializedEvent
+func (t ParticipantWebSocketEvent) AsParticipantInitializedEvent() (ParticipantInitializedEvent, error) {
+	var body ParticipantInitializedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantInitializedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantInitializedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantInitializedEvent(v ParticipantInitializedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantInitializedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantInitializedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantInitializedEvent(v ParticipantInitializedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantGameStartedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantGameStartedEvent
+func (t ParticipantWebSocketEvent) AsParticipantGameStartedEvent() (ParticipantGameStartedEvent, error) {
+	var body ParticipantGameStartedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantGameStartedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantGameStartedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantGameStartedEvent(v ParticipantGameStartedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantGameStartedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantGameStartedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantGameStartedEvent(v ParticipantGameStartedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantPickStartedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantPickStartedEvent
+func (t ParticipantWebSocketEvent) AsParticipantPickStartedEvent() (ParticipantPickStartedEvent, error) {
+	var body ParticipantPickStartedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantPickStartedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantPickStartedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantPickStartedEvent(v ParticipantPickStartedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantPickStartedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantPickStartedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantPickStartedEvent(v ParticipantPickStartedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantPickCanceledEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantPickCanceledEvent
+func (t ParticipantWebSocketEvent) AsParticipantPickCanceledEvent() (ParticipantPickCanceledEvent, error) {
+	var body ParticipantPickCanceledEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantPickCanceledEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantPickCanceledEvent
+func (t *ParticipantWebSocketEvent) FromParticipantPickCanceledEvent(v ParticipantPickCanceledEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantPickCanceledEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantPickCanceledEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantPickCanceledEvent(v ParticipantPickCanceledEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantPickFinishedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantPickFinishedEvent
+func (t ParticipantWebSocketEvent) AsParticipantPickFinishedEvent() (ParticipantPickFinishedEvent, error) {
+	var body ParticipantPickFinishedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantPickFinishedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantPickFinishedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantPickFinishedEvent(v ParticipantPickFinishedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantPickFinishedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantPickFinishedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantPickFinishedEvent(v ParticipantPickFinishedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantGameFinishedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantGameFinishedEvent
+func (t ParticipantWebSocketEvent) AsParticipantGameFinishedEvent() (ParticipantGameFinishedEvent, error) {
+	var body ParticipantGameFinishedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantGameFinishedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantGameFinishedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantGameFinishedEvent(v ParticipantGameFinishedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantGameFinishedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantGameFinishedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantGameFinishedEvent(v ParticipantGameFinishedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantMessageCreatedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantMessageCreatedEvent
+func (t ParticipantWebSocketEvent) AsParticipantMessageCreatedEvent() (ParticipantMessageCreatedEvent, error) {
+	var body ParticipantMessageCreatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantMessageCreatedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantMessageCreatedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantMessageCreatedEvent(v ParticipantMessageCreatedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantMessageCreatedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantMessageCreatedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantMessageCreatedEvent(v ParticipantMessageCreatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantAllPickedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantAllPickedEvent
+func (t ParticipantWebSocketEvent) AsParticipantAllPickedEvent() (ParticipantAllPickedEvent, error) {
+	var body ParticipantAllPickedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantAllPickedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantAllPickedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantAllPickedEvent(v ParticipantAllPickedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantAllPickedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantAllPickedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantAllPickedEvent(v ParticipantAllPickedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantGameSettingsUpdatedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantGameSettingsUpdatedEvent
+func (t ParticipantWebSocketEvent) AsParticipantGameSettingsUpdatedEvent() (ParticipantGameSettingsUpdatedEvent, error) {
+	var body ParticipantGameSettingsUpdatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantGameSettingsUpdatedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantGameSettingsUpdatedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantGameSettingsUpdatedEvent(v ParticipantGameSettingsUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantGameSettingsUpdatedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantGameSettingsUpdatedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantGameSettingsUpdatedEvent(v ParticipantGameSettingsUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ParticipantWebSocketEvent) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ParticipantWebSocketEvent) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}

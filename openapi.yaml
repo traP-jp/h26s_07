@@ -1152,14 +1152,32 @@ components:
         - settings
 
     ParticipantWebSocketEvent:
-      allOf:
-        - $ref: "#/components/schemas/WebSocketEventBase"
       description: participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。
+      oneOf:
+        - $ref: "#/components/schemas/ParticipantInitializedEvent"
+        - $ref: "#/components/schemas/ParticipantGameStartedEvent"
+        - $ref: "#/components/schemas/ParticipantPickStartedEvent"
+        - $ref: "#/components/schemas/ParticipantPickCanceledEvent"
+        - $ref: "#/components/schemas/ParticipantPickFinishedEvent"
+        - $ref: "#/components/schemas/ParticipantGameFinishedEvent"
+        - $ref: "#/components/schemas/ParticipantMessageCreatedEvent"
+        - $ref: "#/components/schemas/ParticipantAllPickedEvent"
+        - $ref: "#/components/schemas/ParticipantGameSettingsUpdatedEvent"
 
     DisplayWebSocketEvent:
-      allOf:
-        - $ref: "#/components/schemas/WebSocketEventBase"
       description: display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。
+      oneOf:
+        - $ref: "#/components/schemas/DisplayInitializedEvent"
+        - $ref: "#/components/schemas/DisplayGameStartedEvent"
+        - $ref: "#/components/schemas/DisplayPickStartedEvent"
+        - $ref: "#/components/schemas/DisplayPickCanceledEvent"
+        - $ref: "#/components/schemas/DisplayPickFinishedEvent"
+        - $ref: "#/components/schemas/DisplayGameFinishedEvent"
+        - $ref: "#/components/schemas/DisplayShowQRCodeEvent"
+        - $ref: "#/components/schemas/DisplayHideQRCodeEvent"
+        - $ref: "#/components/schemas/DisplayMessageCreatedEvent"
+        - $ref: "#/components/schemas/DisplayAllPickedEvent"
+        - $ref: "#/components/schemas/DisplayGameSettingsUpdatedEvent"
 
     ParticipantInitializedEvent:
       allOf:
