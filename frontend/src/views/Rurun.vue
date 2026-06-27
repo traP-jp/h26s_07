@@ -6,6 +6,13 @@
         title="春ハッカソン2026"
         description="優勝者には豪華賞品をプレゼント！"
         room-code="123456"
+        isAdmin
+      ></Card>
+
+      <Card
+        title="春ハッカソン2026"
+        description="優勝者には豪華賞品をプレゼント！"
+        room-code="123456"
       ></Card>
     </div>
   </div>
