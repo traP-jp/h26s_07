@@ -9,21 +9,6 @@ import (
 	"github.com/traP-jp/h26_07/backend/internal/openapi"
 )
 
-var bingoLineCellIndices = [12][5]model.CellIndex{
-	{0, 1, 2, 3, 4},
-	{5, 6, 7, 8, 9},
-	{10, 11, 12, 13, 14},
-	{15, 16, 17, 18, 19},
-	{20, 21, 22, 23, 24},
-	{0, 5, 10, 15, 20},
-	{1, 6, 11, 16, 21},
-	{2, 7, 12, 17, 22},
-	{3, 8, 13, 18, 23},
-	{4, 9, 14, 19, 24},
-	{0, 6, 12, 18, 24},
-	{4, 8, 12, 16, 20},
-}
-
 func convertPickedBallsToOpenAPI(pickedBalls []model.BallNumber) []openapi.PickedBall {
 	result := make([]openapi.PickedBall, 0, len(pickedBalls))
 	for _, ball := range pickedBalls {
@@ -42,7 +27,7 @@ func convertCardToOpenAPI(room *model.Room, card model.Card) openapi.Card {
 		OwnerUserID: openapi.UserID(card.OwnerUserID),
 		Cells:       cells,
 		BingoLines:  convertLineIndexesToOpenAPI(bingoLineIndexes(room, card.OwnerUserID)),
-		ReachLines:  convertLineIndexesToOpenAPI(reachLineIndexes(card)),
+		ReachLines:  convertLineIndexesToOpenAPI(card.ReachLines(room.BingoRecords)),
 	}
 }
 
@@ -99,23 +84,6 @@ func bingoLineIndexes(room *model.Room, userID model.UserID) []model.LineIndex {
 	return lines
 }
 
-func reachLineIndexes(card model.Card) []model.LineIndex {
-	lines := make([]model.LineIndex, 0)
-	for line := model.LineIndex(0); int(line) < len(bingoLineCellIndices); line++ {
-		indices := bingoLineCellIndices[line]
-		for _, index := range indices {
-			if card.Cells[index].CellState == model.CardCellStateReach {
-				lines = append(lines, line)
-				break
-			}
-		}
-	}
-	return lines
-}
-
 func lineCells(line model.LineIndex) ([5]model.CellIndex, bool) {
-	if int(line) < 0 || int(line) >= len(bingoLineCellIndices) {
-		return [5]model.CellIndex{}, false
-	}
-	return bingoLineCellIndices[line], true
+	return model.LineCells(line)
 }

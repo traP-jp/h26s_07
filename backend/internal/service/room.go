@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/traP-jp/h26_07/backend/internal/model"
+	"github.com/traP-jp/h26_07/backend/internal/openapi"
 	"github.com/traP-jp/h26_07/backend/internal/repository"
 )
 
@@ -76,4 +77,56 @@ func (s *RoomService) PostParticipants(ctx context.Context, roomID model.RoomID,
 	room.Join(user, time.Now())
 	s.roomRepository.Save(ctx, room)
 	return nil
+}
+
+func (s *RoomService) PostMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {
+	room, err := s.roomRepository.FindByID(ctx, roomID)
+	if err != nil {
+		return nil, model.ErrRoomNotFound
+	}
+	messageID, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
+	createdMessage, err := room.PostMessage(user, content, time.Now(), model.MessageID(messageID))
+	if err != nil {
+		return nil, err
+	}
+	err = s.roomRepository.Save(ctx, room)
+	if err != nil {
+		return nil, err
+	}
+	err = s.events.SendRoom(ctx, roomID, openapi.ParticipantMessageCreatedEvent{
+		Type: openapi.ParticipantMessageCreatedEventTypeMessageCreated,
+		Body: openapi.MessageCreatedBody{Message: openapi.Message{
+			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
+			Content:   createdMessage.Content,
+			CreatedAt: createdMessage.CreatedAt,
+			MessageID: openapi.UUID(messageID.String()),
+		}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	err = s.events.SendRoom(ctx, roomID, openapi.DisplayMessageCreatedEvent{
+		Type: openapi.DisplayMessageCreatedEventTypeMessageCreated,
+		Body: openapi.MessageCreatedBody{Message: openapi.Message{
+			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
+			Content:   createdMessage.Content,
+			CreatedAt: createdMessage.CreatedAt,
+			MessageID: openapi.UUID(messageID.String()),
+		}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &createdMessage, nil
+}
+
+func (s *RoomService) GetMessage(ctx context.Context, roomID model.RoomID) (*[]model.Message, error) {
+	room, err := s.roomRepository.FindByID(ctx, roomID)
+	if err != nil {
+		return nil, model.ErrRoomNotFound
+	}
+	return &room.Messages, nil
 }

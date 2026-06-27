@@ -27,9 +27,10 @@ const props = defineProps<{
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-weight: 900;
   aspect-ratio: 1 / 1;
   flex-shrink: 0;
   box-sizing: border-box;
+  user-select: none;
 }
 </style>

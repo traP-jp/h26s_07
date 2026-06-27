@@ -1,6 +1,8 @@
 package model
 
 import (
+	"cmp"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,6 +85,10 @@ type BingoSummary struct {
 	BingoOrders []BingoOrder
 }
 
+type ReachSummary struct {
+	UserID UserID
+}
+
 type ReachRecord struct {
 	RecordID      RecordID
 	UserID        UserID
@@ -91,9 +97,9 @@ type ReachRecord struct {
 	CreatedAt     time.Time
 }
 
-type MassageID uuid.UUID
-type Massage struct {
-	MassageID MassageID
+type MessageID uuid.UUID
+type Message struct {
+	MessageID MessageID
 	Content   string
 	Author    UserID
 	CreatedAt time.Time
@@ -111,7 +117,7 @@ type Room struct {
 	PickedBalls   []BallNumber
 	BingoRecords  []BingoRecord
 	ReachRecords  []ReachRecord
-	Massages      []Massage
+	Messages      []Message
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -129,6 +135,7 @@ type RoomSummary struct {
 	Settings       RoomSettings
 	Participants   []Participant
 	BingoSummaries []BingoSummary
+	ReachSummaries []ReachSummary
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -151,13 +158,13 @@ func NewRoom(
 		PickedBalls:   []BallNumber{},
 		BingoRecords:  []BingoRecord{},
 		ReachRecords:  []ReachRecord{},
-		Massages:      []Massage{},
+		Messages:      []Message{},
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
 }
 
-func (settings *RoomSettings) HasAdmin(userID UserID) bool {
+func (settings RoomSettings) HasAdmin(userID UserID) bool {
 	for _, admin := range settings.Admins {
 		if admin == userID {
 			return true
@@ -207,14 +214,6 @@ func (room *Room) ParticipantCount() int {
 	return len(room.Participants)
 }
 
-//Todo
-//func (room *Room) DrawableNumbers() []BallNumber {
-//}
-
-//Todo
-//func (room *Room) AllPicked() bool {
-//	return len(room.PickedBalls) == room.Settings.MaxBalls
-
 func (room *Room) Join(userID UserID, now time.Time) error {
 	if !room.CanJoin() {
 		return ErrRoomNotJoinable
@@ -231,24 +230,465 @@ func (room *Room) Join(userID UserID, now time.Time) error {
 	return nil
 }
 
-func (room *Room) CanPostMassage(user UserID) bool {
+func (room *Room) CanPostMessage(user UserID) bool {
 	return (room.IsParticipant(user) || room.IsAdmin(user)) && room.State != RoomStateFinished
 }
 
-func (room *Room) PostMassage(user UserID, content string, now time.Time, massageID MassageID) (Massage, error) {
-	if !room.CanPostMassage(user) {
-		return Massage{}, ErrRoomMassageNotAllowed
+func (room *Room) PostMessage(user UserID, content string, now time.Time, messageID MessageID) (Message, error) {
+	if !room.CanPostMessage(user) {
+		return Message{}, ErrRoomMessageNotAllowed
 	}
 	if content == "" || len(content) > 500 {
-		return Massage{}, ErrMassageInvalid
+		return Message{}, ErrMessageInvalid
 	}
-	massage := Massage{
-		MassageID: massageID,
+	message := Message{
+		MessageID: messageID,
 		Content:   content,
 		Author:    user,
 		CreatedAt: now,
 	}
-	room.Massages = append(room.Massages, massage)
+	room.Messages = append(room.Messages, message)
 	room.UpdatedAt = now
-	return massage, nil
+	return message, nil
+}
+
+type CardChanges struct {
+	OpenedCellIndices []CellIndex
+	NewReachLines     []LineIndex
+	NewBingoLines     []LineIndex
+}
+
+type ParticipantCardUpdate struct {
+	UserID      UserID
+	Card        Card
+	CardChanges CardChanges
+}
+
+type BingoUpdate struct {
+	UserID         UserID
+	NewBingoOrders []BingoOrder
+	BingoOrders    []BingoOrder
+}
+
+type ReachUpdate struct {
+	UserID UserID
+}
+
+type GameStartedResult struct {
+	ParticipantCards []ParticipantCardUpdate
+}
+
+type GameFinishedResult struct {
+	PickCanceled       bool
+	ParticipantUpdates []ParticipantCardUpdate
+}
+
+type PickFinishedResult struct {
+	Room               *Room
+	PickedBall         BallNumber
+	ParticipantUpdates []ParticipantCardUpdate
+	NewBingos          []BingoUpdate
+	NewReaches         []ReachUpdate
+	AllPicked          bool
+}
+
+func (room *Room) CanView(userID UserID) bool {
+	return room.IsParticipant(userID) || room.IsAdmin(userID)
+}
+
+func (room *Room) CanViewChat(userID UserID) bool {
+	return room.CanView(userID)
+}
+
+func (room *Room) CanUpdateSettings(userID UserID) bool {
+	return room.State != RoomStateFinished && room.IsAdmin(userID)
+}
+
+func (room *Room) CanStartGame(userID UserID) bool {
+	return room.State == RoomStateWaiting && len(room.Participants) > 0 && room.IsAdmin(userID)
+}
+
+func (room *Room) CanFinishGame(userID UserID) bool {
+	return room.State == RoomStatePlaying && room.IsAdmin(userID)
+}
+
+func (room *Room) CardByUserID(userID UserID) (Card, bool) {
+	for _, card := range room.Cards {
+		if card.OwnerUserID == userID {
+			return card, true
+		}
+	}
+	return Card{}, false
+}
+
+func (room *Room) BingoSummaries() []BingoSummary {
+	records := slices.Clone(room.BingoRecords)
+	slices.SortFunc(records, func(a, b BingoRecord) int {
+		if n := cmp.Compare(a.Order, b.Order); n != 0 {
+			return n
+		}
+		return cmp.Compare(a.UserID, b.UserID)
+	})
+
+	summaries := make([]BingoSummary, 0)
+	indexByUserID := make(map[UserID]int)
+	for _, record := range records {
+		index, ok := indexByUserID[record.UserID]
+		if !ok {
+			index = len(summaries)
+			indexByUserID[record.UserID] = index
+			summaries = append(summaries, BingoSummary{
+				UserID:      record.UserID,
+				BingoOrders: []BingoOrder{},
+			})
+		}
+		summaries[index].BingoOrders = append(summaries[index].BingoOrders, record.Order)
+	}
+	return summaries
+}
+
+func (room *Room) ReachSummaries() []ReachSummary {
+	return ReachSummariesFromRecords(room.ReachRecords, room.BingoRecords)
+}
+
+func ReachSummariesFromRecords(reachRecords []ReachRecord, bingoRecords []BingoRecord) []ReachSummary {
+	records := slices.Clone(reachRecords)
+	slices.SortFunc(records, func(a, b ReachRecord) int {
+		if n := a.CreatedAt.Compare(b.CreatedAt); n != 0 {
+			return n
+		}
+		return cmp.Compare(a.UserID, b.UserID)
+	})
+
+	bingoUserIDs := make(map[UserID]struct{})
+	for _, record := range bingoRecords {
+		bingoUserIDs[record.UserID] = struct{}{}
+	}
+
+	summaries := make([]ReachSummary, 0)
+	addedUserIDs := make(map[UserID]struct{})
+	for _, record := range records {
+		if _, ok := bingoUserIDs[record.UserID]; ok {
+			continue
+		}
+		if _, ok := addedUserIDs[record.UserID]; ok {
+			continue
+		}
+		addedUserIDs[record.UserID] = struct{}{}
+		summaries = append(summaries, ReachSummary{UserID: record.UserID})
+	}
+	return summaries
+}
+
+func (room *Room) DrawableNumbers() []BallNumber {
+	return DrawableNumbers(room.PickedBalls)
+}
+
+func (room *Room) HasDrawableBalls() bool {
+	return len(room.DrawableNumbers()) > 0
+}
+
+func (room *Room) AllPicked() bool {
+	return len(room.DrawableNumbers()) == 0
+}
+
+func (room *Room) HasBingoRecord(userID UserID, line LineIndex) bool {
+	return hasBingoRecord(room.BingoRecords, userID, line)
+}
+
+func (room *Room) HasReachRecord(userID UserID) bool {
+	for _, record := range room.ReachRecords {
+		if record.UserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+type RecordIDGenerator func() (RecordID, error)
+
+func (settings RoomSettings) Valid() bool {
+	return len(settings.Admins) > 0
+}
+
+func (room *Room) UpdateSettings(actor UserID, settings RoomSettings, now time.Time) error {
+	if !room.CanUpdateSettings(actor) {
+		return ErrRoomNotConfigurable
+	}
+	if !settings.Valid() {
+		return ErrRoomSettingsInvalid
+	}
+	room.Settings = settings
+	room.UpdatedAt = now
+	return nil
+}
+
+func (room *Room) StartGame(actor UserID, cards []Card, now time.Time) (GameStartedResult, error) {
+	if !room.CanStartGame(actor) {
+		return GameStartedResult{}, ErrRoomNotStartable
+	}
+	if !cardsMatchParticipants(cards, room.Participants) {
+		return GameStartedResult{}, ErrInvalidCard
+	}
+
+	room.State = RoomStatePlaying
+	room.PickState = RoomPickStateIdle
+	room.Cards = append([]Card(nil), cards...)
+	room.UpdatedAt = now
+
+	updates := make([]ParticipantCardUpdate, 0, len(cards))
+	for _, card := range cards {
+		updates = append(updates, ParticipantCardUpdate{
+			UserID: card.OwnerUserID,
+			Card:   card,
+		})
+	}
+	return GameStartedResult{ParticipantCards: updates}, nil
+}
+
+func (room *Room) FinishGame(actor UserID, now time.Time) (GameFinishedResult, error) {
+	if !room.CanFinishGame(actor) {
+		return GameFinishedResult{}, ErrRoomNotFinishable
+	}
+
+	pickCanceled := room.PickState == RoomPickStatePicking
+	room.State = RoomStateFinished
+	room.PickState = RoomPickStateIdle
+	room.UpdatedAt = now
+
+	updates := make([]ParticipantCardUpdate, 0, len(room.Cards))
+	for _, card := range room.Cards {
+		updates = append(updates, ParticipantCardUpdate{
+			UserID: card.OwnerUserID,
+			Card:   card,
+		})
+	}
+	return GameFinishedResult{
+		PickCanceled:       pickCanceled,
+		ParticipantUpdates: updates,
+	}, nil
+}
+
+func (room *Room) StartPick(actor UserID, now time.Time) error {
+	if !room.CanStartPick(actor) {
+		return ErrRoomPickNotStartable
+	}
+	if !room.HasDrawableBalls() {
+		room.PickState = RoomPickStateExhausted
+		room.UpdatedAt = now
+		return ErrNoDrawableBalls
+	}
+	room.PickState = RoomPickStatePicking
+	room.UpdatedAt = now
+	return nil
+}
+
+func (room *Room) CancelPick(actor UserID, now time.Time) error {
+	if !room.CanCancelPick(actor) {
+		return ErrRoomPickNotCancelable
+	}
+	room.PickState = RoomPickStateIdle
+	room.UpdatedAt = now
+	return nil
+}
+
+func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID RecordIDGenerator, now time.Time) (PickFinishedResult, error) {
+	if !room.CanFinishPick(actor) {
+		return PickFinishedResult{}, ErrRoomPickNotFinishable
+	}
+	if !picked.Valid() {
+		return PickFinishedResult{}, ErrInvalidBallNumber
+	}
+	if ballPicked(room.PickedBalls, picked) {
+		return PickFinishedResult{}, ErrBallAlreadyPicked
+	}
+	if nextRecordID == nil {
+		return PickFinishedResult{}, ErrRecordIDRequired
+	}
+
+	cards := append([]Card(nil), room.Cards...)
+	pickedBalls := append(append([]BallNumber(nil), room.PickedBalls...), picked)
+	bingoRecords := append([]BingoRecord(nil), room.BingoRecords...)
+	reachRecords := append([]ReachRecord(nil), room.ReachRecords...)
+	newBingoRecords := make([]BingoRecord, 0)
+	newReachRecords := make([]ReachRecord, 0)
+	participantUpdates := make([]ParticipantCardUpdate, 0, len(cards))
+
+	for i := range cards {
+		before := cards[i]
+		beforeReachLines := before.ReachLines(bingoRecords)
+
+		cards[i].OpenNumber(picked)
+		newBingoLines := cards[i].NewBingoLines(bingoRecords)
+		for _, line := range newBingoLines {
+			recordID, err := nextRecordID()
+			if err != nil {
+				return PickFinishedResult{}, err
+			}
+			record := BingoRecord{
+				RecordID:  recordID,
+				UserID:    cards[i].OwnerUserID,
+				Line:      line,
+				Order:     BingoOrder(len(bingoRecords) + 1),
+				CreatedAt: now,
+			}
+			bingoRecords = append(bingoRecords, record)
+			newBingoRecords = append(newBingoRecords, record)
+		}
+		cards[i].MarkBingoLines(newBingoLines)
+
+		reachLines := cards[i].ReachLines(bingoRecords)
+		newReachLines := lineDifference(reachLines, beforeReachLines)
+		if len(newReachLines) > 0 && !hasReachRecord(reachRecords, cards[i].OwnerUserID) {
+			recordID, err := nextRecordID()
+			if err != nil {
+				return PickFinishedResult{}, err
+			}
+			lastCellIndex, _ := cards[i].LastMissingCellIndex(newReachLines[0])
+			record := ReachRecord{
+				RecordID:      recordID,
+				UserID:        cards[i].OwnerUserID,
+				Line:          newReachLines[0],
+				LastCellIndex: lastCellIndex,
+				CreatedAt:     now,
+			}
+			reachRecords = append(reachRecords, record)
+			newReachRecords = append(newReachRecords, record)
+		}
+		cards[i].MarkReachLines(reachLines)
+
+		participantUpdates = append(participantUpdates, ParticipantCardUpdate{
+			UserID: cards[i].OwnerUserID,
+			Card:   cards[i],
+			CardChanges: CardChanges{
+				OpenedCellIndices: cards[i].NewlyOpenedCells(before),
+				NewReachLines:     newReachLines,
+				NewBingoLines:     newBingoLines,
+			},
+		})
+	}
+
+	room.Cards = cards
+	room.PickedBalls = pickedBalls
+	room.BingoRecords = bingoRecords
+	room.ReachRecords = reachRecords
+	if len(DrawableNumbers(pickedBalls)) == 0 {
+		room.PickState = RoomPickStateExhausted
+	} else {
+		room.PickState = RoomPickStateIdle
+	}
+	room.UpdatedAt = now
+
+	return PickFinishedResult{
+		Room:               room,
+		PickedBall:         picked,
+		ParticipantUpdates: participantUpdates,
+		NewBingos:          bingoUpdates(newBingoRecords, bingoRecords),
+		NewReaches:         reachUpdates(newReachRecords),
+		AllPicked:          room.AllPicked(),
+	}, nil
+}
+
+func (room *Room) ShowQRCode(actor UserID, now time.Time) error {
+	if !room.IsAdmin(actor) {
+		return ErrRoomNotConfigurable
+	}
+	room.QrCodeVisible = true
+	room.UpdatedAt = now
+	return nil
+}
+
+func (room *Room) HideQRCode(actor UserID, now time.Time) error {
+	if !room.IsAdmin(actor) {
+		return ErrRoomNotConfigurable
+	}
+	room.QrCodeVisible = false
+	room.UpdatedAt = now
+	return nil
+}
+
+func cardsMatchParticipants(cards []Card, participants []Participant) bool {
+	if len(cards) != len(participants) {
+		return false
+	}
+	participantSet := make(map[UserID]struct{}, len(participants))
+	for _, participant := range participants {
+		participantSet[participant.UserID] = struct{}{}
+	}
+	for _, card := range cards {
+		if _, ok := participantSet[card.OwnerUserID]; !ok {
+			return false
+		}
+		delete(participantSet, card.OwnerUserID)
+	}
+	return len(participantSet) == 0
+}
+
+func ballPicked(pickedBalls []BallNumber, number BallNumber) bool {
+	for _, picked := range pickedBalls {
+		if picked == number {
+			return true
+		}
+	}
+	return false
+}
+
+func hasReachRecord(records []ReachRecord, userID UserID) bool {
+	for _, record := range records {
+		if record.UserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func lineDifference(lines []LineIndex, existing []LineIndex) []LineIndex {
+	existingSet := make(map[LineIndex]struct{}, len(existing))
+	for _, line := range existing {
+		existingSet[line] = struct{}{}
+	}
+	result := make([]LineIndex, 0, len(lines))
+	for _, line := range lines {
+		if _, ok := existingSet[line]; !ok {
+			result = append(result, line)
+		}
+	}
+	return result
+}
+
+func bingoUpdates(newRecords []BingoRecord, allRecords []BingoRecord) []BingoUpdate {
+	updates := make([]BingoUpdate, 0)
+	indexByUserID := make(map[UserID]int)
+	for _, record := range newRecords {
+		index, ok := indexByUserID[record.UserID]
+		if !ok {
+			index = len(updates)
+			indexByUserID[record.UserID] = index
+			updates = append(updates, BingoUpdate{
+				UserID:         record.UserID,
+				NewBingoOrders: []BingoOrder{},
+				BingoOrders:    bingoOrders(allRecords, record.UserID),
+			})
+		}
+		updates[index].NewBingoOrders = append(updates[index].NewBingoOrders, record.Order)
+	}
+	return updates
+}
+
+func bingoOrders(records []BingoRecord, userID UserID) []BingoOrder {
+	orders := make([]BingoOrder, 0)
+	for _, record := range records {
+		if record.UserID == userID {
+			orders = append(orders, record.Order)
+		}
+	}
+	return orders
+}
+
+func reachUpdates(records []ReachRecord) []ReachUpdate {
+	updates := make([]ReachUpdate, 0, len(records))
+	for _, record := range records {
+		updates = append(updates, ReachUpdate{UserID: record.UserID})
+	}
+	return updates
 }

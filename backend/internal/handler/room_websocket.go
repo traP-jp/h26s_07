@@ -268,7 +268,8 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 			Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 			PickState:      openapi.PickState(room.PickState),
 			PickedBalls:    convertPickedBallsToOpenAPI(room.PickedBalls),
-			BingoSummaries: toOpenAPIBingoSummaries(room.BingoRecords),
+			BingoSummaries: convertBingoSummariesToOpenAPI(room.BingoSummaries()),
+			ReachSummaries: convertReachSummariesToOpenAPI(room.ReachSummaries()),
 		}
 		if room.State != model.RoomStateWaiting {
 			if card, ok := findCard(room, userID); ok {
@@ -289,7 +290,8 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 				ParticipantCount: room.ParticipantCount(),
 				PickedBalls:      convertPickedBallsToOpenAPI(room.PickedBalls),
 				QrCodeVisible:    room.QrCodeVisible,
-				BingoSummaries:   toOpenAPIBingoSummaries(room.BingoRecords),
+				BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
+				ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
 			},
 		}, true, nil
 	default:
