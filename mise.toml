@@ -38,12 +38,15 @@ description = "モック API に接続してフロントエンドを起動"
 run = "mise --cd frontend run mock"
 
 [tasks.backend]
-description = "バックエンドを起動"
-run = "mise --cd backend run dev"
+description = "デバッグ用 MariaDB を準備してバックエンドを起動"
+run = [
+  "mise run db:setup",
+  "mise --cd backend run dev",
+]
 
 [tasks."db:up"]
-description = "デバッグ用 MariaDB を起動"
-run = "docker compose up -d db"
+description = "デバッグ用 MariaDB と Adminer を起動"
+run = "docker compose up -d db adminer"
 
 [tasks."db:wait"]
 description = "デバッグ用 MariaDB の起動完了を待つ"
@@ -61,10 +64,10 @@ exit 1
 
 [tasks."db:migrate"]
 description = "デバッグ用 MariaDB に GORM AutoMigrate を適用"
-run = "DATABASE_URL='h26_07:h26_07_password@tcp(127.0.0.1:33306)/h26_07?parseTime=true&loc=UTC' mise --cd backend run db:migrate"
+run = "mise --cd backend run db:migrate"
 
 [tasks."db:setup"]
-description = "デバッグ用 MariaDB を起動して schema を作成"
+description = "デバッグ用 MariaDB と Adminer を起動して schema を作成"
 run = [
   "mise run db:up",
   "mise run db:wait",
@@ -72,11 +75,11 @@ run = [
 ]
 
 [tasks."db:down"]
-description = "デバッグ用 MariaDB を停止"
+description = "デバッグ用 MariaDB と Adminer を停止"
 run = "docker compose down"
 
 [tasks."db:reset"]
-description = "デバッグ用 MariaDB の volume を削除して作り直す"
+description = "デバッグ用 MariaDB の volume を削除して Adminer と一緒に作り直す"
 run = [
   "docker compose down -v",
   "mise run db:setup",

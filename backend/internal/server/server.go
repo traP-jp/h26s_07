@@ -6,13 +6,16 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
+	"gorm.io/gorm"
 
 	"github.com/traP-jp/h26_07/backend/internal/config"
 	"github.com/traP-jp/h26_07/backend/internal/handler"
 	authmiddleware "github.com/traP-jp/h26_07/backend/internal/middleware"
+	"github.com/traP-jp/h26_07/backend/internal/repository"
+	"github.com/traP-jp/h26_07/backend/internal/service"
 )
 
-func New(cfg config.Config) *echo.Echo {
+func New(cfg config.Config, db *gorm.DB) *echo.Echo {
 	e := echo.New()
 
 	e.Use(middleware.Recover())
@@ -39,12 +42,12 @@ func New(cfg config.Config) *echo.Echo {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-Forwarded-User"},
 	}))
 
-	registerRoutes(e)
+	registerRoutes(e, db)
 
 	return e
 }
 
-func registerRoutes(e *echo.Echo) {
+func registerRoutes(e *echo.Echo, db *gorm.DB) {
 	healthHandler := handler.NewHealthHandler()
 	userHandler := handler.NewUserHandler()
 
@@ -53,4 +56,15 @@ func registerRoutes(e *echo.Echo) {
 	api := e.Group("/api")
 	api.Use(authmiddleware.ForwardedUser)
 	api.GET("/me", userHandler.GetMe)
+
+	if db != nil {
+		transactionRunner := repository.NewGormTransactionRunner(db)
+		roomRepository := repository.NewGormRoomRepository(db)
+		roomService := service.NewRoomService(transactionRunner, roomRepository)
+		roomHandler := handler.NewRoomHandler(roomService)
+		api.POST("/rooms", roomHandler.PostRoom)
+		api.GET("/rooms/:roomId", roomHandler.GetRoom)
+		api.GET("/rooms", roomHandler.ListRooms)
+		api.POST("/rooms/:roomId/participants", roomHandler.PostParticipant)
+	}
 }

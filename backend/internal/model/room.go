@@ -33,11 +33,11 @@ type User struct {
 type RoomSettings struct {
 	Name        string
 	Description string
-	Admins      []User
+	Admins      []UserID
 }
 
 type Participant struct {
-	User     User
+	UserID   UserID
 	JoinedAt time.Time
 }
 
@@ -79,7 +79,7 @@ type BingoRecord struct {
 }
 
 type BingoSummary struct {
-	User        User
+	UserID      UserID
 	BingoOrders []BingoOrder
 }
 
@@ -95,7 +95,7 @@ type MassageID uuid.UUID
 type Massage struct {
 	MassageID MassageID
 	Content   string
-	Author    User
+	Author    UserID
 	CreatedAt time.Time
 }
 
@@ -114,6 +114,10 @@ type Room struct {
 	Massages      []Massage
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+func (id RoomID) String() string {
+	return uuid.UUID(id).String()
 }
 
 type RoomSummary struct {
@@ -155,7 +159,7 @@ func NewRoom(
 
 func (settings *RoomSettings) HasAdmin(userID UserID) bool {
 	for _, admin := range settings.Admins {
-		if admin.UserID == userID {
+		if admin == userID {
 			return true
 		}
 	}
@@ -168,7 +172,7 @@ func (room *Room) IsAdmin(userID UserID) bool {
 
 func (room *Room) IsParticipant(userID UserID) bool {
 	for _, participant := range room.Participants {
-		if participant.User.UserID == userID {
+		if participant.UserID == userID {
 			return true
 		}
 	}
@@ -211,27 +215,27 @@ func (room *Room) ParticipantCount() int {
 //func (room *Room) AllPicked() bool {
 //	return len(room.PickedBalls) == room.Settings.MaxBalls
 
-func (room *Room) Join(user User, now time.Time) error {
+func (room *Room) Join(userID UserID, now time.Time) error {
 	if !room.CanJoin() {
 		return ErrRoomNotJoinable
 	}
-	if room.IsParticipant(user.UserID) {
+	if room.IsParticipant(userID) {
 		return nil
 	}
 
 	room.Participants = append(room.Participants, Participant{
-		User:     user,
+		UserID:   userID,
 		JoinedAt: now,
 	})
 	room.UpdatedAt = now
 	return nil
 }
 
-func (room *Room) CanPostMassage(user User) bool {
-	return (room.IsParticipant(user.UserID) || room.IsAdmin(user.UserID)) && room.State != RoomStateFinished
+func (room *Room) CanPostMassage(user UserID) bool {
+	return (room.IsParticipant(user) || room.IsAdmin(user)) && room.State != RoomStateFinished
 }
 
-func (room *Room) PostMassage(user User, content string, now time.Time, massageID MassageID) (Massage, error) {
+func (room *Room) PostMassage(user UserID, content string, now time.Time, massageID MassageID) (Massage, error) {
 	if !room.CanPostMassage(user) {
 		return Massage{}, ErrRoomMassageNotAllowed
 	}
