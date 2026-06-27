@@ -270,7 +270,6 @@ func (h *RoomHandler) GetMessages(c *echo.Context) error {
 		} else if errors.Is(err, model.ErrRoomMessageNotAllowed) {
 			return c.JSON(http.StatusForbidden, openapi.Error{Message: "room message not allowed"})
 		}
-
 		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
 	}
 	result := make([]openapi.Message, 0, len(*messages))
@@ -278,4 +277,32 @@ func (h *RoomHandler) GetMessages(c *echo.Context) error {
 		result = append(result, convertMessageToOpenAPI(message))
 	}
 	return c.JSON(http.StatusOK, result)
+}
+
+func (h *RoomHandler) PutSettings(c *echo.Context) error {
+	userRaw, ok := authmiddleware.GetAuthenticatedUser(c)
+	if !ok {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+	roomIDString := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDString)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
+	}
+	user := model.UserID(userRaw.Name)
+	var settingsRaw openapi.UpdateGameSettingsRequest
+	if err := c.Bind(&settingsRaw); err != nil {
+		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid Settings"})
+	}
+	settings := convertRoomSettingsToModel(settingsRaw.Settings)
+	err = h.roomService.PutSettings(c.Request().Context(), model.RoomID(roomID), user, &settings)
+	if err != nil {
+		if errors.Is(err, model.ErrRoomNotFound) {
+			return c.JSON(http.StatusNotFound, openapi.Error{Message: "room not found"})
+		} else if errors.Is(err, model.ErrNotForbidden) {
+			return c.JSON(http.StatusForbidden, openapi.Error{Message: "error forbidden"})
+		}
+		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
+	}
+	return c.JSON(http.StatusAccepted, convertRoomSettingsToOpenAPI(settings))
 }

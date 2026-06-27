@@ -72,5 +72,6 @@ func registerRoutes(e *echo.Echo, cfg config.Config, db *gorm.DB) {
 		api.POST("/rooms/:roomId/participants", roomHandler.PostParticipant)
 		api.POST("/rooms/:roomId/chats", roomHandler.PostMessage)
 		api.GET("/rooms/:roomId/chats", roomHandler.GetMessages)
+		api.PUT("/rooms/:roomId/settings", roomHandler.PutSettings)
 	}
 }

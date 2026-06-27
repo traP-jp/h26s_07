@@ -124,9 +124,60 @@ func (s *RoomService) PostMessage(ctx context.Context, roomID model.RoomID, user
 }
 
 func (s *RoomService) GetMessage(ctx context.Context, roomID model.RoomID) (*[]model.Message, error) {
+
 	room, err := s.roomRepository.FindByID(ctx, roomID)
 	if err != nil {
 		return nil, model.ErrRoomNotFound
 	}
 	return &room.Messages, nil
+}
+
+func convertUserIDsToOpenAPI(userIDs []model.UserID) []openapi.User {
+	var result []openapi.User
+	for _, userID := range userIDs {
+		result = append(result, openapi.User{UserID: openapi.UserID(userID)})
+	}
+	return result
+}
+
+func convertRoomSettingsToOpenAPI(settings model.RoomSettings) openapi.GameSettings {
+	return openapi.GameSettings{
+		Name:        settings.Name,
+		Description: settings.Description,
+		Admins:      convertUserIDsToOpenAPI(settings.Admins),
+	}
+}
+
+func (s *RoomService) PutSettings(ctx context.Context, roomID model.RoomID, user model.UserID, settings *model.RoomSettings) error {
+	room, err := s.roomRepository.FindByID(ctx, roomID)
+	if err != nil {
+		return model.ErrRoomNotFound
+	}
+	if !room.IsAdmin(user) {
+		return model.ErrNotForbidden
+	}
+	if !settings.HasAdmin(user) {
+		settings.Admins = append(settings.Admins, user)
+	}
+	room.UpdateSettings(user, *settings, time.Now())
+	s.roomRepository.Save(ctx, room)
+	err = s.events.SendRoom(ctx, roomID, openapi.DisplayGameSettingsUpdatedEvent{
+		Type: openapi.DisplayGameSettingsUpdatedEventTypeGameSettingsUpdated,
+		Body: openapi.DisplayGameSettingsUpdatedBody{
+			Settings: convertRoomSettingsToOpenAPI(*settings),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	err = s.events.SendRoom(ctx, roomID, openapi.ParticipantGameSettingsUpdatedEvent{
+		Type: openapi.ParticipantGameSettingsUpdatedEventTypeGameSettingsUpdated,
+		Body: openapi.ParticipantGameSettingsUpdatedBody{
+			Settings: convertRoomSettingsToOpenAPI(*settings),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

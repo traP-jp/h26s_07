@@ -22,4 +22,5 @@ var (
 	ErrInvalidLine           = errors.New("invalid line")
 	ErrRecordIDRequired      = errors.New("record id is required")
 	ErrRoomNotFound          = errors.New("room is not found")
+	ErrNotForbidden          = errors.New("room settings change forbidden")
 )
