@@ -24,6 +24,10 @@ run = "gofmt -w ."
 description = "lint を実行"
 run = "go vet ./..."
 
+[tasks."db:migrate"]
+description = "GORM AutoMigrate を DATABASE_URL に適用"
+run = "go run ./cmd/migrate"
+
 [tasks.test]
 description = "テストを実行"
 run = "go test ./..."

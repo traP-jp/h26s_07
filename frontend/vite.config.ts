@@ -12,7 +12,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
-      ui(),
+      ui({
+        ui: {
+          colors: {
+            primary: 'rose',
+            secondary: 'purple',
+            tertiary: 'indigo'
+          }
+        }
+      }),
       vueDevTools(),
     ],
     resolve: {
@@ -23,8 +31,9 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: env.VITE_API_PROXY_TARGET || 'http://localhost:8080',
+          target: env.VITE_BACKEND_BASE_URL || 'http://localhost:8080',
           changeOrigin: true,
+          ws: true,
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyReq) => {
               const traqId = env.MY_TRAQ_ID

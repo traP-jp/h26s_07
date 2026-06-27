@@ -4,66 +4,1283 @@
  */
 
 export interface paths {
-    "/api/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 自分のユーザー情報を取得 */
-        get: operations["getMe"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  '/api/me': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** 自分のユーザー情報を取得 */
+    get: operations['getMe']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * ルーム一覧を取得
+     * @description finished を含む全ルームを返す。
+     */
+    get: operations['listRooms']
+    put?: never
+    /**
+     * ルームを作成
+     * @description 認証済みユーザーがルームを作成する。作成者はそのルームの admin になる。
+     */
+    post: operations['createRoom']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * ルーム詳細を取得
+     * @description participant または admin は finished の部屋も取得できる。
+     */
+    get: operations['getRoom']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/participants': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * ルームに参加
+     * @description waiting 中のルームに参加する。同じユーザーが同じルームに再参加した場合は冪等に成功し、重複 participant は作らない。
+     */
+    post: operations['joinRoom']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/chats': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * チャット履歴を取得
+     * @description participant または admin が閲覧できる。
+     */
+    get: operations['listMessages']
+    put?: never
+    /**
+     * チャットを投稿
+     * @description participant または admin だけが waiting / playing 中に投稿できる。finished 後は投稿できない。
+     */
+    post: operations['createMessage']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/control/start': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * ゲームを開始
+     * @description 開始時点の参加者全員にカードを一括生成する。
+     */
+    post: operations['startGame']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/control/finish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * ゲームを終了
+     * @description admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
+     */
+    post: operations['finishGame']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/control/pick/start': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * 抽選を開始
+     * @description 抽選中状態にする。結果はまだ決めない。抽選可能な球がない場合は成功しない。
+     */
+    post: operations['startPick']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/control/pick/cancel': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * 抽選をキャンセル
+     * @description 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。
+     */
+    post: operations['cancelPick']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/control/pick/finish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * 抽選結果を確定
+     * @description サーバーが球を1つ決め、カード差分、球履歴、ビンゴ/リーチ通知イベントを原子的に更新する。
+     */
+    post: operations['finishPick']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/control/qrcode/show': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * QR コードを表示
+     * @description display 画面で QR コードを表示する。
+     */
+    post: operations['showQRCode']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/control/qrcode/hide': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * QR コードを非表示
+     * @description display 画面で QR コードを非表示にする。
+     */
+    post: operations['hideQRCode']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/settings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * ゲーム設定を更新
+     * @description waiting / playing 中に更新できる。admin の追加・削除もこの endpoint で行う。
+     */
+    put: operations['updateGameSettings']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/rooms/{roomId}/ws': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** WebSocket 接続を開始 */
+    get: operations['connectRoomWebSocket']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
-export type webhooks = Record<string, never>;
+export type webhooks = Record<string, never>
 export interface components {
-    schemas: {
-        User: {
-            id: string;
-            name: string;
-        };
-    };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+  schemas: {
+    /** @description UUID string。 */
+    UUID: string
+    /**
+     * Format: date-time
+     * @description ISO 8601 datetime string。
+     */
+    DateTime: string
+    /** @description traP ID。 */
+    UserId: string
+    /** @description ルーム ID。 */
+    RoomId: components['schemas']['UUID']
+    /**
+     * @description 6 桁の数字文字列。
+     * @example 123456
+     */
+    RoomCode: string
+    /** @enum {string} */
+    RoomState: 'waiting' | 'playing' | 'finished'
+    /** @enum {string} */
+    PickState: 'idle' | 'picking' | 'exhausted'
+    /** @enum {string} */
+    WebSocketMode: 'participant' | 'display'
+    /** @enum {string} */
+    WebSocketEventType:
+      | 'Initialized'
+      | 'GameStarted'
+      | 'PickStarted'
+      | 'PickCanceled'
+      | 'PickFinished'
+      | 'GameFinished'
+      | 'ShowQRCode'
+      | 'HideQRCode'
+      | 'MessageCreated'
+      | 'AllPicked'
+      | 'GameSettingsUpdated'
+    /** @enum {string} */
+    CardCellState: 'bingo' | 'reach' | 'open' | 'closed'
+    Error: {
+      code: string
+      message: string
+      description: string
+    }
+    User: {
+      userId: components['schemas']['UserId']
+      name: string
+    }
+    /** @description 作成・更新時に渡すゲーム設定。adminUserIds は指定した場合だけ admin 一覧を置き換える。 */
+    GameSettingsInput: {
+      name: string
+      description: string
+      adminUserIds?: components['schemas']['UserId'][]
+    }
+    GameSettings: {
+      name: string
+      description: string
+      admins: components['schemas']['User'][]
+    }
+    /** @description 参加者一覧や display 向けの概要。admin 権限、カード詳細、リーチ情報、ビンゴ情報は含めない。 */
+    ParticipantSummary: {
+      user: components['schemas']['User']
+      joinedAt: components['schemas']['DateTime']
+    }
+    Room: {
+      roomId: components['schemas']['RoomId']
+      roomCode: components['schemas']['RoomCode']
+      state: components['schemas']['RoomState']
+      pickState: components['schemas']['PickState']
+      qrCodeVisible: boolean
+      participants: components['schemas']['ParticipantSummary'][]
+      bingoSummaries: components['schemas']['BingoSummary'][]
+      settings: components['schemas']['GameSettings']
+      createdAt: components['schemas']['DateTime']
+      updatedAt: components['schemas']['DateTime']
+    }
+    /** @description participant にだけ送るカード snapshot。 */
+    Card: {
+      cardId: components['schemas']['UUID']
+      ownerUserId: components['schemas']['UserId']
+      cells: components['schemas']['CardCell'][]
+      bingoLines: components['schemas']['Line'][]
+      reachLines: components['schemas']['Line'][]
+    }
+    CardCell: {
+      index: number
+      /** @description 中央 FREE は null。 */
+      number: number | null
+      displayText: string
+      cellState: components['schemas']['CardCellState']
+    }
+    Line: number[]
+    Message: {
+      messageId: components['schemas']['UUID']
+      content: string
+      author: components['schemas']['User']
+      createdAt: components['schemas']['DateTime']
+    }
+    /** @description 確定済みの通常数字球。1..75。 */
+    PickedBall: number
+    /** @description participant の PickFinished にだけ含める演出用差分。 */
+    CardChanges: {
+      openedCellIndices: number[]
+      newReachLines: components['schemas']['Line'][]
+      newBingoLines: components['schemas']['Line'][]
+    }
+    /** @description 現在ビンゴしている参加者の概要。 */
+    BingoSummary: {
+      user: components['schemas']['User']
+      bingoOrders: number[]
+    }
+    /** @description PickFinished の body で使う新規ビンゴ情報。カード詳細、ライン index、cell index は含めない。 */
+    BingoUpdate: {
+      user: components['schemas']['User']
+      newBingoOrders: number[]
+      bingoOrders: number[]
+    }
+    /** @description PickFinished の body で使う初リーチ情報。カード詳細、リーチライン index、cell index は含めない。 */
+    ReachUpdate: {
+      user: components['schemas']['User']
+    }
+    CreateRoomRequest: {
+      settings: components['schemas']['GameSettingsInput']
+    }
+    CreateMessageRequest: {
+      content: string
+    }
+    UpdateGameSettingsRequest: {
+      settings: components['schemas']['GameSettingsInput']
+    }
+    EmptyObject: Record<string, never>
+    ParticipantInitializedBody: {
+      state: components['schemas']['RoomState']
+      settings: components['schemas']['GameSettings']
+      pickState: components['schemas']['PickState']
+      pickedBalls: components['schemas']['PickedBall'][]
+      bingoSummaries: components['schemas']['BingoSummary'][]
+      card?: components['schemas']['Card']
+    }
+    DisplayInitializedBody: {
+      state: components['schemas']['RoomState']
+      settings: components['schemas']['GameSettings']
+      pickState: components['schemas']['PickState']
+      participantCount: number
+      pickedBalls: components['schemas']['PickedBall'][]
+      qrCodeVisible: boolean
+      bingoSummaries: components['schemas']['BingoSummary'][]
+    }
+    ParticipantGameStartedBody: {
+      card: components['schemas']['Card']
+    }
+    DisplayGameStartedBody: {
+      participantCount: number
+    }
+    PickStartedBody: components['schemas']['EmptyObject']
+    PickCanceledBody: components['schemas']['EmptyObject']
+    ParticipantPickFinishedBody: {
+      pickedBall: components['schemas']['PickedBall']
+      pickState: components['schemas']['PickState']
+      card: components['schemas']['Card']
+      cardChanges: components['schemas']['CardChanges']
+      pickedBalls: components['schemas']['PickedBall'][]
+      bingoSummaries: components['schemas']['BingoSummary'][]
+      newBingos: components['schemas']['BingoUpdate'][]
+      newReaches: components['schemas']['ReachUpdate'][]
+    }
+    DisplayPickFinishedBody: {
+      pickedBall: components['schemas']['PickedBall']
+      pickState: components['schemas']['PickState']
+      participantCount: number
+      bingoSummaries: components['schemas']['BingoSummary'][]
+      newBingos: components['schemas']['BingoUpdate'][]
+      newReaches: components['schemas']['ReachUpdate'][]
+      pickedBalls: components['schemas']['PickedBall'][]
+    }
+    ParticipantGameFinishedBody: {
+      /** @enum {string} */
+      state: 'finished'
+      /** @enum {string} */
+      pickState: 'idle'
+      card: components['schemas']['Card']
+      bingoSummaries: components['schemas']['BingoSummary'][]
+    }
+    DisplayGameFinishedBody: {
+      /** @enum {string} */
+      state: 'finished'
+      /** @enum {string} */
+      pickState: 'idle'
+      participantCount: number
+      bingoSummaries: components['schemas']['BingoSummary'][]
+    }
+    ShowQRCodeBody: components['schemas']['EmptyObject']
+    HideQRCodeBody: components['schemas']['EmptyObject']
+    MessageCreatedBody: {
+      message: components['schemas']['Message']
+    }
+    AllPickedBody: {
+      pickedBalls: components['schemas']['PickedBall'][]
+    }
+    ParticipantGameSettingsUpdatedBody: {
+      settings: components['schemas']['GameSettings']
+    }
+    DisplayGameSettingsUpdatedBody: {
+      settings: components['schemas']['GameSettings']
+    }
+    /** @description participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。 */
+    ParticipantWebSocketEvent:
+      | components['schemas']['ParticipantInitializedEvent']
+      | components['schemas']['ParticipantGameStartedEvent']
+      | components['schemas']['ParticipantPickStartedEvent']
+      | components['schemas']['ParticipantPickCanceledEvent']
+      | components['schemas']['ParticipantPickFinishedEvent']
+      | components['schemas']['ParticipantGameFinishedEvent']
+      | components['schemas']['ParticipantMessageCreatedEvent']
+      | components['schemas']['ParticipantAllPickedEvent']
+      | components['schemas']['ParticipantGameSettingsUpdatedEvent']
+    /** @description display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。 */
+    DisplayWebSocketEvent:
+      | components['schemas']['DisplayInitializedEvent']
+      | components['schemas']['DisplayGameStartedEvent']
+      | components['schemas']['DisplayPickStartedEvent']
+      | components['schemas']['DisplayPickCanceledEvent']
+      | components['schemas']['DisplayPickFinishedEvent']
+      | components['schemas']['DisplayGameFinishedEvent']
+      | components['schemas']['DisplayShowQRCodeEvent']
+      | components['schemas']['DisplayHideQRCodeEvent']
+      | components['schemas']['DisplayMessageCreatedEvent']
+      | components['schemas']['DisplayAllPickedEvent']
+      | components['schemas']['DisplayGameSettingsUpdatedEvent']
+    ParticipantInitializedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'Initialized'
+      body: components['schemas']['ParticipantInitializedBody']
+    }
+    ParticipantGameStartedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'GameStarted'
+      body: components['schemas']['ParticipantGameStartedBody']
+    }
+    ParticipantPickStartedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'PickStarted'
+      body: components['schemas']['PickStartedBody']
+    }
+    ParticipantPickCanceledEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'PickCanceled'
+      body: components['schemas']['PickCanceledBody']
+    }
+    ParticipantPickFinishedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'PickFinished'
+      body: components['schemas']['ParticipantPickFinishedBody']
+    }
+    ParticipantGameFinishedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'GameFinished'
+      body: components['schemas']['ParticipantGameFinishedBody']
+    }
+    ParticipantMessageCreatedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'MessageCreated'
+      body: components['schemas']['MessageCreatedBody']
+    }
+    ParticipantAllPickedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'AllPicked'
+      body: components['schemas']['AllPickedBody']
+    }
+    ParticipantGameSettingsUpdatedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'GameSettingsUpdated'
+      body: components['schemas']['ParticipantGameSettingsUpdatedBody']
+    }
+    DisplayInitializedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'Initialized'
+      body: components['schemas']['DisplayInitializedBody']
+    }
+    DisplayGameStartedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'GameStarted'
+      body: components['schemas']['DisplayGameStartedBody']
+    }
+    DisplayPickStartedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'PickStarted'
+      body: components['schemas']['PickStartedBody']
+    }
+    DisplayPickCanceledEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'PickCanceled'
+      body: components['schemas']['PickCanceledBody']
+    }
+    DisplayPickFinishedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'PickFinished'
+      body: components['schemas']['DisplayPickFinishedBody']
+    }
+    DisplayGameFinishedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'GameFinished'
+      body: components['schemas']['DisplayGameFinishedBody']
+    }
+    DisplayShowQRCodeEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'ShowQRCode'
+      body: components['schemas']['ShowQRCodeBody']
+    }
+    DisplayHideQRCodeEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'HideQRCode'
+      body: components['schemas']['HideQRCodeBody']
+    }
+    DisplayMessageCreatedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'MessageCreated'
+      body: components['schemas']['MessageCreatedBody']
+    }
+    DisplayAllPickedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'AllPicked'
+      body: components['schemas']['AllPickedBody']
+    }
+    DisplayGameSettingsUpdatedEvent: components['schemas']['WebSocketEventBase'] & {
+      /** @enum {string} */
+      type: 'GameSettingsUpdated'
+      body: components['schemas']['DisplayGameSettingsUpdatedBody']
+    }
+    WebSocketEventBase: {
+      type: components['schemas']['WebSocketEventType']
+      body: {
+        [key: string]: unknown
+      }
+    }
+  }
+  responses: {
+    /** @description リクエスト body が不正。 */
+    BadRequest: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description 認証されていない。 */
+    Unauthorized: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description admin ではない。 */
+    AdminRequired: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description 指定したルームが存在しない。 */
+    RoomNotFound: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+    /** @description サーバ内部エラー。 */
+    InternalServerError: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        'application/json': components['schemas']['Error']
+      }
+    }
+  }
+  parameters: {
+    /** @description ルーム ID。 */
+    RoomId: components['schemas']['RoomId']
+  }
+  requestBodies: never
+  headers: never
+  pathItems: never
 }
-export type User = components['schemas']['User'];
-export type $defs = Record<string, never>;
+export type Uuid = components['schemas']['UUID']
+export type DateTime = components['schemas']['DateTime']
+export type UserId = components['schemas']['UserId']
+export type RoomId = components['schemas']['RoomId']
+export type RoomCode = components['schemas']['RoomCode']
+export type RoomState = components['schemas']['RoomState']
+export type PickState = components['schemas']['PickState']
+export type WebSocketMode = components['schemas']['WebSocketMode']
+export type WebSocketEventType = components['schemas']['WebSocketEventType']
+export type CardCellState = components['schemas']['CardCellState']
+export type Error = components['schemas']['Error']
+export type User = components['schemas']['User']
+export type GameSettingsInput = components['schemas']['GameSettingsInput']
+export type GameSettings = components['schemas']['GameSettings']
+export type ParticipantSummary = components['schemas']['ParticipantSummary']
+export type Room = components['schemas']['Room']
+export type Card = components['schemas']['Card']
+export type CardCell = components['schemas']['CardCell']
+export type Line = components['schemas']['Line']
+export type Message = components['schemas']['Message']
+export type PickedBall = components['schemas']['PickedBall']
+export type CardChanges = components['schemas']['CardChanges']
+export type BingoSummary = components['schemas']['BingoSummary']
+export type BingoUpdate = components['schemas']['BingoUpdate']
+export type ReachUpdate = components['schemas']['ReachUpdate']
+export type CreateRoomRequest = components['schemas']['CreateRoomRequest']
+export type CreateMessageRequest = components['schemas']['CreateMessageRequest']
+export type UpdateGameSettingsRequest = components['schemas']['UpdateGameSettingsRequest']
+export type EmptyObject = components['schemas']['EmptyObject']
+export type ParticipantInitializedBody = components['schemas']['ParticipantInitializedBody']
+export type DisplayInitializedBody = components['schemas']['DisplayInitializedBody']
+export type ParticipantGameStartedBody = components['schemas']['ParticipantGameStartedBody']
+export type DisplayGameStartedBody = components['schemas']['DisplayGameStartedBody']
+export type PickStartedBody = components['schemas']['PickStartedBody']
+export type PickCanceledBody = components['schemas']['PickCanceledBody']
+export type ParticipantPickFinishedBody = components['schemas']['ParticipantPickFinishedBody']
+export type DisplayPickFinishedBody = components['schemas']['DisplayPickFinishedBody']
+export type ParticipantGameFinishedBody = components['schemas']['ParticipantGameFinishedBody']
+export type DisplayGameFinishedBody = components['schemas']['DisplayGameFinishedBody']
+export type ShowQrCodeBody = components['schemas']['ShowQRCodeBody']
+export type HideQrCodeBody = components['schemas']['HideQRCodeBody']
+export type MessageCreatedBody = components['schemas']['MessageCreatedBody']
+export type AllPickedBody = components['schemas']['AllPickedBody']
+export type ParticipantGameSettingsUpdatedBody =
+  components['schemas']['ParticipantGameSettingsUpdatedBody']
+export type DisplayGameSettingsUpdatedBody = components['schemas']['DisplayGameSettingsUpdatedBody']
+export type ParticipantWebSocketEvent = components['schemas']['ParticipantWebSocketEvent']
+export type DisplayWebSocketEvent = components['schemas']['DisplayWebSocketEvent']
+export type ParticipantInitializedEvent = components['schemas']['ParticipantInitializedEvent']
+export type ParticipantGameStartedEvent = components['schemas']['ParticipantGameStartedEvent']
+export type ParticipantPickStartedEvent = components['schemas']['ParticipantPickStartedEvent']
+export type ParticipantPickCanceledEvent = components['schemas']['ParticipantPickCanceledEvent']
+export type ParticipantPickFinishedEvent = components['schemas']['ParticipantPickFinishedEvent']
+export type ParticipantGameFinishedEvent = components['schemas']['ParticipantGameFinishedEvent']
+export type ParticipantMessageCreatedEvent = components['schemas']['ParticipantMessageCreatedEvent']
+export type ParticipantAllPickedEvent = components['schemas']['ParticipantAllPickedEvent']
+export type ParticipantGameSettingsUpdatedEvent =
+  components['schemas']['ParticipantGameSettingsUpdatedEvent']
+export type DisplayInitializedEvent = components['schemas']['DisplayInitializedEvent']
+export type DisplayGameStartedEvent = components['schemas']['DisplayGameStartedEvent']
+export type DisplayPickStartedEvent = components['schemas']['DisplayPickStartedEvent']
+export type DisplayPickCanceledEvent = components['schemas']['DisplayPickCanceledEvent']
+export type DisplayPickFinishedEvent = components['schemas']['DisplayPickFinishedEvent']
+export type DisplayGameFinishedEvent = components['schemas']['DisplayGameFinishedEvent']
+export type DisplayShowQrCodeEvent = components['schemas']['DisplayShowQRCodeEvent']
+export type DisplayHideQrCodeEvent = components['schemas']['DisplayHideQRCodeEvent']
+export type DisplayMessageCreatedEvent = components['schemas']['DisplayMessageCreatedEvent']
+export type DisplayAllPickedEvent = components['schemas']['DisplayAllPickedEvent']
+export type DisplayGameSettingsUpdatedEvent =
+  components['schemas']['DisplayGameSettingsUpdatedEvent']
+export type WebSocketEventBase = components['schemas']['WebSocketEventBase']
+export type ResponseBadRequest = components['responses']['BadRequest']
+export type ResponseUnauthorized = components['responses']['Unauthorized']
+export type ResponseAdminRequired = components['responses']['AdminRequired']
+export type ResponseRoomNotFound = components['responses']['RoomNotFound']
+export type ResponseInternalServerError = components['responses']['InternalServerError']
+export type ParameterRoomId = components['parameters']['RoomId']
+export type $defs = Record<string, never>
 export interface operations {
-    getMe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["User"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
+  getMe: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 認証中のユーザー。 */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['User']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  listRooms: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description ルーム一覧。finished を含む。 */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Room'][]
+        }
+      }
+      401: components['responses']['Unauthorized']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  createRoom: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateRoomRequest']
+      }
+    }
+    responses: {
+      /** @description 作成されたルーム。 */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Room']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  getRoom: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description ルーム詳細。 */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Room']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      /** @description このルームを閲覧する権限がない。 */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      404: components['responses']['RoomNotFound']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  joinRoom: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 参加成功。既に参加済みの場合も成功扱い。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      /** @description このルームへの参加が許可されていない。 */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      404: components['responses']['RoomNotFound']
+      /** @description ルームが waiting ではないため参加できない。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  listMessages: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description チャット履歴。 */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Message'][]
+        }
+      }
+      401: components['responses']['Unauthorized']
+      /** @description このルームのチャットを閲覧する権限がない。 */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      404: components['responses']['RoomNotFound']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  createMessage: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateMessageRequest']
+      }
+    }
+    responses: {
+      /** @description 作成されたチャットメッセージ。 */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Message']
+        }
+      }
+      /** @description メッセージ本文が空、長すぎるなどリクエスト body が不正。 */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      /** @description このルームにチャット投稿する権限がない。 */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      404: components['responses']['RoomNotFound']
+      /** @description ルームが finished など投稿できない状態。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  startGame: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description ゲーム開始成功。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      /** @description ルームが waiting ではない、または開始できない状態。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  finishGame: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description ゲーム終了成功。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      /** @description ルームが waiting、または既に finished。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  startPick: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 抽選開始成功。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      /** @description playing + idle ではない、または抽選可能な球がない。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  cancelPick: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 抽選キャンセル成功。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      /** @description 現在抽選中ではない、またはゲーム状態が不正。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  finishPick: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 抽選確定成功。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      /** @description 現在抽選中ではない、またはゲーム状態が不正。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  showQRCode: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description QR コード表示成功。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  hideQRCode: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description QR コード非表示成功。 */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  updateGameSettings: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateGameSettingsRequest']
+      }
+    }
+    responses: {
+      /** @description 更新後のゲーム設定。 */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GameSettings']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['AdminRequired']
+      404: components['responses']['RoomNotFound']
+      /** @description ルームが finished のため設定変更できない。 */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Error']
+        }
+      }
+      500: components['responses']['InternalServerError']
+    }
+  }
+  connectRoomWebSocket: {
+    parameters: {
+      query: {
+        /** @description participant, display のいずれか。card が必要な参加者は participant mode、card を受け取らない表示・運営画面は display mode で接続する。 */
+        mode: components['schemas']['WebSocketMode']
+      }
+      header?: never
+      path: {
+        /** @description ルーム ID。 */
+        roomId: components['parameters']['RoomId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description WebSocket stream。 */
+      101: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
 }

@@ -22,7 +22,7 @@ func (h *UserHandler) GetMe(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, openapi.User{
-		ID:   user.Name,
-		Name: user.Name,
+		UserID: user.Name,
+		Name:   user.Name,
 	})
 }

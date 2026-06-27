@@ -1,3 +1,3 @@
-import { apime } from './api/apime'
+import { bingoHandlers } from './api/bingo'
 
-export const handlers = [...apime]
+export const handlers = [...bingoHandlers]

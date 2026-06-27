@@ -3,35 +3,1480 @@ openapi: 3.0.3
 info:
   title: h26_07 API
   version: 0.1.0
+  description: |
+    通常数字球だけを扱う Web ビンゴアプリの HTTP API と WebSocket event body schema。
+    ゲームルールの意味論は docs/domain.md、通信境界の設計は docs/api.md を正本とする。
 
 servers:
   - url: http://localhost:8080
     description: 開発環境
 
+security:
+  - forwardedUser: []
+
+tags:
+  - name: users
+    description: 認証ユーザー
+  - name: rooms
+    description: ルーム
+  - name: participants
+    description: 参加者
+  - name: chats
+    description: チャット
+  - name: controls
+    description: admin 操作
+  - name: settings
+    description: ゲーム設定
+  - name: websocket
+    description: WebSocket 接続
+
 paths:
   /api/me:
     get:
+      tags:
+        - users
       summary: 自分のユーザー情報を取得
       operationId: getMe
       responses:
         "200":
-          description: OK
+          description: 認証中のユーザー。
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: Internal Server Error
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms:
+    get:
+      tags:
+        - rooms
+      summary: ルーム一覧を取得
+      description: finished を含む全ルームを返す。
+      operationId: listRooms
+      responses:
+        "200":
+          description: ルーム一覧。finished を含む。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - rooms
+      summary: ルームを作成
+      description: 認証済みユーザーがルームを作成する。作成者はそのルームの admin になる。
+      operationId: createRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoomRequest"
+      responses:
+        "200":
+          description: 作成されたルーム。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}:
+    get:
+      tags:
+        - rooms
+      summary: ルーム詳細を取得
+      description: participant または admin は finished の部屋も取得できる。
+      operationId: getRoom
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: ルーム詳細。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: このルームを閲覧する権限がない。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/participants:
+    post:
+      tags:
+        - participants
+      summary: ルームに参加
+      description: waiting 中のルームに参加する。同じユーザーが同じルームに再参加した場合は冪等に成功し、重複 participant は作らない。
+      operationId: joinRoom
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: 参加成功。既に参加済みの場合も成功扱い。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: このルームへの参加が許可されていない。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: ルームが waiting ではないため参加できない。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/chats:
+    get:
+      tags:
+        - chats
+      summary: チャット履歴を取得
+      description: participant または admin が閲覧できる。
+      operationId: listMessages
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: チャット履歴。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: このルームのチャットを閲覧する権限がない。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags:
+        - chats
+      summary: チャットを投稿
+      description: participant または admin だけが waiting / playing 中に投稿できる。finished 後は投稿できない。
+      operationId: createMessage
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequest"
+      responses:
+        "200":
+          description: 作成されたチャットメッセージ。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          description: メッセージ本文が空、長すぎるなどリクエスト body が不正。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: このルームにチャット投稿する権限がない。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: ルームが finished など投稿できない状態。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/control/start:
+    post:
+      tags:
+        - controls
+      summary: ゲームを開始
+      description: 開始時点の参加者全員にカードを一括生成する。
+      operationId: startGame
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: ゲーム開始成功。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: ルームが waiting ではない、または開始できない状態。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/control/finish:
+    post:
+      tags:
+        - controls
+      summary: ゲームを終了
+      description: admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
+      operationId: finishGame
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: ゲーム終了成功。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: ルームが waiting、または既に finished。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/control/pick/start:
+    post:
+      tags:
+        - controls
+      summary: 抽選を開始
+      description: 抽選中状態にする。結果はまだ決めない。抽選可能な球がない場合は成功しない。
+      operationId: startPick
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: 抽選開始成功。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: playing + idle ではない、または抽選可能な球がない。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/control/pick/cancel:
+    post:
+      tags:
+        - controls
+      summary: 抽選をキャンセル
+      description: 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。
+      operationId: cancelPick
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: 抽選キャンセル成功。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: 現在抽選中ではない、またはゲーム状態が不正。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/control/pick/finish:
+    post:
+      tags:
+        - controls
+      summary: 抽選結果を確定
+      description: サーバーが球を1つ決め、カード差分、球履歴、ビンゴ/リーチ通知イベントを原子的に更新する。
+      operationId: finishPick
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: 抽選確定成功。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: 現在抽選中ではない、またはゲーム状態が不正。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/control/qrcode/show:
+    post:
+      tags:
+        - controls
+      summary: QR コードを表示
+      description: display 画面で QR コードを表示する。
+      operationId: showQRCode
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: QR コード表示成功。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/control/qrcode/hide:
+    post:
+      tags:
+        - controls
+      summary: QR コードを非表示
+      description: display 画面で QR コードを非表示にする。
+      operationId: hideQRCode
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: QR コード非表示成功。
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/settings:
+    put:
+      tags:
+        - settings
+      summary: ゲーム設定を更新
+      description: waiting / playing 中に更新できる。admin の追加・削除もこの endpoint で行う。
+      operationId: updateGameSettings
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGameSettingsRequest"
+      responses:
+        "200":
+          description: 更新後のゲーム設定。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRequired"
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "409":
+          description: ルームが finished のため設定変更できない。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/rooms/{roomId}/ws:
+    get:
+      tags:
+        - websocket
+      summary: WebSocket 接続を開始
+      operationId: connectRoomWebSocket
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - name: mode
+          in: query
+          required: true
+          description: participant, display のいずれか。card が必要な参加者は participant mode、card を受け取らない表示・運営画面は display mode で接続する。
+          schema:
+            $ref: "#/components/schemas/WebSocketMode"
+      responses:
+        "101":
+          description: WebSocket stream。
 
 components:
+  securitySchemes:
+    forwardedUser:
+      type: apiKey
+      in: header
+      name: X-Forwarded-User
+      description: 認証済みユーザーの traP ID。
+
+  parameters:
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      description: ルーム ID。
+      schema:
+        $ref: "#/components/schemas/RoomId"
+
+  responses:
+    BadRequest:
+      description: リクエスト body が不正。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: 認証されていない。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    AdminRequired:
+      description: admin ではない。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RoomNotFound:
+      description: 指定したルームが存在しない。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalServerError:
+      description: サーバ内部エラー。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
   schemas:
+    UUID:
+      type: string
+      description: UUID string。
+
+    DateTime:
+      type: string
+      format: date-time
+      description: ISO 8601 datetime string。
+
+    UserId:
+      type: string
+      description: traP ID。
+
+    RoomId:
+      allOf:
+        - $ref: "#/components/schemas/UUID"
+      description: ルーム ID。
+
+    RoomCode:
+      type: string
+      pattern: "^\\d{6}$"
+      description: 6 桁の数字文字列。
+      example: "123456"
+
+    RoomState:
+      type: string
+      enum:
+        - waiting
+        - playing
+        - finished
+
+    PickState:
+      type: string
+      enum:
+        - idle
+        - picking
+        - exhausted
+
+    WebSocketMode:
+      type: string
+      enum:
+        - participant
+        - display
+
+    WebSocketEventType:
+      type: string
+      enum:
+        - Initialized
+        - GameStarted
+        - PickStarted
+        - PickCanceled
+        - PickFinished
+        - GameFinished
+        - ShowQRCode
+        - HideQRCode
+        - MessageCreated
+        - AllPicked
+        - GameSettingsUpdated
+
+    CardCellState:
+      type: string
+      enum:
+        - bingo
+        - reach
+        - open
+        - closed
+
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        description:
+          type: string
+      required:
+        - code
+        - message
+        - description
+
     User:
       type: object
+      additionalProperties: false
       properties:
-        id:
-          type: string
+        userId:
+          $ref: "#/components/schemas/UserId"
         name:
           type: string
       required:
-        - id
+        - userId
         - name
+
+    GameSettingsInput:
+      type: object
+      additionalProperties: false
+      description: 作成・更新時に渡すゲーム設定。adminUserIds は指定した場合だけ admin 一覧を置き換える。
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        adminUserIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/UserId"
+      required:
+        - name
+        - description
+
+    GameSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        admins:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/User"
+      required:
+        - name
+        - description
+        - admins
+
+    ParticipantSummary:
+      type: object
+      additionalProperties: false
+      description: 参加者一覧や display 向けの概要。admin 権限、カード詳細、リーチ情報、ビンゴ情報は含めない。
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        joinedAt:
+          $ref: "#/components/schemas/DateTime"
+      required:
+        - user
+        - joinedAt
+
+    Room:
+      type: object
+      additionalProperties: false
+      properties:
+        roomId:
+          $ref: "#/components/schemas/RoomId"
+        roomCode:
+          $ref: "#/components/schemas/RoomCode"
+        state:
+          $ref: "#/components/schemas/RoomState"
+        pickState:
+          $ref: "#/components/schemas/PickState"
+        qrCodeVisible:
+          type: boolean
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParticipantSummary"
+        bingoSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoSummary"
+        settings:
+          $ref: "#/components/schemas/GameSettings"
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+        updatedAt:
+          $ref: "#/components/schemas/DateTime"
+      required:
+        - roomId
+        - roomCode
+        - state
+        - pickState
+        - qrCodeVisible
+        - participants
+        - bingoSummaries
+        - settings
+        - createdAt
+        - updatedAt
+
+    Card:
+      type: object
+      additionalProperties: false
+      description: participant にだけ送るカード snapshot。
+      properties:
+        cardId:
+          $ref: "#/components/schemas/UUID"
+        ownerUserId:
+          $ref: "#/components/schemas/UserId"
+        cells:
+          type: array
+          minItems: 25
+          maxItems: 25
+          items:
+            $ref: "#/components/schemas/CardCell"
+        bingoLines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Line"
+        reachLines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Line"
+      required:
+        - cardId
+        - ownerUserId
+        - cells
+        - bingoLines
+        - reachLines
+
+    CardCell:
+      type: object
+      additionalProperties: false
+      properties:
+        index:
+          type: integer
+          minimum: 0
+          maximum: 24
+        number:
+          type: integer
+          minimum: 1
+          maximum: 75
+          nullable: true
+          description: 中央 FREE は null。
+        displayText:
+          type: string
+        cellState:
+          $ref: "#/components/schemas/CardCellState"
+      required:
+        - index
+        - number
+        - displayText
+        - cellState
+
+    Line:
+      type: array
+      minItems: 5
+      maxItems: 5
+      items:
+        type: integer
+        minimum: 0
+        maximum: 24
+
+    Message:
+      type: object
+      additionalProperties: false
+      properties:
+        messageId:
+          $ref: "#/components/schemas/UUID"
+        content:
+          type: string
+        author:
+          $ref: "#/components/schemas/User"
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+      required:
+        - messageId
+        - content
+        - author
+        - createdAt
+
+    PickedBall:
+      type: integer
+      minimum: 1
+      maximum: 75
+      description: 確定済みの通常数字球。1..75。
+
+    CardChanges:
+      type: object
+      additionalProperties: false
+      description: participant の PickFinished にだけ含める演出用差分。
+      properties:
+        openedCellIndices:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 24
+        newReachLines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Line"
+        newBingoLines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Line"
+      required:
+        - openedCellIndices
+        - newReachLines
+        - newBingoLines
+
+    BingoSummary:
+      type: object
+      additionalProperties: false
+      description: 現在ビンゴしている参加者の概要。
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        bingoOrders:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+      required:
+        - user
+        - bingoOrders
+
+    BingoUpdate:
+      type: object
+      additionalProperties: false
+      description: PickFinished の body で使う新規ビンゴ情報。カード詳細、ライン index、cell index は含めない。
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        newBingoOrders:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+        bingoOrders:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+      required:
+        - user
+        - newBingoOrders
+        - bingoOrders
+
+    ReachUpdate:
+      type: object
+      additionalProperties: false
+      description: PickFinished の body で使う初リーチ情報。カード詳細、リーチライン index、cell index は含めない。
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - user
+
+    CreateRoomRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        settings:
+          $ref: "#/components/schemas/GameSettingsInput"
+      required:
+        - settings
+
+    CreateMessageRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    UpdateGameSettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        settings:
+          $ref: "#/components/schemas/GameSettingsInput"
+      required:
+        - settings
+
+    EmptyObject:
+      type: object
+      additionalProperties: false
+
+    ParticipantInitializedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        state:
+          $ref: "#/components/schemas/RoomState"
+        settings:
+          $ref: "#/components/schemas/GameSettings"
+        pickState:
+          $ref: "#/components/schemas/PickState"
+        pickedBalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickedBall"
+        bingoSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoSummary"
+        card:
+          $ref: "#/components/schemas/Card"
+      required:
+        - state
+        - settings
+        - pickState
+        - pickedBalls
+        - bingoSummaries
+
+    DisplayInitializedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        state:
+          $ref: "#/components/schemas/RoomState"
+        settings:
+          $ref: "#/components/schemas/GameSettings"
+        pickState:
+          $ref: "#/components/schemas/PickState"
+        participantCount:
+          type: integer
+          minimum: 0
+        pickedBalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickedBall"
+        qrCodeVisible:
+          type: boolean
+        bingoSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoSummary"
+      required:
+        - state
+        - settings
+        - pickState
+        - participantCount
+        - pickedBalls
+        - qrCodeVisible
+        - bingoSummaries
+
+    ParticipantGameStartedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        card:
+          $ref: "#/components/schemas/Card"
+      required:
+        - card
+
+    DisplayGameStartedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        participantCount:
+          type: integer
+          minimum: 0
+      required:
+        - participantCount
+
+    PickStartedBody:
+      $ref: "#/components/schemas/EmptyObject"
+
+    PickCanceledBody:
+      $ref: "#/components/schemas/EmptyObject"
+
+    ParticipantPickFinishedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        pickedBall:
+          $ref: "#/components/schemas/PickedBall"
+        pickState:
+          $ref: "#/components/schemas/PickState"
+        card:
+          $ref: "#/components/schemas/Card"
+        cardChanges:
+          $ref: "#/components/schemas/CardChanges"
+        pickedBalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickedBall"
+        bingoSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoSummary"
+        newBingos:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoUpdate"
+        newReaches:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachUpdate"
+      required:
+        - pickedBall
+        - pickState
+        - card
+        - cardChanges
+        - pickedBalls
+        - bingoSummaries
+        - newBingos
+        - newReaches
+
+    DisplayPickFinishedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        pickedBall:
+          $ref: "#/components/schemas/PickedBall"
+        pickState:
+          $ref: "#/components/schemas/PickState"
+        participantCount:
+          type: integer
+          minimum: 0
+        bingoSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoSummary"
+        newBingos:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoUpdate"
+        newReaches:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachUpdate"
+        pickedBalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickedBall"
+      required:
+        - pickedBall
+        - pickState
+        - participantCount
+        - bingoSummaries
+        - newBingos
+        - newReaches
+        - pickedBalls
+
+    ParticipantGameFinishedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        state:
+          type: string
+          enum:
+            - finished
+        pickState:
+          type: string
+          enum:
+            - idle
+        card:
+          $ref: "#/components/schemas/Card"
+        bingoSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoSummary"
+      required:
+        - state
+        - pickState
+        - card
+        - bingoSummaries
+
+    DisplayGameFinishedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        state:
+          type: string
+          enum:
+            - finished
+        pickState:
+          type: string
+          enum:
+            - idle
+        participantCount:
+          type: integer
+          minimum: 0
+        bingoSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BingoSummary"
+      required:
+        - state
+        - pickState
+        - participantCount
+        - bingoSummaries
+
+    ShowQRCodeBody:
+      $ref: "#/components/schemas/EmptyObject"
+
+    HideQRCodeBody:
+      $ref: "#/components/schemas/EmptyObject"
+
+    MessageCreatedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          $ref: "#/components/schemas/Message"
+      required:
+        - message
+
+    AllPickedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        pickedBalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickedBall"
+      required:
+        - pickedBalls
+
+    ParticipantGameSettingsUpdatedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        settings:
+          $ref: "#/components/schemas/GameSettings"
+      required:
+        - settings
+
+    DisplayGameSettingsUpdatedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        settings:
+          $ref: "#/components/schemas/GameSettings"
+      required:
+        - settings
+
+    ParticipantWebSocketEvent:
+      description: participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。
+      oneOf:
+        - $ref: "#/components/schemas/ParticipantInitializedEvent"
+        - $ref: "#/components/schemas/ParticipantGameStartedEvent"
+        - $ref: "#/components/schemas/ParticipantPickStartedEvent"
+        - $ref: "#/components/schemas/ParticipantPickCanceledEvent"
+        - $ref: "#/components/schemas/ParticipantPickFinishedEvent"
+        - $ref: "#/components/schemas/ParticipantGameFinishedEvent"
+        - $ref: "#/components/schemas/ParticipantMessageCreatedEvent"
+        - $ref: "#/components/schemas/ParticipantAllPickedEvent"
+        - $ref: "#/components/schemas/ParticipantGameSettingsUpdatedEvent"
+
+    DisplayWebSocketEvent:
+      description: display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。
+      oneOf:
+        - $ref: "#/components/schemas/DisplayInitializedEvent"
+        - $ref: "#/components/schemas/DisplayGameStartedEvent"
+        - $ref: "#/components/schemas/DisplayPickStartedEvent"
+        - $ref: "#/components/schemas/DisplayPickCanceledEvent"
+        - $ref: "#/components/schemas/DisplayPickFinishedEvent"
+        - $ref: "#/components/schemas/DisplayGameFinishedEvent"
+        - $ref: "#/components/schemas/DisplayShowQRCodeEvent"
+        - $ref: "#/components/schemas/DisplayHideQRCodeEvent"
+        - $ref: "#/components/schemas/DisplayMessageCreatedEvent"
+        - $ref: "#/components/schemas/DisplayAllPickedEvent"
+        - $ref: "#/components/schemas/DisplayGameSettingsUpdatedEvent"
+
+    ParticipantInitializedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - Initialized
+            body:
+              $ref: "#/components/schemas/ParticipantInitializedBody"
+          required:
+            - type
+            - body
+
+    ParticipantGameStartedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - GameStarted
+            body:
+              $ref: "#/components/schemas/ParticipantGameStartedBody"
+          required:
+            - type
+            - body
+
+    ParticipantPickStartedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PickStarted
+            body:
+              $ref: "#/components/schemas/PickStartedBody"
+          required:
+            - type
+            - body
+
+    ParticipantPickCanceledEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PickCanceled
+            body:
+              $ref: "#/components/schemas/PickCanceledBody"
+          required:
+            - type
+            - body
+
+    ParticipantPickFinishedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PickFinished
+            body:
+              $ref: "#/components/schemas/ParticipantPickFinishedBody"
+          required:
+            - type
+            - body
+
+    ParticipantGameFinishedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - GameFinished
+            body:
+              $ref: "#/components/schemas/ParticipantGameFinishedBody"
+          required:
+            - type
+            - body
+
+    ParticipantMessageCreatedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - MessageCreated
+            body:
+              $ref: "#/components/schemas/MessageCreatedBody"
+          required:
+            - type
+            - body
+
+    ParticipantAllPickedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - AllPicked
+            body:
+              $ref: "#/components/schemas/AllPickedBody"
+          required:
+            - type
+            - body
+
+    ParticipantGameSettingsUpdatedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - GameSettingsUpdated
+            body:
+              $ref: "#/components/schemas/ParticipantGameSettingsUpdatedBody"
+          required:
+            - type
+            - body
+
+    DisplayInitializedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - Initialized
+            body:
+              $ref: "#/components/schemas/DisplayInitializedBody"
+          required:
+            - type
+            - body
+
+    DisplayGameStartedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - GameStarted
+            body:
+              $ref: "#/components/schemas/DisplayGameStartedBody"
+          required:
+            - type
+            - body
+
+    DisplayPickStartedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PickStarted
+            body:
+              $ref: "#/components/schemas/PickStartedBody"
+          required:
+            - type
+            - body
+
+    DisplayPickCanceledEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PickCanceled
+            body:
+              $ref: "#/components/schemas/PickCanceledBody"
+          required:
+            - type
+            - body
+
+    DisplayPickFinishedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PickFinished
+            body:
+              $ref: "#/components/schemas/DisplayPickFinishedBody"
+          required:
+            - type
+            - body
+
+    DisplayGameFinishedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - GameFinished
+            body:
+              $ref: "#/components/schemas/DisplayGameFinishedBody"
+          required:
+            - type
+            - body
+
+    DisplayShowQRCodeEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - ShowQRCode
+            body:
+              $ref: "#/components/schemas/ShowQRCodeBody"
+          required:
+            - type
+            - body
+
+    DisplayHideQRCodeEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - HideQRCode
+            body:
+              $ref: "#/components/schemas/HideQRCodeBody"
+          required:
+            - type
+            - body
+
+    DisplayMessageCreatedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - MessageCreated
+            body:
+              $ref: "#/components/schemas/MessageCreatedBody"
+          required:
+            - type
+            - body
+
+    DisplayAllPickedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - AllPicked
+            body:
+              $ref: "#/components/schemas/AllPickedBody"
+          required:
+            - type
+            - body
+
+    DisplayGameSettingsUpdatedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - GameSettingsUpdated
+            body:
+              $ref: "#/components/schemas/DisplayGameSettingsUpdatedBody"
+          required:
+            - type
+            - body
+
+    WebSocketEventBase:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          $ref: "#/components/schemas/WebSocketEventType"
+        body:
+          type: object
+          additionalProperties: true
+      required:
+        - type
+        - body

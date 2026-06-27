@@ -14,7 +14,7 @@
    ```
 2. リポジトリをクローン
     ```sh
-    $ git clone git@github.com:traP-jp/h26_07.git
+    $ git clone git@github.com:traP-jp/h26s_07.git
     ```
 3. 環境をセットアップ
     ```sh
