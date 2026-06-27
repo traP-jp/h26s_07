@@ -9,8 +9,8 @@ import { useCurrentUserStore } from './stores/currentUser'
 
 // mockを起動する
 if (import.meta.env.DEV && import.meta.env.VITE_API_MOCK === 'true') {
-    const { worker } = await import('./mocks/server')
-    await worker.start({ onUnhandledRequest: 'warn' })
+  const { worker } = await import('./mocks/server')
+  await worker.start({ onUnhandledRequest: 'warn' })
 }
 
 const app = createApp(App)
