@@ -226,10 +226,14 @@ func (r *GormRoomRepository) replaceRoomCards(tx *gorm.DB, room *model.Room) err
 		if err := validateUserID(card.OwnerUserID); err != nil {
 			return err
 		}
+		if err := validateCardNumber(card.CardNumber); err != nil {
+			return err
+		}
 
 		cardRows = append(cardRows, dbmodel.RoomCard{
 			CardID:      cardID,
 			RoomID:      roomID,
+			CardNumber:  string(card.CardNumber),
 			OwnerUserID: string(card.OwnerUserID),
 			CreatedAt:   createdAt,
 		})
@@ -598,6 +602,7 @@ func loadRoomCards(db *gorm.DB, roomIDs []string, roomByID map[string]*model.Roo
 			roomID: row.RoomID,
 			card: model.Card{
 				CardID:      cardID,
+				CardNumber:  model.CardNumber(row.CardNumber),
 				OwnerUserID: model.UserID(row.OwnerUserID),
 				Cells:       [25]model.CardCell{},
 			},
@@ -906,6 +911,13 @@ func uniqueUserIDs(userIDs []model.UserID) []model.UserID {
 func validateUserID(userID model.UserID) error {
 	if userID == "" {
 		return fmt.Errorf("%w: empty user id", ErrInvalidRoomAggregate)
+	}
+	return nil
+}
+
+func validateCardNumber(cardNumber model.CardNumber) error {
+	if !cardNumber.Valid() {
+		return fmt.Errorf("%w: invalid card number %q", ErrInvalidRoomAggregate, cardNumber)
 	}
 	return nil
 }

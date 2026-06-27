@@ -62,8 +62,23 @@ type CardCell struct {
 }
 
 type CardID uuid.UUID
+type CardNumber string
+
+func (number CardNumber) Valid() bool {
+	if len(number) != 36 {
+		return false
+	}
+	for _, r := range number {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 type Card struct {
 	CardID      CardID
+	CardNumber  CardNumber
 	OwnerUserID UserID
 	Cells       [25]CardCell
 }

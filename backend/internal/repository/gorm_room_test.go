@@ -108,6 +108,9 @@ func TestGormRoomRepositorySaveFindAndList(t *testing.T) {
 	if loaded.Cards[0].OwnerUserID != "alice" {
 		t.Fatalf("unexpected loaded card owner: %+v", loaded.Cards[0])
 	}
+	if loaded.Cards[0].CardNumber != "000000000000000000000000000000000222" {
+		t.Fatalf("unexpected loaded card number: %+v", loaded.Cards[0])
+	}
 	if loaded.Cards[0].Cells[0].Number == nil || *loaded.Cards[0].Cells[0].Number != 1 {
 		t.Fatalf("unexpected loaded first card cell: %+v", loaded.Cards[0].Cells[0])
 	}
@@ -272,9 +275,11 @@ func newRoomRepositoryTestDB(t *testing.T) *gorm.DB {
 		`CREATE TABLE room_cards (
 			card_id TEXT PRIMARY KEY,
 			room_id TEXT NOT NULL,
+			card_number TEXT NOT NULL,
 			owner_user_id TEXT NOT NULL,
 			created_at DATETIME NOT NULL,
-			UNIQUE (room_id, owner_user_id)
+			UNIQUE (room_id, owner_user_id),
+			UNIQUE (room_id, card_number)
 		)`,
 		`CREATE TABLE room_card_cells (
 			card_id TEXT NOT NULL,
@@ -348,6 +353,7 @@ func testCard(cardID string, ownerUserID model.UserID) model.Card {
 
 	return model.Card{
 		CardID:      model.CardID(uuid.MustParse(cardID)),
+		CardNumber:  "000000000000000000000000000000000222",
 		OwnerUserID: ownerUserID,
 		Cells:       cells,
 	}

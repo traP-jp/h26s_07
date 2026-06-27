@@ -704,6 +704,7 @@ components:
           $ref: "#/components/schemas/UUID"
         cardNumber:
           type: string
+          description: カード生成時に定める 36 桁数字文字列。生成後は変更しない。
           minLength: 36
           maxLength: 36
           pattern: "^[0-9]{36}$"

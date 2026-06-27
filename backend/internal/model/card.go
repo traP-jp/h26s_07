@@ -5,7 +5,11 @@ const (
 	FreeCellIndex = 12
 )
 
-func NewCard(cardID CardID, owner UserID, numbers [24]BallNumber) (Card, error) {
+func NewCard(cardID CardID, cardNumber CardNumber, owner UserID, numbers [24]BallNumber) (Card, error) {
+	if !cardNumber.Valid() {
+		return Card{}, ErrInvalidCard
+	}
+
 	var cells [CardCellCount]CardCell
 	numberIndex := 0
 	seenByColumn := [5]map[BallNumber]struct{}{}
@@ -43,6 +47,7 @@ func NewCard(cardID CardID, owner UserID, numbers [24]BallNumber) (Card, error) 
 
 	return Card{
 		CardID:      cardID,
+		CardNumber:  cardNumber,
 		OwnerUserID: owner,
 		Cells:       cells,
 	}, nil

@@ -526,7 +526,9 @@ type Card struct {
 	BingoLines []Line `json:"bingoLines"`
 
 	// CardID UUID string。
-	CardID     UUID       `json:"cardId"`
+	CardID UUID `json:"cardId"`
+
+	// CardNumber カード生成時に定める 36 桁数字文字列。生成後は変更しない。
 	CardNumber string     `json:"cardNumber"`
 	Cells      []CardCell `json:"cells"`
 

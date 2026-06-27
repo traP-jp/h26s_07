@@ -52,7 +52,8 @@ func (RoomParticipant) TableName() string {
 
 type RoomCard struct {
 	CardID      string    `gorm:"column:card_id;type:char(36);primaryKey;uniqueIndex:uq_room_cards_card_room_owner,priority:1"`
-	RoomID      string    `gorm:"column:room_id;type:char(36);not null;uniqueIndex:uq_room_cards_room_owner,priority:1;uniqueIndex:uq_room_cards_card_room_owner,priority:2;index:idx_room_cards_room,priority:1"`
+	RoomID      string    `gorm:"column:room_id;type:char(36);not null;uniqueIndex:uq_room_cards_room_owner,priority:1;uniqueIndex:uq_room_cards_room_card_number,priority:1;uniqueIndex:uq_room_cards_card_room_owner,priority:2;index:idx_room_cards_room,priority:1"`
+	CardNumber  string    `gorm:"column:card_number;type:char(36);not null;uniqueIndex:uq_room_cards_room_card_number,priority:2;check:chk_room_cards_card_number,card_number REGEXP '^[0-9]{36}$'"`
 	OwnerUserID string    `gorm:"column:owner_user_id;type:varchar(64);not null;uniqueIndex:uq_room_cards_room_owner,priority:2;uniqueIndex:uq_room_cards_card_room_owner,priority:3"`
 	CreatedAt   time.Time `gorm:"column:created_at;type:datetime(6);not null;default:CURRENT_TIMESTAMP(6)"`
 }

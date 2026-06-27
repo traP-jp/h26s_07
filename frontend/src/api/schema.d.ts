@@ -354,6 +354,7 @@ export interface components {
         /** @description participant にだけ送るカード snapshot。 */
         Card: {
             cardId: components["schemas"]["UUID"];
+            /** @description カード生成時に定める 36 桁数字文字列。生成後は変更しない。 */
             cardNumber: string;
             ownerUserId: components["schemas"]["UserId"];
             cells: components["schemas"]["CardCell"][];
