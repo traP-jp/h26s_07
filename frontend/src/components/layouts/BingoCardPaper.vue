@@ -7,7 +7,7 @@ const props = withDefaults(
     card: Card
     cellSize?: number
   }>(),
-  { cellSize: 48, cardNo: '0000' },
+  { cellSize: 48 },
 )
 
 const cardNo = props.card.cardNumber
