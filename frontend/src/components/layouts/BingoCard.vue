@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import type { Card } from '@/api/schema'
-import CardCell from './cardcells.vue'
+import CardCell from '@/components/layouts/CardCell.vue'
 
-const props = defineProps<{
-  card: Card
-  cellSize?: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    card: Card
+    cellSize?: number
+  }>(),
+  { cellSize: 48 },
+)
 
-const size = props.cellSize ?? 48
+const size = props.cellSize
 </script>
 
 <template>

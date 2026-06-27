@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CardCell } from '@/api/schema'
-import NumberBall from './number_balls.vue'
+import NumberBall from '@/components/layouts/Number_Ball.vue'
 import { computed } from 'vue'
 const props = defineProps<{
   cell: CardCell
