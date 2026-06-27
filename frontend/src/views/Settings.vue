@@ -158,7 +158,7 @@ const cancelEdit = () => {
     <div v-if="loading">読み込み中...</div>
     <div v-else-if="errorMessage">{{ errorMessage }}</div>
     <template v-else>
-      <h2 class="text-3xl font-bold mb-6">ルームの設定</h2>
+      <h2 class="text-3xl font-bold mb-6">ルーム{{ props.roomCode }}の設定</h2>
 
       <h3 class="text-2xl font-bold mb-2">情報</h3>
       <UFormField label="参加画面">
