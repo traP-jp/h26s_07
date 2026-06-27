@@ -3,6 +3,7 @@ module github.com/traP-jp/h26_07/backend
 go 1.26
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v5 v5.2.1
 	github.com/oapi-codegen/runtime v1.4.2

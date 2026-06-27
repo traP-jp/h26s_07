@@ -15,12 +15,14 @@ import (
 type RoomService struct {
 	transactionRunner repository.TransactionRunner
 	roomRepository    repository.RoomRepository
+	events            RoomEventSender
 }
 
-func NewRoomService(transactionRunner repository.TransactionRunner, roomRepository repository.RoomRepository) *RoomService {
+func NewRoomService(transactionRunner repository.TransactionRunner, roomRepository repository.RoomRepository, events RoomEventSender) *RoomService {
 	return &RoomService{
 		transactionRunner: transactionRunner,
 		roomRepository:    roomRepository,
+		events:            events,
 	}
 }
 func random6Digits() (string, error) {

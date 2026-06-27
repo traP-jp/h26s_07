@@ -42,12 +42,12 @@ func New(cfg config.Config, db *gorm.DB) *echo.Echo {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-Forwarded-User"},
 	}))
 
-	registerRoutes(e, db)
+	registerRoutes(e, cfg, db)
 
 	return e
 }
 
-func registerRoutes(e *echo.Echo, db *gorm.DB) {
+func registerRoutes(e *echo.Echo, cfg config.Config, db *gorm.DB) {
 	healthHandler := handler.NewHealthHandler()
 	userHandler := handler.NewUserHandler()
 
@@ -60,10 +60,14 @@ func registerRoutes(e *echo.Echo, db *gorm.DB) {
 	if db != nil {
 		transactionRunner := repository.NewGormTransactionRunner(db)
 		roomRepository := repository.NewGormRoomRepository(db)
-		roomService := service.NewRoomService(transactionRunner, roomRepository)
+		webSocketHub := handler.NewWebSocketHub()
+		eventSender := handler.NewWebSocketEventSender(webSocketHub)
+		roomService := service.NewRoomService(transactionRunner, roomRepository, eventSender)
 		roomHandler := handler.NewRoomHandler(roomService)
+		roomWebSocketHandler := handler.NewRoomWebSocketHandler(roomService, webSocketHub, cfg.CORSAllowOrigins)
 		api.POST("/rooms", roomHandler.PostRoom)
 		api.GET("/rooms/:roomId", roomHandler.GetRoom)
 		api.GET("/rooms", roomHandler.ListRooms)
+		api.GET("/rooms/:roomId/ws", roomWebSocketHandler.Connect)
 	}
 }
