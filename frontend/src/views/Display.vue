@@ -1,5 +1,7 @@
 <template>
-  <RoomStatsBar />
+  <UContainer class="flex min-h-screen items-center justify-center bg-[#f8fbff] py-6">
+    <RoomStatsBar />
+  </UContainer>
 </template>
 
 <script setup lang="ts">

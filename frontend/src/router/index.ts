@@ -51,18 +51,18 @@ const router = createRouter({
           redirect: (to) => `/${String(to.params.roomCode)}/participants`,
         },
         {
-          path: '/:roomCode/display',
-          name: 'display',
-          component: () => import('@/views/Display.vue'),
-          beforeEnter: validateDisplayRoomCode,
-        },
-        {
           path: '/:pathMatch(.*)*',
           redirect: {
             name: 'NotFound',
           },
         },
       ],
+    },
+    {
+      path: '/:roomCode/display',
+      name: 'display',
+      component: () => import('@/views/Display.vue'),
+      beforeEnter: validateDisplayRoomCode,
     },
     {
       path: '/404',
