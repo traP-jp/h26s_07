@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { UserId } from '@/api/schema'
 defineProps<{
-  userId: string
+  userId: UserId
   content: string
 }>()
 </script>

@@ -1,21 +1,28 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-interface Message {
-  messageId: string
-  userId: string
-  content: string
+import type { Uuid, Message, DateTime } from '@/api/schema'
+const messages = ref<Message[]>([])
+
+const addUserMessage = (m: Message) => {
+  messages.value.push(m)
 }
-const messages = ref<Message[]>([
-  { messageId: '0', userId: '', content: '球がなくなりました！' },
-  { messageId: '1', userId: 'HokubuRailway', content: 'おい' },
-  { messageId: '5', userId: 'BOT_kinano', content: 'おい！' },
-])
+
+const addSpecialMessage = (id: Uuid, content: string, createdAt: DateTime) => {
+  messages.value.push({
+    messageId: id,
+    content: content,
+    author: { userId: '' },
+    createdAt: createdAt,
+  })
+}
+
+defineExpose({ addUserMessage, addSpecialMessage })
 </script>
 
 <template>
   <div>
     <div v-for="message in messages" :key="message.messageId">
-      <Message :user-id="message.userId" :content="message.content"></Message>
+      <Message :user-id="message.author.userId" :content="message.content"></Message>
     </div>
   </div>
 </template>
