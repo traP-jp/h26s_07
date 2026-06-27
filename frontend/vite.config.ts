@@ -12,7 +12,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
-      ui(),
+      ui({
+        ui: {
+          colors: {
+            primary: 'rose',
+            secondary: 'purple',
+            tertiary: 'indigo'
+          }
+        }
+      }),
       vueDevTools(),
     ],
     resolve: {
