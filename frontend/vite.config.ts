@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       ui({
+        colorMode: false,
         ui: {
           colors: {
             primary: 'rose',

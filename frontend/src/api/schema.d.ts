@@ -346,6 +346,7 @@ export interface components {
             qrCodeVisible: boolean;
             participants: components["schemas"]["ParticipantSummary"][];
             bingoSummaries: components["schemas"]["BingoSummary"][];
+            reachSummaries: components["schemas"]["ReachSummary"][];
             settings: components["schemas"]["GameSettings"];
             createdAt: components["schemas"]["DateTime"];
             updatedAt: components["schemas"]["DateTime"];
@@ -385,6 +386,10 @@ export interface components {
             user: components["schemas"]["User"];
             bingoOrders: number[];
         };
+        /** @description 現在リーチしていて、まだビンゴしていない参加者の概要。 */
+        ReachSummary: {
+            user: components["schemas"]["User"];
+        };
         /** @description PickFinished の body で使う新規ビンゴ情報。カード詳細、ライン index、cell index は含めない。 */
         BingoUpdate: {
             user: components["schemas"]["User"];
@@ -411,6 +416,7 @@ export interface components {
             pickState: components["schemas"]["PickState"];
             pickedBalls: components["schemas"]["PickedBall"][];
             bingoSummaries: components["schemas"]["BingoSummary"][];
+            reachSummaries: components["schemas"]["ReachSummary"][];
             card?: components["schemas"]["Card"];
         };
         DisplayInitializedBody: {
@@ -421,6 +427,7 @@ export interface components {
             pickedBalls: components["schemas"]["PickedBall"][];
             qrCodeVisible: boolean;
             bingoSummaries: components["schemas"]["BingoSummary"][];
+            reachSummaries: components["schemas"]["ReachSummary"][];
         };
         ParticipantGameStartedBody: {
             card: components["schemas"]["Card"];
@@ -437,6 +444,7 @@ export interface components {
             cardChanges: components["schemas"]["CardChanges"];
             pickedBalls: components["schemas"]["PickedBall"][];
             bingoSummaries: components["schemas"]["BingoSummary"][];
+            reachSummaries: components["schemas"]["ReachSummary"][];
             newBingos: components["schemas"]["BingoUpdate"][];
             newReaches: components["schemas"]["ReachUpdate"][];
         };
@@ -445,6 +453,7 @@ export interface components {
             pickState: components["schemas"]["PickState"];
             participantCount: number;
             bingoSummaries: components["schemas"]["BingoSummary"][];
+            reachSummaries: components["schemas"]["ReachSummary"][];
             newBingos: components["schemas"]["BingoUpdate"][];
             newReaches: components["schemas"]["ReachUpdate"][];
             pickedBalls: components["schemas"]["PickedBall"][];
@@ -456,6 +465,7 @@ export interface components {
             pickState: "idle";
             card: components["schemas"]["Card"];
             bingoSummaries: components["schemas"]["BingoSummary"][];
+            reachSummaries: components["schemas"]["ReachSummary"][];
         };
         DisplayGameFinishedBody: {
             /** @enum {string} */
@@ -464,6 +474,7 @@ export interface components {
             pickState: "idle";
             participantCount: number;
             bingoSummaries: components["schemas"]["BingoSummary"][];
+            reachSummaries: components["schemas"]["ReachSummary"][];
         };
         ShowQRCodeBody: components["schemas"]["EmptyObject"];
         HideQRCodeBody: components["schemas"]["EmptyObject"];
@@ -668,6 +679,7 @@ export type Message = components['schemas']['Message'];
 export type PickedBall = components['schemas']['PickedBall'];
 export type CardChanges = components['schemas']['CardChanges'];
 export type BingoSummary = components['schemas']['BingoSummary'];
+export type ReachSummary = components['schemas']['ReachSummary'];
 export type BingoUpdate = components['schemas']['BingoUpdate'];
 export type ReachUpdate = components['schemas']['ReachUpdate'];
 export type CreateRoomRequest = components['schemas']['CreateRoomRequest'];

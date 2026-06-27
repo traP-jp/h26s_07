@@ -217,3 +217,22 @@ func (h *RoomHandler) ListRooms(c *echo.Context) error {
 	return c.JSON(http.StatusOK, convertRoomSummary(roomSummary))
 
 }
+
+func (h *RoomHandler) PostParticipant(c *echo.Context) error {
+	userRaw, ok := authmiddleware.GetAuthenticatedUser(c)
+	if !ok {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+	roomIDString := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDString)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
+	}
+	user := model.UserID(userRaw.Name)
+	err = h.roomService.PostParticipants(c.Request().Context(), model.RoomID(roomID), user)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, openapi.Error{Message: "Room Not found"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}

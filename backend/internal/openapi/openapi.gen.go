@@ -582,6 +582,7 @@ type DisplayGameFinishedBody struct {
 	BingoSummaries   []BingoSummary                   `json:"bingoSummaries"`
 	ParticipantCount int                              `json:"participantCount"`
 	PickState        DisplayGameFinishedBodyPickState `json:"pickState"`
+	ReachSummaries   []ReachSummary                   `json:"reachSummaries"`
 	State            DisplayGameFinishedBodyState     `json:"state"`
 }
 
@@ -644,6 +645,7 @@ type DisplayInitializedBody struct {
 	PickState        PickState      `json:"pickState"`
 	PickedBalls      []PickedBall   `json:"pickedBalls"`
 	QrCodeVisible    bool           `json:"qrCodeVisible"`
+	ReachSummaries   []ReachSummary `json:"reachSummaries"`
 	Settings         GameSettings   `json:"settings"`
 	State            RoomState      `json:"state"`
 }
@@ -684,8 +686,9 @@ type DisplayPickFinishedBody struct {
 	PickState        PickState      `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
-	PickedBall  PickedBall   `json:"pickedBall"`
-	PickedBalls []PickedBall `json:"pickedBalls"`
+	PickedBall     PickedBall     `json:"pickedBall"`
+	PickedBalls    []PickedBall   `json:"pickedBalls"`
+	ReachSummaries []ReachSummary `json:"reachSummaries"`
 }
 
 // DisplayPickFinishedEvent defines model for DisplayPickFinishedEvent.
@@ -779,9 +782,10 @@ type ParticipantGameFinishedBody struct {
 	BingoSummaries []BingoSummary `json:"bingoSummaries"`
 
 	// Card participant にだけ送るカード snapshot。
-	Card      Card                                 `json:"card"`
-	PickState ParticipantGameFinishedBodyPickState `json:"pickState"`
-	State     ParticipantGameFinishedBodyState     `json:"state"`
+	Card           Card                                 `json:"card"`
+	PickState      ParticipantGameFinishedBodyPickState `json:"pickState"`
+	ReachSummaries []ReachSummary                       `json:"reachSummaries"`
+	State          ParticipantGameFinishedBodyState     `json:"state"`
 }
 
 // ParticipantGameFinishedBodyPickState defines model for ParticipantGameFinishedBody.PickState.
@@ -833,11 +837,12 @@ type ParticipantInitializedBody struct {
 	BingoSummaries []BingoSummary `json:"bingoSummaries"`
 
 	// Card participant にだけ送るカード snapshot。
-	Card        *Card        `json:"card,omitempty"`
-	PickState   PickState    `json:"pickState"`
-	PickedBalls []PickedBall `json:"pickedBalls"`
-	Settings    GameSettings `json:"settings"`
-	State       RoomState    `json:"state"`
+	Card           *Card          `json:"card,omitempty"`
+	PickState      PickState      `json:"pickState"`
+	PickedBalls    []PickedBall   `json:"pickedBalls"`
+	ReachSummaries []ReachSummary `json:"reachSummaries"`
+	Settings       GameSettings   `json:"settings"`
+	State          RoomState      `json:"state"`
 }
 
 // ParticipantInitializedEvent defines model for ParticipantInitializedEvent.
@@ -881,8 +886,9 @@ type ParticipantPickFinishedBody struct {
 	PickState   PickState     `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
-	PickedBall  PickedBall   `json:"pickedBall"`
-	PickedBalls []PickedBall `json:"pickedBalls"`
+	PickedBall     PickedBall     `json:"pickedBall"`
+	PickedBalls    []PickedBall   `json:"pickedBalls"`
+	ReachSummaries []ReachSummary `json:"reachSummaries"`
 }
 
 // ParticipantPickFinishedEvent defines model for ParticipantPickFinishedEvent.
@@ -927,6 +933,11 @@ type PickState string
 // PickedBall 確定済みの通常数字球。1..75。
 type PickedBall = int
 
+// ReachSummary 現在リーチしていて、まだビンゴしていない参加者の概要。
+type ReachSummary struct {
+	User User `json:"user"`
+}
+
 // ReachUpdate PickFinished の body で使う初リーチ情報。カード詳細、リーチライン index、cell index は含めない。
 type ReachUpdate struct {
 	User User `json:"user"`
@@ -937,10 +948,11 @@ type Room struct {
 	BingoSummaries []BingoSummary `json:"bingoSummaries"`
 
 	// CreatedAt ISO 8601 datetime string。
-	CreatedAt     DateTime             `json:"createdAt"`
-	Participants  []ParticipantSummary `json:"participants"`
-	PickState     PickState            `json:"pickState"`
-	QrCodeVisible bool                 `json:"qrCodeVisible"`
+	CreatedAt      DateTime             `json:"createdAt"`
+	Participants   []ParticipantSummary `json:"participants"`
+	PickState      PickState            `json:"pickState"`
+	QrCodeVisible  bool                 `json:"qrCodeVisible"`
+	ReachSummaries []ReachSummary       `json:"reachSummaries"`
 
 	// RoomCode 6 桁の数字文字列。
 	RoomCode RoomCode `json:"roomCode"`

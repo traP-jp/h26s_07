@@ -18,6 +18,7 @@ import type {
   ParticipantPickFinishedBody,
   PickState,
   PickedBall,
+  ReachSummary,
   ReachUpdate,
   RoomId,
   RoomState,
@@ -67,6 +68,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const pickState = ref<PickState | null>(null)
   const pickedBalls = ref<PickedBall[]>([])
   const bingoSummaries = ref<BingoSummary[]>([])
+  const reachSummaries = ref<ReachSummary[]>([])
   const card = ref<Card | null>(null)
   const participantCount = ref<number | null>(null)
   const qrCodeVisible = ref<boolean | null>(null)
@@ -87,6 +89,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     pickState.value = null
     pickedBalls.value = []
     bingoSummaries.value = []
+    reachSummaries.value = []
     card.value = null
     participantCount.value = null
     qrCodeVisible.value = null
@@ -105,6 +108,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         pickState.value = body.pickState
         pickedBalls.value = body.pickedBalls
         bingoSummaries.value = body.bingoSummaries
+        reachSummaries.value = body.reachSummaries
         if (mode.value === 'participant') {
           card.value = (body as ParticipantInitializedBody).card ?? null
         } else {
@@ -141,6 +145,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         pickState.value = body.pickState
         pickedBalls.value = body.pickedBalls
         bingoSummaries.value = body.bingoSummaries
+        reachSummaries.value = body.reachSummaries
         if (mode.value === 'participant') {
           const participantBody = body as ParticipantPickFinishedBody
           card.value = participantBody.card
@@ -157,6 +162,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         roomState.value = body.state
         pickState.value = body.pickState
         bingoSummaries.value = body.bingoSummaries
+        reachSummaries.value = body.reachSummaries
         if (mode.value === 'participant') {
           card.value = (body as ParticipantGameFinishedBody).card
         } else {
@@ -262,6 +268,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     pickState,
     pickedBalls,
     bingoSummaries,
+    reachSummaries,
     card,
     participantCount,
     qrCodeVisible,

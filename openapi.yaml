@@ -672,6 +672,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BingoSummary"
+        reachSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachSummary"
         settings:
           $ref: "#/components/schemas/GameSettings"
         createdAt:
@@ -686,6 +690,7 @@ components:
         - qrCodeVisible
         - participants
         - bingoSummaries
+        - reachSummaries
         - settings
         - createdAt
         - updatedAt
@@ -817,6 +822,16 @@ components:
         - user
         - bingoOrders
 
+    ReachSummary:
+      type: object
+      additionalProperties: false
+      description: 現在リーチしていて、まだビンゴしていない参加者の概要。
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - user
+
     BingoUpdate:
       type: object
       additionalProperties: false
@@ -898,6 +913,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BingoSummary"
+        reachSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachSummary"
         card:
           $ref: "#/components/schemas/Card"
       required:
@@ -906,6 +925,7 @@ components:
         - pickState
         - pickedBalls
         - bingoSummaries
+        - reachSummaries
 
     DisplayInitializedBody:
       type: object
@@ -930,6 +950,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BingoSummary"
+        reachSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachSummary"
       required:
         - state
         - settings
@@ -938,6 +962,7 @@ components:
         - pickedBalls
         - qrCodeVisible
         - bingoSummaries
+        - reachSummaries
 
     ParticipantGameStartedBody:
       type: object
@@ -984,6 +1009,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BingoSummary"
+        reachSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachSummary"
         newBingos:
           type: array
           items:
@@ -999,6 +1028,7 @@ components:
         - cardChanges
         - pickedBalls
         - bingoSummaries
+        - reachSummaries
         - newBingos
         - newReaches
 
@@ -1017,6 +1047,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BingoSummary"
+        reachSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachSummary"
         newBingos:
           type: array
           items:
@@ -1034,6 +1068,7 @@ components:
         - pickState
         - participantCount
         - bingoSummaries
+        - reachSummaries
         - newBingos
         - newReaches
         - pickedBalls
@@ -1056,11 +1091,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BingoSummary"
+        reachSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachSummary"
       required:
         - state
         - pickState
         - card
         - bingoSummaries
+        - reachSummaries
 
     DisplayGameFinishedBody:
       type: object
@@ -1081,11 +1121,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BingoSummary"
+        reachSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachSummary"
       required:
         - state
         - pickState
         - participantCount
         - bingoSummaries
+        - reachSummaries
 
     ShowQRCodeBody:
       $ref: "#/components/schemas/EmptyObject"

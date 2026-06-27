@@ -3,7 +3,7 @@ import type { CreateRoomRequest, GameSettings, Room } from '@/api/schema'
 import { http } from '../../http'
 import { readJson } from './core'
 
-const mockRooms: Room[] = [
+export const mockRooms: Room[] = [
   {
     roomId: '00000000-0000-4000-8000-000000000001',
     roomCode: '123456',
@@ -15,8 +15,29 @@ const mockRooms: Room[] = [
         user: { userId: 'kurosaki' },
         joinedAt: '2026-06-27T10:01:00.000Z',
       },
+      {
+        user: { userId: 'rurun' },
+        joinedAt: '2026-06-27T10:02:00.000Z',
+      },
+      {
+        user: { userId: 'howard127' },
+        joinedAt: '2026-06-27T10:03:00.000Z',
+      },
+      {
+        user: { userId: 'kurao' },
+        joinedAt: '2026-06-27T10:04:00.000Z',
+      },
+      {
+        user: { userId: 'minami' },
+        joinedAt: '2026-06-27T10:05:00.000Z',
+      },
+      {
+        user: { userId: 'yamada' },
+        joinedAt: '2026-06-27T10:06:00.000Z',
+      },
     ],
     bingoSummaries: [],
+    reachSummaries: [],
     settings: {
       name: 'デモビンゴ',
       description: 'モック API で動かす待機中のビンゴルームです。',
@@ -51,6 +72,11 @@ const mockRooms: Room[] = [
         bingoOrders: [1],
       },
     ],
+    reachSummaries: [
+      {
+        user: { userId: 'howard127' },
+      },
+    ],
     settings: {
       name: '進行中ビンゴ',
       description: 'playing 状態の表示確認用モックルームです。',
@@ -81,6 +107,7 @@ const mockRooms: Room[] = [
         bingoOrders: [1, 2],
       },
     ],
+    reachSummaries: [],
     settings: {
       name: '終了済みビンゴ',
       description: 'finished 状態の表示確認用モックルームです。',
@@ -106,6 +133,7 @@ const mockRooms: Room[] = [
       },
     ],
     bingoSummaries: [],
+    reachSummaries: [],
     settings: {
       name: '少人数ビンゴ',
       description: '参加者はいるが管理者は未参加の待機中ルームです。',
@@ -146,6 +174,14 @@ const mockRooms: Room[] = [
       {
         user: { userId: 'kurao' },
         bingoOrders: [],
+      },
+    ],
+    reachSummaries: [
+      {
+        user: { userId: 'kurosaki' },
+      },
+      {
+        user: { userId: 'kurao' },
       },
     ],
     settings: {
@@ -198,6 +234,14 @@ const mockRooms: Room[] = [
         bingoOrders: [],
       },
     ],
+    reachSummaries: [
+      {
+        user: { userId: 'rurun' },
+      },
+      {
+        user: { userId: 'kurao' },
+      },
+    ],
     settings: {
       name: '全番号終了ビンゴ',
       description: 'pickState が exhausted の終了済みルームです。',
@@ -214,6 +258,7 @@ const mockRooms: Room[] = [
     qrCodeVisible: false,
     participants: [],
     bingoSummaries: [],
+    reachSummaries: [],
     settings: {
       name: '空の待機ルーム',
       description: '参加者がまだいない状態の確認用ルームです。',
@@ -246,6 +291,11 @@ const mockRooms: Room[] = [
       {
         user: { userId: 'mumumu' },
         bingoOrders: [1],
+      },
+    ],
+    reachSummaries: [
+      {
+        user: { userId: 'howard127' },
       },
     ],
     settings: {
@@ -306,6 +356,14 @@ const mockRooms: Room[] = [
         bingoOrders: [2],
       },
     ],
+    reachSummaries: [
+      {
+        user: { userId: 'mumumu' },
+      },
+      {
+        user: { userId: 'howard127' },
+      },
+    ],
     settings: {
       name: '全員参加ビンゴ',
       description: '5人全員が参加している終了済みルームです。',
@@ -327,6 +385,7 @@ const mockRooms: Room[] = [
       },
     ],
     bingoSummaries: [],
+    reachSummaries: [],
     settings: {
       name: '招待中ビンゴ',
       description: 'QR 表示中で参加者が少ない待機中ルームです。',
@@ -336,7 +395,7 @@ const mockRooms: Room[] = [
     updatedAt: '2026-06-27T19:01:00.000Z',
   },
 ]
-const fallbackRoom = mockRooms[0] as Room
+export const fallbackRoom = mockRooms[0] as Room
 
 function roomFromSettings(settings: GameSettings): Room {
   const createdAt = new Date().toISOString()
@@ -346,6 +405,7 @@ function roomFromSettings(settings: GameSettings): Room {
     settings,
     participants: [],
     bingoSummaries: [],
+    reachSummaries: [],
     createdAt,
     updatedAt: createdAt,
   }
