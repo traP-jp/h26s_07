@@ -65,3 +65,13 @@ func (s *RoomService) GetRoom(ctx context.Context, roomID model.RoomID) (*model.
 func (s *RoomService) ListRooms(ctx context.Context) ([]model.RoomSummary, error) {
 	return s.roomRepository.List(ctx)
 }
+
+func (s *RoomService) PostParticipants(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByID(ctx, roomID)
+	if err != nil {
+		return err
+	}
+	room.Join(user, time.Now())
+	s.roomRepository.Save(ctx, room)
+	return nil
+}

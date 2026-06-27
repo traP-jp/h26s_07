@@ -65,5 +65,6 @@ func registerRoutes(e *echo.Echo, db *gorm.DB) {
 		api.POST("/rooms", roomHandler.PostRoom)
 		api.GET("/rooms/:roomId", roomHandler.GetRoom)
 		api.GET("/rooms", roomHandler.ListRooms)
+		api.POST("/rooms/:roomId/participants", roomHandler.PostParticipant)
 	}
 }
