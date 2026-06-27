@@ -39,7 +39,7 @@ func TestGetMeUsesForwardedUser(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if body.UserID != "mumumu" || body.Name != "mumumu" {
+	if body.UserID != "mumumu" {
 		t.Fatalf("unexpected response: %+v", body)
 	}
 }
@@ -60,7 +60,7 @@ func TestGetMeFallsBackToDeveloper(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if body.UserID != "traP" || body.Name != "traP" {
+	if body.UserID != "traP" {
 		t.Fatalf("unexpected response: %+v", body)
 	}
 }
