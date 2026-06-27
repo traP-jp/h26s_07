@@ -46,7 +46,7 @@ const waitingRooms = computed(() => {
 </script>
 
 <template>
-  <UContainer>
+  <UContainer class="pt-6">
     <div v-if="loading">読み込み中...</div>
     <div v-else-if="errorMessage">
       ルーム情報の取得に失敗しました。 <br />

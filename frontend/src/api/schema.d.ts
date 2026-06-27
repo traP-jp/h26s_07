@@ -354,6 +354,7 @@ export interface components {
         /** @description participant にだけ送るカード snapshot。 */
         Card: {
             cardId: components["schemas"]["UUID"];
+            cardNumber: string;
             ownerUserId: components["schemas"]["UserId"];
             cells: components["schemas"]["CardCell"][];
             bingoLines: components["schemas"]["Line"][];

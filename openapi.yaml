@@ -702,6 +702,11 @@ components:
       properties:
         cardId:
           $ref: "#/components/schemas/UUID"
+        cardNumber:
+          type: string
+          minLength: 36
+          maxLength: 36
+          pattern: "^[0-9]{36}$"
         ownerUserId:
           $ref: "#/components/schemas/UserId"
         cells:
@@ -720,6 +725,7 @@ components:
             $ref: "#/components/schemas/Line"
       required:
         - cardId
+        - cardNumber
         - ownerUserId
         - cells
         - bingoLines
