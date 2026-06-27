@@ -21,5 +21,15 @@ services:
     volumes:
       - db-data:/var/lib/mysql
 
+  adminer:
+    image: adminer:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+
 volumes:
   db-data:

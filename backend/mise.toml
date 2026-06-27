@@ -13,8 +13,8 @@ description = "OpenAPI spec からバックエンド用の Go 型を生成"
 run = "go tool oapi-codegen -config oapi-codegen.yaml ../openapi.yaml"
 
 [tasks.dev]
-description = "バックエンドを起動"
-run = "go run ./cmd/server"
+description = "デバッグ用 MariaDB に接続してバックエンドを起動"
+run = 'DB_HOST="${DB_HOST:-127.0.0.1}" DB_PORT="${DB_PORT:-33306}" DB_USER="${DB_USER:-h26_07}" DB_PASSWORD="${DB_PASSWORD:-h26_07_password}" DB_NAME="${DB_NAME:-h26_07}" go run ./cmd/server'
 
 [tasks.fmt]
 description = "Go ファイルを整形"
@@ -25,8 +25,8 @@ description = "lint を実行"
 run = "go vet ./..."
 
 [tasks."db:migrate"]
-description = "GORM AutoMigrate を DATABASE_URL に適用"
-run = "go run ./cmd/migrate"
+description = "GORM AutoMigrate をデバッグ用 MariaDB に適用"
+run = 'DB_HOST="${DB_HOST:-127.0.0.1}" DB_PORT="${DB_PORT:-33306}" DB_USER="${DB_USER:-h26_07}" DB_PASSWORD="${DB_PASSWORD:-h26_07_password}" DB_NAME="${DB_NAME:-h26_07}" go run ./cmd/migrate'
 
 [tasks.test]
 description = "テストを実行"

@@ -2,22 +2,22 @@ package main
 
 import (
 	"log"
-	"os"
-	"strings"
 
-	"gorm.io/driver/mysql"
+	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	"github.com/traP-jp/h26_07/backend/internal/config"
 	"github.com/traP-jp/h26_07/backend/internal/dbmodel"
 )
 
 func main() {
-	dsn := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	cfg := config.Load()
+	dsn := cfg.Database.DSN()
 	if dsn == "" {
-		log.Fatal("DATABASE_URL is required")
+		log.Fatal("database connection is required: set DATABASE_URL or DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME")
 	}
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 func TestHealthz(t *testing.T) {
-	e := New(testConfig())
+	e := New(testConfig(), nil)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
@@ -23,7 +23,7 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestGetMeUsesForwardedUser(t *testing.T) {
-	e := New(testConfig())
+	e := New(testConfig(), nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.Header.Set("X-Forwarded-User", "mumumu")
 	rec := httptest.NewRecorder()
@@ -45,7 +45,7 @@ func TestGetMeUsesForwardedUser(t *testing.T) {
 }
 
 func TestGetMeFallsBackToDeveloper(t *testing.T) {
-	e := New(testConfig())
+	e := New(testConfig(), nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	rec := httptest.NewRecorder()
 
@@ -69,5 +69,6 @@ func testConfig() config.Config {
 	return config.Config{
 		Port:             "8080",
 		CORSAllowOrigins: []string{"http://localhost:5173"},
+		Database:         config.DatabaseConfig{},
 	}
 }
