@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-const roomId = defineProps<{ roomId: string }>()
+const room = defineProps<{ roomId: string }>()
 const newMessage = ref('')
 type RequestBody = {
   content: string
@@ -10,7 +10,7 @@ const post = async () => {
     content: newMessage.value,
   }
   try {
-    const response = await fetch(`/api/rooms/${roomId}/chats`, {
+    const response = await fetch(`/api/rooms/${room.roomId}/chats`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -29,22 +29,30 @@ const post = async () => {
 </script>
 
 <template>
-  <div style="display: flex; gap: 6px">
+  <div class="wrapper">
     <div class="newMessage">
       <input id="newMessage" v-model="newMessage" type="text" />
     </div>
     <div class="button" @click="post()">
-      <svg height="40" width="40" view-box="0 0 40 40">
-        <path d="M0 0v17l40 3-40 3v17l40-20z"></path>
+      <svg height="30" width="30" view-box="0 0 30 30">
+        <path d="M0 0v12.75l30 2.25-30 2.25v12.75l30-15z"></path>
       </svg>
     </div>
   </div>
 </template>
 
 <style scoped>
+.wrapper {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-left: 8px;
+  padding-top: 8px;
+  padding-right: 8px;
+}
 .newMessage {
   height: 20px;
-  align-items: center;
+  width: 80%;
 }
 .button {
   width: 20px;
@@ -54,12 +62,12 @@ path {
   fill: rgb(12, 185, 80);
 }
 #newMessage {
-  height: 20px;
+  height: 30px;
   color: #cfcfcf;
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: 3px;
+  border-radius: 7px;
   background-color: #272727;
   font-size: 1em;
   line-height: 1.5;
