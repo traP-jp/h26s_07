@@ -1,7 +1,7 @@
 <template>
-  <UContainer class="flex min-h-screen items-center justify-center bg-[#f8fbff] py-6">
+  <div class="flex min-h-screen items-center justify-center bg-[#f8fbff] px-4 py-6">
     <RoomStatsBar />
-  </UContainer>
+  </div>
 </template>
 
 <script setup lang="ts">
