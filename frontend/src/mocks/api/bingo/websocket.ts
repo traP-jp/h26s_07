@@ -5,6 +5,7 @@ import type {
   DisplayGameStartedBody,
   DisplayInitializedBody,
   DisplayPickFinishedBody,
+  HideQrCodeBody,
   Message,
   MessageCreatedBody,
   PickedBall,
@@ -15,6 +16,7 @@ import type {
   PickCanceledBody,
   PickStartedBody,
   Room,
+  ShowQrCodeBody,
   User,
   WebSocketEventType,
 } from '@/api/schema'
@@ -407,6 +409,14 @@ export const roomWebSocketHandler = roomSocket.addEventListener(
     })
 
     sendEvent(connection, 'Initialized', initializedBody(connection))
+    if (mode === 'display' && roomByPathParam(roomId).state === 'waiting') {
+      window.setTimeout(() => {
+        sendEvent<ShowQrCodeBody>(connection, 'ShowQRCode', {})
+      }, 1000)
+      window.setTimeout(() => {
+        sendEvent<HideQrCodeBody>(connection, 'HideQRCode', {})
+      }, 5000)
+    }
     scheduleDemoChatMessages(roomId)
     if (mode === 'display' && roomByPathParam(roomId).state !== 'waiting') {
       scheduleDemoPickEvents(connection)

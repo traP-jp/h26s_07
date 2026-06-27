@@ -24,6 +24,7 @@
       <BallStateGrid v-else :picked-balls="pickedBalls" :latest-picked-ball="latestPickedBall" />
       <RoomStatsBar />
     </div>
+    <DisplayParticipantQrCode v-if="qrCodeVisible && roomCode" :room-code="roomCode" />
   </div>
 </template>
 
@@ -38,6 +39,7 @@ import Iridescence from '@/components/backgrounds/Iridescence.vue'
 import NumberBall from '@/components/layouts/NumberBall.vue'
 import BallStateGrid from '@/components/display/BallStateGrid.vue'
 import { getBallPalette } from '@/components/display/ballPalette'
+import DisplayParticipantQrCode from '@/components/display/DisplayParticipantQrCode.vue'
 import RoomStatsBar from '@/components/display/RoomStatsBar.vue'
 import { useSoundEffect } from '@/composables/useSoundEffect'
 import { useRoomsStore } from '@/stores/rooms'
@@ -52,6 +54,7 @@ const {
   mode,
   pickState,
   pickedBalls,
+  qrCodeVisible,
   roomId: connectedRoomId,
   roomState,
 } = storeToRefs(roomWebSocketStore)
