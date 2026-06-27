@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,13 @@ func NewRoomService(roomRepository repository.RoomRepository) *RoomService {
 		roomRepository: roomRepository,
 	}
 }
+func random6Digits() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(999999))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()+1), nil
+}
 
 func (s *RoomService) CreateRoom(ctx context.Context, settings model.RoomSettings, creator model.UserID) (*model.Room, error) {
 	if !settings.HasAdmin(creator) {
@@ -29,9 +37,14 @@ func (s *RoomService) CreateRoom(ctx context.Context, settings model.RoomSetting
 	if err != nil {
 		return nil, err
 	}
+
+	generatedCode, err := random6Digits()
+	if err != nil {
+		return nil, err
+	}
 	room := model.NewRoom(
 		model.RoomID(uuid),
-		model.RoomCode(fmt.Sprintf("%06d", string(rand.Intn(1000000)))),
+		model.RoomCode(generatedCode),
 		settings,
 		time.Now(),
 	)
