@@ -1,63 +1,36 @@
-import type { CreateMessageRequest } from '@/api/schema'
+import type { CreateMessageRequest, Message } from '@/api/schema'
 
 import { http } from '../../http'
-import {
-  assertVisible,
-  badRequest,
-  conflict,
-  createMessage,
-  currentUser,
-  forbidden,
-  getRoom,
-  isAdmin,
-  isParticipant,
-  notFound,
-  readJson,
-  touch,
-} from './core'
-import { broadcastMessageCreated } from './websocket'
+import { currentUser, readJson } from './core'
+
+const mockMessages: Message[] = [
+  {
+    messageId: '00000000-0000-4000-8000-000000000101',
+    content: 'モックルームへようこそ',
+    author: { userId: 'mumumu' },
+    createdAt: '2026-06-27T10:02:00.000Z',
+  },
+  {
+    messageId: '00000000-0000-4000-8000-000000000102',
+    content: '準備できています',
+    author: { userId: 'rurun' },
+    createdAt: '2026-06-27T10:03:00.000Z',
+  },
+]
 
 export const chatHandlers = [
-  http.get('/api/rooms/{roomId}/chats', ({ params, request, response }) => {
-    const roomState = getRoom(params.roomId)
-    if (roomState === undefined) {
-      return response(404).json(notFound())
-    }
-
-    const visibilityError = assertVisible(roomState, currentUser(request))
-    if (visibilityError !== undefined) {
-      return response(403).json(visibilityError)
-    }
-
-    return response(200).json(roomState.messages)
+  http.get('/api/rooms/{roomId}/chats', ({ response }) => {
+    return response(200).json(mockMessages)
   }),
 
-  http.post('/api/rooms/{roomId}/chats', async ({ params, request, response }) => {
-    const roomState = getRoom(params.roomId)
-    if (roomState === undefined) {
-      return response(404).json(notFound())
-    }
-
-    const user = currentUser(request)
-    if (!isParticipant(roomState.room, user.userId) && !isAdmin(roomState.room, user.userId)) {
-      return response(403).json(forbidden('このルームにチャット投稿する権限がありません。'))
-    }
-    if (roomState.room.state === 'finished') {
-      return response(409).json(conflict('finished のルームには投稿できません。'))
-    }
-
+  http.post('/api/rooms/{roomId}/chats', async ({ request, response }) => {
     const body = await readJson<CreateMessageRequest>(request)
-    const content = body?.content.trim()
-    if (content === undefined || content.length === 0 || content.length > 500) {
-      return response(400).json(
-        badRequest('content は 1 文字以上 500 文字以下で指定してください。'),
-      )
+    const message: Message = {
+      messageId: crypto.randomUUID(),
+      content: body?.content ?? 'モックメッセージ',
+      author: currentUser(request),
+      createdAt: new Date().toISOString(),
     }
-
-    const message = createMessage(user, content)
-    roomState.messages.push(message)
-    touch(roomState.room)
-    broadcastMessageCreated(roomState, message)
 
     return response(200).json(message)
   }),

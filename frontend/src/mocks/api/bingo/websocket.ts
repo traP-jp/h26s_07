@@ -1,41 +1,25 @@
 import type {
   AllPickedBody,
+  Card,
   DisplayGameFinishedBody,
-  DisplayGameSettingsUpdatedBody,
   DisplayGameStartedBody,
   DisplayInitializedBody,
   DisplayPickFinishedBody,
-  HideQrCodeBody,
   Message,
   MessageCreatedBody,
+  PickedBall,
   ParticipantGameFinishedBody,
-  ParticipantGameSettingsUpdatedBody,
   ParticipantGameStartedBody,
   ParticipantInitializedBody,
   ParticipantPickFinishedBody,
   PickCanceledBody,
   PickStartedBody,
-  ShowQrCodeBody,
+  Room,
   WebSocketEventType,
 } from '@/api/schema'
 import { ws } from 'msw'
 
-import {
-  createMessage,
-  createUser,
-  emptyCardChanges,
-  finishPick,
-  getRoom,
-  isApiError,
-  isParticipant,
-  pathParam,
-  socketConnections,
-  startRoom,
-  touch,
-  type FinishPickResult,
-  type MockRoom,
-  type MockSocketConnection,
-} from './core'
+import { pathParam, socketConnections, type MockSocketConnection } from './core'
 
 type MockWebSocketEvent<TBody> = {
   type: WebSocketEventType
@@ -43,16 +27,71 @@ type MockWebSocketEvent<TBody> = {
 }
 
 const roomSocket = ws.link('*/api/rooms/:roomId/ws')
+const mockPickedBalls: PickedBall[] = [7, 22, 45]
+const mockRoom: Room = {
+  roomId: '00000000-0000-4000-8000-000000000001',
+  roomCode: '123456',
+  state: 'waiting',
+  pickState: 'idle',
+  qrCodeVisible: true,
+  participants: [
+    {
+      user: { userId: 'mumumu' },
+      joinedAt: '2026-06-27T10:00:00.000Z',
+    },
+    {
+      user: { userId: 'saba' },
+      joinedAt: '2026-06-27T10:01:00.000Z',
+    },
+  ],
+  bingoSummaries: [],
+  settings: {
+    name: 'デモビンゴ',
+    description: 'モック API で動かす待機中のビンゴルームです。',
+    admins: [{ userId: 'mumumu' }],
+  },
+  createdAt: '2026-06-27T10:00:00.000Z',
+  updatedAt: '2026-06-27T10:00:00.000Z',
+}
+const mockCard: Card = {
+  cardId: '00000000-0000-4000-8000-000000000201',
+  ownerUserId: 'mumumu',
+  cells: Array.from({ length: 25 }, (_, index) => {
+    if (index === 12) {
+      return {
+        index,
+        number: null,
+        displayText: 'FREE',
+        cellState: 'open',
+      }
+    }
 
-const demoChatMessages = [
-  { delayMs: 2000, authorId: 'rurun', content: '準備できています' },
-  { delayMs: 5000, authorId: 'mumumu', content: 'そろそろ始めます' },
-  { delayMs: 9000, authorId: 'howard127', content: 'ビンゴ楽しみ' },
-  { delayMs: 12000, authorId: 'mumumu', content: 'では始めます' },
-  { delayMs: 15000, authorId: 'kurao', content: 'よろしくお願いします' },
-] as const
-
-const scheduledDemoChatRoomIds = new Set<string>()
+    const column = index % 5
+    const number = column * 15 + Math.floor(index / 5) + 1
+    return {
+      index,
+      number,
+      displayText: String(number),
+      cellState: mockPickedBalls.includes(number) ? 'open' : 'closed',
+    }
+  }),
+  bingoLines: [],
+  reachLines: [],
+}
+const mockMessages: Message[] = [
+  {
+    messageId: '00000000-0000-4000-8000-000000000101',
+    content: 'モックルームへようこそ',
+    author: { userId: 'mumumu' },
+    createdAt: '2026-06-27T10:02:00.000Z',
+  },
+  {
+    messageId: '00000000-0000-4000-8000-000000000102',
+    content: '準備できています',
+    author: { userId: 'rurun' },
+    createdAt: '2026-06-27T10:03:00.000Z',
+  },
+]
 
 function sendEvent<TBody>(
   connection: MockSocketConnection,
@@ -71,248 +110,105 @@ function roomConnectionList(roomId: string): MockSocketConnection[] {
   return [...socketConnections].filter((connection) => connection.roomId === roomId)
 }
 
-function participantInitializedBody(
-  roomState: MockRoom,
-  userId: string,
-): ParticipantInitializedBody {
-  const card = roomState.cards.get(userId)
-  const body: ParticipantInitializedBody = {
-    state: roomState.room.state,
-    settings: roomState.room.settings,
-    pickState: roomState.room.pickState,
-    pickedBalls: roomState.pickedBalls,
-    bingoSummaries: roomState.room.bingoSummaries,
-  }
-
-  if (card !== undefined && roomState.room.state !== 'waiting') {
-    body.card = card
-  }
-
-  return body
-}
-
-function displayInitializedBody(roomState: MockRoom): DisplayInitializedBody {
-  return {
-    state: roomState.room.state,
-    settings: roomState.room.settings,
-    pickState: roomState.room.pickState,
-    participantCount: roomState.room.participants.length,
-    pickedBalls: roomState.pickedBalls,
-    qrCodeVisible: roomState.room.qrCodeVisible,
-    bingoSummaries: roomState.room.bingoSummaries,
+function broadcastRoom<TBody>(roomId: string, type: WebSocketEventType, body: TBody): void {
+  for (const connection of roomConnectionList(roomId)) {
+    sendEvent(connection, type, body)
   }
 }
 
-function sendInitialized(connection: MockSocketConnection, roomState: MockRoom): void {
+function initializedBody(
+  connection: MockSocketConnection,
+): ParticipantInitializedBody | DisplayInitializedBody {
   if (connection.mode === 'participant') {
-    sendEvent<ParticipantInitializedBody>(
-      connection,
-      'Initialized',
-      participantInitializedBody(roomState, connection.userId),
-    )
+    return {
+      state: mockRoom.state,
+      settings: mockRoom.settings,
+      pickState: mockRoom.pickState,
+      pickedBalls: mockPickedBalls,
+      bingoSummaries: mockRoom.bingoSummaries,
+      card: mockCard,
+    }
+  }
+
+  return {
+    state: mockRoom.state,
+    settings: mockRoom.settings,
+    pickState: mockRoom.pickState,
+    participantCount: mockRoom.participants.length,
+    pickedBalls: mockPickedBalls,
+    qrCodeVisible: mockRoom.qrCodeVisible,
+    bingoSummaries: mockRoom.bingoSummaries,
+  }
+}
+
+function sendGameStarted(connection: MockSocketConnection): void {
+  if (connection.mode === 'participant') {
+    sendEvent<ParticipantGameStartedBody>(connection, 'GameStarted', { card: mockCard })
     return
   }
 
-  sendEvent<DisplayInitializedBody>(connection, 'Initialized', displayInitializedBody(roomState))
+  sendEvent<DisplayGameStartedBody>(connection, 'GameStarted', {
+    participantCount: mockRoom.participants.length,
+  })
 }
 
-function broadcastRoom(
-  roomState: MockRoom,
-  send: (connection: MockSocketConnection) => void,
-): void {
-  for (const connection of roomConnectionList(roomState.room.roomId)) {
-    send(connection)
+function sendPickFinished(connection: MockSocketConnection): void {
+  if (connection.mode === 'participant') {
+    sendEvent<ParticipantPickFinishedBody>(connection, 'PickFinished', {
+      pickedBall: 7,
+      pickState: 'idle',
+      card: mockCard,
+      cardChanges: {
+        openedCellIndices: [0],
+        newReachLines: [],
+        newBingoLines: [],
+      },
+      pickedBalls: mockPickedBalls,
+      bingoSummaries: mockRoom.bingoSummaries,
+      newBingos: [],
+      newReaches: [],
+    })
+    return
   }
-}
 
-export function broadcastGameStarted(roomState: MockRoom): void {
-  broadcastRoom(roomState, (connection) => {
-    if (connection.mode === 'participant') {
-      const card = roomState.cards.get(connection.userId)
-      if (card !== undefined) {
-        sendEvent<ParticipantGameStartedBody>(connection, 'GameStarted', { card })
-      }
-      return
-    }
-
-    sendEvent<DisplayGameStartedBody>(connection, 'GameStarted', {
-      participantCount: roomState.room.participants.length,
-    })
+  sendEvent<DisplayPickFinishedBody>(connection, 'PickFinished', {
+    pickedBall: 7,
+    pickState: 'idle',
+    participantCount: mockRoom.participants.length,
+    bingoSummaries: mockRoom.bingoSummaries,
+    newBingos: [],
+    newReaches: [],
+    pickedBalls: mockPickedBalls,
   })
 }
 
-export function broadcastPickStarted(roomState: MockRoom): void {
-  broadcastRoom(roomState, (connection) => {
-    sendEvent<PickStartedBody>(connection, 'PickStarted', {})
-  })
-}
-
-export function broadcastPickCanceled(roomState: MockRoom): void {
-  broadcastRoom(roomState, (connection) => {
-    sendEvent<PickCanceledBody>(connection, 'PickCanceled', {})
-  })
-}
-
-export function broadcastPickFinished(roomState: MockRoom, result: FinishPickResult): void {
-  broadcastRoom(roomState, (connection) => {
-    if (connection.mode === 'participant') {
-      const card = roomState.cards.get(connection.userId)
-      if (card === undefined) {
-        return
-      }
-
-      sendEvent<ParticipantPickFinishedBody>(connection, 'PickFinished', {
-        pickedBall: result.pickedBall,
-        pickState: roomState.room.pickState,
-        card,
-        cardChanges: result.cardChangesByUserId.get(connection.userId) ?? emptyCardChanges(),
-        pickedBalls: roomState.pickedBalls,
-        bingoSummaries: roomState.room.bingoSummaries,
-        newBingos: result.newBingos,
-        newReaches: result.newReaches,
-      })
-      return
-    }
-
-    sendEvent<DisplayPickFinishedBody>(connection, 'PickFinished', {
-      pickedBall: result.pickedBall,
-      pickState: roomState.room.pickState,
-      participantCount: roomState.room.participants.length,
-      bingoSummaries: roomState.room.bingoSummaries,
-      newBingos: result.newBingos,
-      newReaches: result.newReaches,
-      pickedBalls: roomState.pickedBalls,
-    })
-  })
-}
-
-export function broadcastGameFinished(roomState: MockRoom): void {
-  broadcastRoom(roomState, (connection) => {
-    if (connection.mode === 'participant') {
-      const card = roomState.cards.get(connection.userId)
-      if (card !== undefined) {
-        sendEvent<ParticipantGameFinishedBody>(connection, 'GameFinished', {
-          state: 'finished',
-          pickState: 'idle',
-          card,
-          bingoSummaries: roomState.room.bingoSummaries,
-        })
-      }
-      return
-    }
-
-    sendEvent<DisplayGameFinishedBody>(connection, 'GameFinished', {
+function sendGameFinished(connection: MockSocketConnection): void {
+  if (connection.mode === 'participant') {
+    sendEvent<ParticipantGameFinishedBody>(connection, 'GameFinished', {
       state: 'finished',
       pickState: 'idle',
-      participantCount: roomState.room.participants.length,
-      bingoSummaries: roomState.room.bingoSummaries,
+      card: mockCard,
+      bingoSummaries: mockRoom.bingoSummaries,
     })
-  })
-}
-
-export function broadcastMessageCreated(roomState: MockRoom, message: Message): void {
-  broadcastRoom(roomState, (connection) => {
-    sendEvent<MessageCreatedBody>(connection, 'MessageCreated', { message })
-  })
-}
-
-function scheduleDemoChatMessages(roomState: MockRoom): void {
-  const roomId = roomState.room.roomId
-  if (scheduledDemoChatRoomIds.has(roomId)) {
     return
   }
 
-  scheduledDemoChatRoomIds.add(roomId)
-  for (const demoMessage of demoChatMessages) {
-    window.setTimeout(() => {
-      const latestRoomState = getRoom(roomId)
-      if (
-        latestRoomState === undefined ||
-        latestRoomState.room.state === 'finished' ||
-        roomConnectionList(roomId).length === 0
-      ) {
-        return
-      }
-
-      const message = createMessage(createUser(demoMessage.authorId), demoMessage.content)
-      latestRoomState.messages.push(message)
-      touch(latestRoomState.room)
-      broadcastMessageCreated(latestRoomState, message)
-    }, demoMessage.delayMs)
-  }
-}
-
-export function broadcastAllPicked(roomState: MockRoom): void {
-  const body: AllPickedBody = { pickedBalls: roomState.pickedBalls }
-  broadcastRoom(roomState, (connection) => {
-    sendEvent<AllPickedBody>(connection, 'AllPicked', body)
+  sendEvent<DisplayGameFinishedBody>(connection, 'GameFinished', {
+    state: 'finished',
+    pickState: 'idle',
+    participantCount: mockRoom.participants.length,
+    bingoSummaries: mockRoom.bingoSummaries,
   })
 }
 
-export function broadcastGameSettingsUpdated(roomState: MockRoom): void {
-  broadcastRoom(roomState, (connection) => {
-    if (connection.mode === 'participant') {
-      sendEvent<ParticipantGameSettingsUpdatedBody>(connection, 'GameSettingsUpdated', {
-        settings: roomState.room.settings,
-      })
-      return
-    }
-
-    sendEvent<DisplayGameSettingsUpdatedBody>(connection, 'GameSettingsUpdated', {
-      settings: roomState.room.settings,
-    })
-  })
-}
-
-export function broadcastShowQRCode(roomState: MockRoom): void {
-  broadcastRoom(roomState, (connection) => {
-    if (connection.mode === 'display') {
-      sendEvent<ShowQrCodeBody>(connection, 'ShowQRCode', {})
-    }
-  })
-}
-
-export function broadcastHideQRCode(roomState: MockRoom): void {
-  broadcastRoom(roomState, (connection) => {
-    if (connection.mode === 'display') {
-      sendEvent<HideQrCodeBody>(connection, 'HideQRCode', {})
-    }
-  })
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms)
-  })
-}
-
-async function runMockPickCycle(roomState: MockRoom): Promise<void> {
-  if (roomState.room.state === 'waiting') {
-    const startError = startRoom(roomState)
-    if (startError !== undefined) {
-      return
-    }
-    broadcastGameStarted(roomState)
-  }
-
-  if (roomState.room.state !== 'playing' || roomState.room.pickState !== 'idle') {
-    return
-  }
-
-  roomState.room.pickState = 'picking'
-  touch(roomState.room)
-  broadcastPickStarted(roomState)
-
-  await sleep(800)
-
-  const result = finishPick(roomState)
-  if (isApiError(result)) {
-    return
-  }
-
-  broadcastPickFinished(roomState, result)
-  if (result.allPicked) {
-    broadcastAllPicked(roomState)
+function scheduleDemoChatMessages(roomId: string): void {
+  for (const [index, message] of mockMessages.entries()) {
+    window.setTimeout(
+      () => {
+        broadcastRoom<MessageCreatedBody>(roomId, 'MessageCreated', { message })
+      },
+      2000 + index * 3000,
+    )
   }
 }
 
@@ -328,34 +224,27 @@ function handleSocketMessage(connection: MockSocketConnection, data: unknown): v
     return
   }
 
-  const roomState = getRoom(connection.roomId)
-  if (roomState === undefined) {
-    return
-  }
-
   if (payload.type === 'mock:start') {
-    const startError = startRoom(roomState)
-    if (startError === undefined) {
-      broadcastGameStarted(roomState)
-    }
+    sendGameStarted(connection)
     return
   }
 
   if (payload.type === 'mock:pick') {
-    void runMockPickCycle(roomState)
+    sendEvent<PickStartedBody>(connection, 'PickStarted', {})
+    window.setTimeout(() => {
+      sendPickFinished(connection)
+    }, 800)
     return
   }
 
-  if (payload.type === 'mock:finish' && roomState.room.state === 'playing') {
-    const wasPicking = roomState.room.pickState === 'picking'
-    roomState.room.state = 'finished'
-    roomState.room.pickState = 'idle'
-    touch(roomState.room)
+  if (payload.type === 'mock:finish') {
+    sendEvent<PickCanceledBody>(connection, 'PickCanceled', {})
+    sendGameFinished(connection)
+    return
+  }
 
-    if (wasPicking) {
-      broadcastPickCanceled(roomState)
-    }
-    broadcastGameFinished(roomState)
+  if (payload.type === 'mock:all-picked') {
+    sendEvent<AllPickedBody>(connection, 'AllPicked', { pickedBalls: mockPickedBalls })
   }
 }
 
@@ -363,22 +252,16 @@ export const roomWebSocketHandler = roomSocket.addEventListener(
   'connection',
   ({ client, params }) => {
     const roomId = pathParam(params.roomId)
-    const roomState = roomId === undefined ? undefined : getRoom(roomId)
     const mode = client.url.searchParams.get('mode')
     const userId = client.url.searchParams.get('userId')?.trim() || 'mumumu'
 
-    if (roomId === undefined || roomState === undefined) {
+    if (roomId === undefined) {
       client.close(1008, 'Room not found')
       return
     }
 
     if (mode !== 'participant' && mode !== 'display') {
       client.close(1008, 'Invalid mode')
-      return
-    }
-
-    if (mode === 'participant' && !isParticipant(roomState.room, userId)) {
-      client.close(1008, 'Participant required')
       return
     }
 
@@ -406,7 +289,7 @@ export const roomWebSocketHandler = roomSocket.addEventListener(
       handleSocketMessage(connection, event.data)
     })
 
-    sendInitialized(connection, roomState)
-    scheduleDemoChatMessages(roomState)
+    sendEvent(connection, 'Initialized', initializedBody(connection))
+    scheduleDemoChatMessages(roomId)
   },
 )
