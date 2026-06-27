@@ -526,8 +526,9 @@ type Card struct {
 	BingoLines []Line `json:"bingoLines"`
 
 	// CardID UUID string。
-	CardID UUID       `json:"cardId"`
-	Cells  []CardCell `json:"cells"`
+	CardID     UUID       `json:"cardId"`
+	CardNumber string     `json:"cardNumber"`
+	Cells      []CardCell `json:"cells"`
 
 	// OwnerUserID traP ID。
 	OwnerUserID UserID `json:"ownerUserId"`
