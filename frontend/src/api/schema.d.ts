@@ -602,7 +602,9 @@ export interface components {
     }
     WebSocketEventBase: {
       type: components['schemas']['WebSocketEventType']
-      body: Record<string, never>
+      body: {
+        [key: string]: unknown
+      }
     }
   }
   responses: {

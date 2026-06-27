@@ -1469,6 +1469,7 @@ components:
           $ref: "#/components/schemas/WebSocketEventType"
         body:
           type: object
+          additionalProperties: true
       required:
         - type
         - body
