@@ -21,6 +21,8 @@ import type {
 import { ws } from 'msw'
 
 import {
+  createMessage,
+  createUser,
   emptyCardChanges,
   finishPick,
   getRoom,
@@ -41,6 +43,16 @@ type MockWebSocketEvent<TBody> = {
 }
 
 const roomSocket = ws.link('*/api/rooms/:roomId/ws')
+
+const demoChatMessages = [
+  { delayMs: 2000, authorId: 'rurun', content: '準備できています' },
+  { delayMs: 5000, authorId: 'mumumu', content: 'そろそろ始めます' },
+  { delayMs: 9000, authorId: 'howard127', content: 'ビンゴ楽しみ' },
+  { delayMs: 12000, authorId: 'mumumu', content: 'では始めます' },
+  { delayMs: 15000, authorId: 'kurao', content: 'よろしくお願いします' },
+] as const
+
+const scheduledDemoChatRoomIds = new Set<string>()
 
 function sendEvent<TBody>(
   connection: MockSocketConnection,
@@ -202,6 +214,32 @@ export function broadcastMessageCreated(roomState: MockRoom, message: Message): 
   broadcastRoom(roomState, (connection) => {
     sendEvent<MessageCreatedBody>(connection, 'MessageCreated', { message })
   })
+}
+
+function scheduleDemoChatMessages(roomState: MockRoom): void {
+  const roomId = roomState.room.roomId
+  if (scheduledDemoChatRoomIds.has(roomId)) {
+    return
+  }
+
+  scheduledDemoChatRoomIds.add(roomId)
+  for (const demoMessage of demoChatMessages) {
+    window.setTimeout(() => {
+      const latestRoomState = getRoom(roomId)
+      if (
+        latestRoomState === undefined ||
+        latestRoomState.room.state === 'finished' ||
+        roomConnectionList(roomId).length === 0
+      ) {
+        return
+      }
+
+      const message = createMessage(createUser(demoMessage.authorId), demoMessage.content)
+      latestRoomState.messages.push(message)
+      touch(latestRoomState.room)
+      broadcastMessageCreated(latestRoomState, message)
+    }, demoMessage.delayMs)
+  }
 }
 
 export function broadcastAllPicked(roomState: MockRoom): void {
@@ -369,5 +407,6 @@ export const roomWebSocketHandler = roomSocket.addEventListener(
     })
 
     sendInitialized(connection, roomState)
+    scheduleDemoChatMessages(roomState)
   },
 )
