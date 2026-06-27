@@ -78,6 +78,7 @@ const router = createRouter({
       path: '/:roomCode/display',
       name: 'display',
       component: () => import('@/views/Display.vue'),
+      props: true,
       beforeEnter: validateDisplayRoomCode,
     },
     {
