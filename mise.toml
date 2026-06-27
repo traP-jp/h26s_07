@@ -41,6 +41,47 @@ run = "mise --cd frontend run mock"
 description = "バックエンドを起動"
 run = "mise --cd backend run dev"
 
+[tasks."db:up"]
+description = "デバッグ用 MariaDB を起動"
+run = "docker compose up -d db"
+
+[tasks."db:wait"]
+description = "デバッグ用 MariaDB の起動完了を待つ"
+run = '''
+for _ in $(seq 1 60); do
+  if docker compose exec -T db mariadb-admin ping -h 127.0.0.1 -uh26_07 -ph26_07_password --silent >/dev/null 2>&1; then
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "database did not become ready in 60s" >&2
+exit 1
+'''
+
+[tasks."db:migrate"]
+description = "デバッグ用 MariaDB に GORM AutoMigrate を適用"
+run = "DATABASE_URL='h26_07:h26_07_password@tcp(127.0.0.1:33306)/h26_07?parseTime=true&loc=UTC' mise --cd backend run db:migrate"
+
+[tasks."db:setup"]
+description = "デバッグ用 MariaDB を起動して schema を作成"
+run = [
+  "mise run db:up",
+  "mise run db:wait",
+  "mise run db:migrate",
+]
+
+[tasks."db:down"]
+description = "デバッグ用 MariaDB を停止"
+run = "docker compose down"
+
+[tasks."db:reset"]
+description = "デバッグ用 MariaDB の volume を削除して作り直す"
+run = [
+  "docker compose down -v",
+  "mise run db:setup",
+]
+
 [tasks."backend:test"]
 description = "バックエンドのテストを実行"
 run = "mise --cd backend run test"

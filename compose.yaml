@@ -1,0 +1,25 @@
+services:
+  db:
+    image: mariadb:11.4
+    ports:
+      - "127.0.0.1:33306:3306"
+    environment:
+      MARIADB_DATABASE: h26_07
+      MARIADB_USER: h26_07
+      MARIADB_PASSWORD: h26_07_password
+      MARIADB_ROOT_PASSWORD: h26_07_root_password
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uh26_07 -ph26_07_password --silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  db-data:
