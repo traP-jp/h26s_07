@@ -3,7 +3,7 @@ const props = defineProps<{
   ballColor: string
   textColor: string
   text: string
-  size?: string
+  size: number
 }>()
 </script>
 
@@ -13,7 +13,9 @@ const props = defineProps<{
     :style="{
       backgroundColor: props.ballColor,
       color: props.textColor,
-      '--size': props.size ?? '48px',
+      width: `${props.size}px`,
+      height: `${props.size}px`,
+      fontSize: `${props.size * 0.42}px`,
     }"
   >
     {{ props.text }}
@@ -21,13 +23,13 @@ const props = defineProps<{
 </template>
 <style scoped>
 .ball {
-  width: var(--size);
-  height: var(--size);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: calc(var(--size) * 0.45);
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 </style>
