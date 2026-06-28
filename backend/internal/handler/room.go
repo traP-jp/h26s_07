@@ -484,3 +484,28 @@ func (h *RoomHandler) StartGame(c *echo.Context) error {
 	}
 	return c.NoContent(http.StatusNoContent)
 }
+
+func (h *RoomHandler) FinishGame(c *echo.Context) error {
+	userRaw, ok := authmiddleware.GetAuthenticatedUser(c)
+	if !ok {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+	roomIDString := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDString)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
+	}
+	user := model.UserID(userRaw.Name)
+	err = h.roomService.FinishGame(c.Request().Context(), model.RoomID(roomID), user)
+	if err != nil {
+		if isRoomNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, openapi.Error{Message: "room not found"})
+		} else if errors.Is(err, model.ErrRoomForbidden) {
+			return c.JSON(http.StatusForbidden, openapi.Error{Message: "admin required"})
+		} else if errors.Is(err, model.ErrRoomNotFinishable) {
+			return c.JSON(http.StatusConflict, openapi.Error{Message: "room not finishable"})
+		}
+		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
+	}
+	return c.NoContent(http.StatusNoContent)
+}

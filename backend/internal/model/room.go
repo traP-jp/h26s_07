@@ -459,7 +459,9 @@ func (room *Room) StartGame(actor UserID, cards []Card, now time.Time) (GameStar
 }
 
 func (room *Room) FinishGame(actor UserID, now time.Time) (GameFinishedResult, error) {
-	if !room.CanFinishGame(actor) {
+	if !room.IsAdmin(actor) {
+		return GameFinishedResult{}, ErrRoomForbidden
+	} else if room.State != RoomStatePlaying {
 		return GameFinishedResult{}, ErrRoomNotFinishable
 	}
 
