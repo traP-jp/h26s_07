@@ -53,10 +53,12 @@ defineProps<{
 .nakami.special--bingo {
   background: #3972b8;
   color: #ffffff;
+  opacity: 0.9;
 }
 .nakami.special--reach {
   background: #ffffff;
   color: #185aa9;
+  opacity: 0.9;
 }
 .nakami.special--notice {
   border-color: #f1d529;
@@ -67,9 +69,9 @@ defineProps<{
   max-width: 75%;
   padding: 10px 14px;
   background: #ffffff;
-  border: 1px solid rgb(56 114 177 / 0.28);
   border-radius: 0 14px 14px 14px;
   color: #24364d;
+  opacity: 0.9;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
