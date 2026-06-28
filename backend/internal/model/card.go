@@ -1,5 +1,12 @@
 package model
 
+import (
+	"math/rand"
+	"strconv"
+
+	"github.com/google/uuid"
+)
+
 const (
 	CardCellCount = 25
 	FreeCellIndex = 12
@@ -33,7 +40,7 @@ func NewCard(cardID CardID, cardNumber CardNumber, owner UserID, numbers [24]Bal
 		if !number.Valid() || !numberInColumn(index, number) {
 			return Card{}, ErrInvalidCard
 		}
-		column := int(index) % 5
+		column := int(index) / 5
 		if _, ok := seenByColumn[column][number]; ok {
 			return Card{}, ErrInvalidCard
 		}
@@ -51,6 +58,45 @@ func NewCard(cardID CardID, cardNumber CardNumber, owner UserID, numbers [24]Bal
 		OwnerUserID: owner,
 		Cells:       cells,
 	}, nil
+}
+
+func random36Digits() string {
+	result := ""
+	for i := 0; i < 36; i++ {
+		result += strconv.Itoa(rand.Intn(10))
+	}
+	return result
+}
+
+func shuffleBalls(s []BallNumber) {
+	rand.Shuffle(len(s), func(i, j int) { s[i], s[j] = s[j], s[i] })
+}
+
+func MakeRandomCard(owner UserID) (Card, error) {
+	cardNumber := random36Digits()
+	numbers := make([]BallNumber, 0, 24)
+	for i := 0; i < 5; i++ {
+		useNumbers := []BallNumber{}
+		for j := 15 * i; j < 15*(i+1); j++ {
+			useNumbers = append(useNumbers, BallNumber(j+1))
+		}
+		shuffleBalls(useNumbers)
+		if i == 2 {
+			for _, ball := range useNumbers[:4] {
+				numbers = append(numbers, ball)
+			}
+		} else {
+			for _, ball := range useNumbers[:5] {
+				numbers = append(numbers, ball)
+			}
+		}
+	}
+	cardID, err := uuid.NewV7()
+	if err != nil {
+		return Card{}, err
+	}
+
+	return NewCard(CardID(cardID), CardNumber(cardNumber), owner, [24]BallNumber(numbers))
 }
 
 func (card *Card) Cell(index CellIndex) (CardCell, bool) {
@@ -215,7 +261,7 @@ func hasBingoRecord(records []BingoRecord, userID UserID, line LineIndex) bool {
 }
 
 func numberInColumn(index CellIndex, number BallNumber) bool {
-	column := int(index) % 5
+	column := index / 5
 	min := BallNumber(column*15 + 1)
 	max := BallNumber((column + 1) * 15)
 	return number >= min && number <= max

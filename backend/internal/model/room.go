@@ -315,10 +315,6 @@ func (room *Room) CanUpdateSettings(userID UserID) bool {
 	return room.State != RoomStateFinished && room.IsAdmin(userID)
 }
 
-func (room *Room) CanStartGame(userID UserID) bool {
-	return room.State == RoomStateWaiting && len(room.Participants) > 0 && room.IsAdmin(userID)
-}
-
 func (room *Room) CanFinishGame(userID UserID) bool {
 	return room.State == RoomStatePlaying && room.IsAdmin(userID)
 }
@@ -438,8 +434,10 @@ func (room *Room) UpdateSettings(actor UserID, settings RoomSettings, now time.T
 }
 
 func (room *Room) StartGame(actor UserID, cards []Card, now time.Time) (GameStartedResult, error) {
-	if !room.CanStartGame(actor) {
+	if room.State != RoomStateWaiting || len(room.Participants) == 0 {
 		return GameStartedResult{}, ErrRoomNotStartable
+	} else if !room.IsAdmin(actor) {
+		return GameStartedResult{}, ErrRoomForbidden
 	}
 	if !cardsMatchParticipants(cards, room.Participants) {
 		return GameStartedResult{}, ErrInvalidCard
