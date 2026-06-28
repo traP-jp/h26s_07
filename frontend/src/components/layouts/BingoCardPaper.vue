@@ -31,8 +31,8 @@ const title = ['B', 'I', 'N', 'G', 'O']
     <div
       class="bingo-grid"
       :style="{
-        gridTemplateColumns: `repeat(5, ${size}px)`,
-        gridAutoRows: `${size}px`,
+        gridTemplateRows: `repeat(5, ${size}px)`,
+        gridAutoColumns: `${size}px`,
       }"
     >
       <div v-for="cell in props.card.cells" :key="cell.index" class="grid-cell">
@@ -74,6 +74,7 @@ const title = ['B', 'I', 'N', 'G', 'O']
   border-left: 4px solid #c32020;
   background: #c32020;
   place-content: center;
+  grid-auto-flow: column;
 }
 
 .grid-cell {

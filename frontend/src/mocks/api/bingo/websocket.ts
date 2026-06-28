@@ -37,7 +37,7 @@ const scheduledDemoPickRoomIds = new Set<string>()
 const demoPickSteps = [
   {
     delayMs: 1800,
-    pickedBall: 7,
+    pickedBall: 17,
     newReachUserIds: ['kurosaki', 'rurun'],
     newBingoUserIds: [],
   },
@@ -61,32 +61,175 @@ const demoPickSteps = [
   },
 ] as const
 
-const mockCard: Card = {
-  cardId: '00000000-0000-4000-8000-000000000201',
-  cardNumber: '333333333333333333333333333333333333',
-  ownerUserId: 'mumumu',
-  cells: Array.from({ length: 25 }, (_, index) => {
-    if (index === 12) {
-      return {
-        index,
-        number: null,
-        displayText: 'FREE',
-        cellState: 'open',
-      }
-    }
+const mockCards: Card[] = [
+  {
+    cardId: '00000000-0000-4000-8000-000000000201',
+    cardNumber: '111111',
+    ownerUserId: 'demo',
+    cells: [
+      { index: 0, number: 1, displayText: '1', cellState: 'closed' },
+      { index: 1, number: 16, displayText: '16', cellState: 'closed' },
+      { index: 2, number: 31, displayText: '31', cellState: 'closed' },
+      { index: 3, number: 46, displayText: '46', cellState: 'closed' },
+      { index: 4, number: 61, displayText: '61', cellState: 'closed' },
 
-    const column = index % 5
-    const number = column * 15 + Math.floor(index / 5) + 1
-    return {
-      index,
-      number,
-      displayText: String(number),
-      cellState: initialPickedBalls.includes(number) ? 'open' : 'closed',
-    }
-  }),
-  bingoLines: [],
-  reachLines: [],
+      { index: 5, number: 2, displayText: '2', cellState: 'closed' },
+      { index: 6, number: 17, displayText: '17', cellState: 'closed' },
+      { index: 7, number: 32, displayText: '32', cellState: 'closed' },
+      { index: 8, number: 47, displayText: '47', cellState: 'closed' },
+      { index: 9, number: 62, displayText: '62', cellState: 'closed' },
+
+      { index: 10, number: 3, displayText: '3', cellState: 'closed' },
+      { index: 11, number: 18, displayText: '18', cellState: 'closed' },
+      { index: 12, number: null, displayText: 'FREE', cellState: 'open' },
+      { index: 13, number: 48, displayText: '48', cellState: 'closed' },
+      { index: 14, number: 63, displayText: '63', cellState: 'closed' },
+
+      { index: 15, number: 4, displayText: '4', cellState: 'closed' },
+      { index: 16, number: 19, displayText: '19', cellState: 'closed' },
+      { index: 17, number: 34, displayText: '34', cellState: 'closed' },
+      { index: 18, number: 49, displayText: '49', cellState: 'closed' },
+      { index: 19, number: 64, displayText: '64', cellState: 'closed' },
+
+      { index: 20, number: 5, displayText: '5', cellState: 'closed' },
+      { index: 21, number: 20, displayText: '20', cellState: 'closed' },
+      { index: 22, number: 35, displayText: '35', cellState: 'closed' },
+      { index: 23, number: 50, displayText: '50', cellState: 'closed' },
+      { index: 24, number: 65, displayText: '65', cellState: 'closed' },
+    ],
+    bingoLines: [],
+    reachLines: [],
+  },
+
+  {
+    cardId: '00000000-0000-4000-8000-000000000202',
+    cardNumber: '222222',
+    ownerUserId: 'demo',
+    cells: [
+      { index: 0, number: 1, displayText: '1', cellState: 'closed' },
+      { index: 1, number: 16, displayText: '16', cellState: 'closed' },
+      { index: 2, number: 31, displayText: '31', cellState: 'closed' },
+      { index: 3, number: 46, displayText: '46', cellState: 'closed' },
+      { index: 4, number: 61, displayText: '61', cellState: 'closed' },
+
+      { index: 5, number: 2, displayText: '2', cellState: 'closed' },
+      { index: 6, number: 17, displayText: '17', cellState: 'open' },
+      { index: 7, number: 32, displayText: '32', cellState: 'closed' },
+      { index: 8, number: 47, displayText: '47', cellState: 'closed' },
+      { index: 9, number: 62, displayText: '62', cellState: 'closed' },
+
+      { index: 10, number: 3, displayText: '3', cellState: 'closed' },
+      { index: 11, number: 18, displayText: '18', cellState: 'closed' },
+      { index: 12, number: null, displayText: 'FREE', cellState: 'open' },
+      { index: 13, number: 48, displayText: '48', cellState: 'closed' },
+      { index: 14, number: 63, displayText: '63', cellState: 'closed' },
+
+      { index: 15, number: 4, displayText: '4', cellState: 'closed' },
+      { index: 16, number: 19, displayText: '19', cellState: 'closed' },
+      { index: 17, number: 34, displayText: '34', cellState: 'closed' },
+      { index: 18, number: 49, displayText: '49', cellState: 'closed' },
+      { index: 19, number: 64, displayText: '64', cellState: 'closed' },
+
+      { index: 20, number: 5, displayText: '5', cellState: 'closed' },
+      { index: 21, number: 20, displayText: '20', cellState: 'closed' },
+      { index: 22, number: 35, displayText: '35', cellState: 'closed' },
+      { index: 23, number: 50, displayText: '50', cellState: 'closed' },
+      { index: 24, number: 65, displayText: '65', cellState: 'closed' },
+    ],
+    bingoLines: [],
+    reachLines: [],
+  },
+
+  {
+    cardId: '00000000-0000-4000-8000-000000000203',
+    cardNumber: '333333',
+    ownerUserId: 'demo',
+    cells: [
+      { index: 0, number: 1, displayText: '1', cellState: 'closed' },
+      { index: 1, number: 16, displayText: '16', cellState: 'closed' },
+      { index: 2, number: 31, displayText: '31', cellState: 'closed' },
+      { index: 3, number: 46, displayText: '46', cellState: 'closed' },
+      { index: 4, number: 61, displayText: '61', cellState: 'closed' },
+
+      { index: 5, number: 2, displayText: '2', cellState: 'closed' },
+      { index: 6, number: 17, displayText: '17', cellState: 'open' },
+      { index: 7, number: 32, displayText: '32', cellState: 'closed' },
+      { index: 8, number: 47, displayText: '47', cellState: 'closed' },
+      { index: 9, number: 62, displayText: '62', cellState: 'closed' },
+
+      { index: 10, number: 3, displayText: '3', cellState: 'closed' },
+      { index: 11, number: 18, displayText: '18', cellState: 'open' },
+      { index: 12, number: null, displayText: 'FREE', cellState: 'open' },
+      { index: 13, number: 48, displayText: '48', cellState: 'closed' },
+      { index: 14, number: 63, displayText: '63', cellState: 'closed' },
+
+      { index: 15, number: 4, displayText: '4', cellState: 'closed' },
+      { index: 16, number: 19, displayText: '19', cellState: 'closed' },
+      { index: 17, number: 34, displayText: '34', cellState: 'closed' },
+      { index: 18, number: 49, displayText: '49', cellState: 'closed' },
+      { index: 19, number: 64, displayText: '64', cellState: 'closed' },
+
+      { index: 20, number: 5, displayText: '5', cellState: 'closed' },
+      { index: 21, number: 20, displayText: '20', cellState: 'closed' },
+      { index: 22, number: 35, displayText: '35', cellState: 'closed' },
+      { index: 23, number: 50, displayText: '50', cellState: 'closed' },
+      { index: 24, number: 65, displayText: '65', cellState: 'closed' },
+    ],
+    bingoLines: [],
+    reachLines: [],
+  },
+
+  {
+    cardId: '00000000-0000-4000-8000-000000000204',
+    cardNumber: '444444',
+    ownerUserId: 'demo',
+    cells: [
+      { index: 0, number: 1, displayText: '1', cellState: 'closed' },
+      { index: 1, number: 16, displayText: '16', cellState: 'closed' },
+      { index: 2, number: 31, displayText: '31', cellState: 'closed' },
+      { index: 3, number: 46, displayText: '46', cellState: 'closed' },
+      { index: 4, number: 61, displayText: '61', cellState: 'closed' },
+
+      { index: 5, number: 2, displayText: '2', cellState: 'closed' },
+      { index: 6, number: 17, displayText: '17', cellState: 'open' },
+      { index: 7, number: 32, displayText: '32', cellState: 'closed' },
+      { index: 8, number: 47, displayText: '47', cellState: 'closed' },
+      { index: 9, number: 62, displayText: '62', cellState: 'closed' },
+
+      { index: 10, number: 3, displayText: '3', cellState: 'closed' },
+      { index: 11, number: 18, displayText: '18', cellState: 'open' },
+      { index: 12, number: null, displayText: 'FREE', cellState: 'open' },
+      { index: 13, number: 48, displayText: '48', cellState: 'closed' },
+      { index: 14, number: 63, displayText: '63', cellState: 'closed' },
+
+      { index: 15, number: 4, displayText: '4', cellState: 'closed' },
+      { index: 16, number: 19, displayText: '19', cellState: 'open' },
+      { index: 17, number: 34, displayText: '34', cellState: 'closed' },
+      { index: 18, number: 49, displayText: '49', cellState: 'closed' },
+      { index: 19, number: 64, displayText: '64', cellState: 'closed' },
+
+      { index: 20, number: 5, displayText: '5', cellState: 'closed' },
+      { index: 21, number: 20, displayText: '20', cellState: 'open' },
+      { index: 22, number: 35, displayText: '35', cellState: 'closed' },
+      { index: 23, number: 50, displayText: '50', cellState: 'closed' },
+      { index: 24, number: 65, displayText: '65', cellState: 'closed' },
+    ],
+    bingoLines: [],
+    reachLines: [],
+  },
+]
+
+let mockCardIndex = 0
+
+function currentMockCard(): Card {
+  return mockCards[mockCardIndex % mockCards.length]!
 }
+
+function nextMockCard(): Card {
+  mockCardIndex += 1
+  return currentMockCard()
+}
+
 const mockMessages: Message[] = [
   {
     messageId: '00000000-0000-4000-8000-000000000101',
@@ -213,7 +356,7 @@ function initializedBody(
       pickedBalls,
       bingoSummaries: room.bingoSummaries,
       reachSummaries: room.reachSummaries,
-      card: mockCard,
+      card: currentMockCard(),
     }
   }
 
@@ -233,7 +376,7 @@ function sendGameStarted(connection: MockSocketConnection): void {
   const room = roomByPathParam(connection.roomId)
 
   if (connection.mode === 'participant') {
-    sendEvent<ParticipantGameStartedBody>(connection, 'GameStarted', { card: mockCard })
+    sendEvent<ParticipantGameStartedBody>(connection, 'GameStarted', { card: currentMockCard() })
     return
   }
 
@@ -253,7 +396,7 @@ function sendPickFinished(
     sendEvent<ParticipantPickFinishedBody>(connection, 'PickFinished', {
       pickedBall: result.pickedBall,
       pickState: 'idle',
-      card: mockCard,
+      card: nextMockCard(),
       cardChanges: {
         openedCellIndices: [0],
         newReachLines: [],
@@ -287,7 +430,7 @@ function sendGameFinished(connection: MockSocketConnection): void {
     sendEvent<ParticipantGameFinishedBody>(connection, 'GameFinished', {
       state: 'finished',
       pickState: 'idle',
-      card: mockCard,
+      card: currentMockCard(),
       bingoSummaries: room.bingoSummaries,
       reachSummaries: room.reachSummaries,
     })
@@ -418,7 +561,7 @@ export const roomWebSocketHandler = roomSocket.addEventListener(
       }, 5000)
     }
     scheduleDemoChatMessages(roomId)
-    if (mode === 'display' && roomByPathParam(roomId).state !== 'waiting') {
+    if (roomByPathParam(roomId).state !== 'waiting') {
       scheduleDemoPickEvents(connection)
     }
   },
