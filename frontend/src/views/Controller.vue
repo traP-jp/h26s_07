@@ -16,6 +16,8 @@ const props = defineProps<{
 
 let roomId = ''
 
+const isDisabled = ref(false)
+
 onMounted(async () => {
   loading.value = true
 
@@ -27,8 +29,8 @@ onMounted(async () => {
     return
   }
 
+  await getLatestInfo()
   loading.value = false
-  getLatestInfo()
 })
 
 const gameStarted = ref(true)
@@ -37,6 +39,7 @@ const pickExhausted = ref(true)
 const qrCodeShowed = ref(false)
 const startModal = ref(false)
 const finishModal = ref(false)
+const finishedModal = ref(false)
 
 const getLatestInfo = async () => {
   const { data, error } = await apiClient.GET('/api/rooms/{roomId}', {
@@ -50,19 +53,23 @@ const getLatestInfo = async () => {
   if (error) {
     errorMessage.value = error.message
   } else {
-    if (data.state === 'finished') router.push('/')
+    if (data.state === 'finished') {
+      finishedModal.value = true
+    }
     gameStarted.value = data.state !== 'waiting'
-    pickStarted.value = data.pickState !== 'idle'
+    pickStarted.value = data.pickState === 'picking'
     pickExhausted.value = data.pickState === 'exhausted'
     qrCodeShowed.value = data.qrCodeVisible
   }
 }
 
 const clickGameStart = () => {
+  isDisabled.value = true
   startModal.value = true
 }
 
 const clickGameFinish = () => {
+  isDisabled.value = true
   finishModal.value = true
 }
 
@@ -79,6 +86,7 @@ const clickStartModal = async () => {
   }
   await getLatestInfo()
   startModal.value = false
+  isDisabled.value = false
 }
 
 const clickFinishModal = async () => {
@@ -94,9 +102,11 @@ const clickFinishModal = async () => {
   }
   await getLatestInfo()
   finishModal.value = false
+  isDisabled.value = false
 }
 
 const clickPickStart = async () => {
+  isDisabled.value = true
   const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/start', {
     params: {
       path: {
@@ -108,9 +118,11 @@ const clickPickStart = async () => {
     errorMessage.value = error.message
   }
   await getLatestInfo()
+  isDisabled.value = false
 }
 
 const clickPickFinish = async () => {
+  isDisabled.value = true
   const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/finish', {
     params: {
       path: {
@@ -122,9 +134,11 @@ const clickPickFinish = async () => {
     errorMessage.value = error.message
   }
   await getLatestInfo()
+  isDisabled.value = false
 }
 
 const clickPickCancel = async () => {
+  isDisabled.value = true
   const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/cancel', {
     params: {
       path: {
@@ -136,9 +150,11 @@ const clickPickCancel = async () => {
     errorMessage.value = error.message
   }
   await getLatestInfo()
+  isDisabled.value = false
 }
 
 const clickShowQr = async () => {
+  isDisabled.value = true
   const { error } = await apiClient.POST('/api/rooms/{roomId}/control/qrcode/show', {
     params: {
       path: {
@@ -150,9 +166,11 @@ const clickShowQr = async () => {
     errorMessage.value = error.message
   }
   await getLatestInfo()
+  isDisabled.value = false
 }
 
 const clickHideQr = async () => {
+  isDisabled.value = true
   const { error } = await apiClient.POST('/api/rooms/{roomId}/control/qrcode/hide', {
     params: {
       path: {
@@ -164,6 +182,7 @@ const clickHideQr = async () => {
     errorMessage.value = error.message
   }
   await getLatestInfo()
+  isDisabled.value = false
 }
 </script>
 
@@ -181,7 +200,7 @@ const clickHideQr = async () => {
         label="やっぱ開始しない"
         color="neutral"
         variant="outline"
-        @click="startModal = false"
+        @click="((startModal = false), (isDisabled = false))"
       />
       <UButton label="本当に開始する！" color="neutral" @click="clickStartModal()" />
     </template>
@@ -200,15 +219,29 @@ const clickHideQr = async () => {
         label="やっぱ終了しない"
         color="neutral"
         variant="outline"
-        @click="finishModal = false"
+        @click="((finishModal = false), (isDisabled = false))"
       />
       <UButton label="本当に終了する！" color="neutral" @click="clickFinishModal()" />
     </template>
   </UModal>
 
+  <UModal
+    v-model:open="finishedModal"
+    :dismissible="false"
+    title="このゲームは終了しました。"
+    :ui="{ footer: 'justify-end' }"
+    :close="false"
+  >
+    <template #footer>
+      <UButton label="トップへ戻る" color="neutral" @click="router.push('/')" />
+    </template>
+  </UModal>
+
   <UContainer class="pt-6">
     <div v-if="loading">読み込み中...</div>
-    <div v-else-if="errorMessage">{{ errorMessage }}</div>
+    <div v-else-if="errorMessage">
+      {{ errorMessage }}　ゲームの操作を続けるには再読み込みしてください。
+    </div>
     <template v-else>
       <h2 class="text-3xl font-bold mb-6">ルーム{{ props.roomCode }}の操作</h2>
 
@@ -218,6 +251,7 @@ const clickHideQr = async () => {
             variant="solid"
             class="row-span-4 min-h-0 h-full w-full overflow-hidden rounded-2xl text-6xl font-extrabold leading-none grid place-items-center"
             @click="clickGameStart()"
+            :disabled="isDisabled"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <UIcon name="i-lucide-power" class="size-32" />
@@ -237,6 +271,7 @@ const clickHideQr = async () => {
               class="row-span-3 min-h-0 h-full w-full overflow-hidden rounded-2xl text-6xl font-extrabold leading-none grid place-items-center"
               @click="clickPickStart()"
               v-if="!pickExhausted"
+              :disabled="isDisabled"
             >
               <span class="flex flex-col items-center justify-center gap-4">
                 <UIcon name="i-lucide-circle-play" class="size-32" />
@@ -269,6 +304,7 @@ const clickHideQr = async () => {
               variant="solid"
               class="row-span-2 min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
               @click="clickPickFinish()"
+              :disabled="isDisabled"
             >
               <span class="flex flex-col items-center justify-center gap-4">
                 <UIcon name="i-lucide-circle-pause" class="size-24" />
@@ -284,6 +320,7 @@ const clickHideQr = async () => {
               variant="outline"
               class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
               @click="clickPickCancel()"
+              :disabled="isDisabled"
             >
               <span class="flex flex-col items-center justify-center gap-4">
                 <div>
@@ -299,6 +336,7 @@ const clickHideQr = async () => {
             variant="outline"
             class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
             @click="clickGameFinish()"
+            :disabled="isDisabled"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <div>
@@ -315,6 +353,7 @@ const clickHideQr = async () => {
             variant="soft"
             class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
             @click="clickHideQr()"
+            :disabled="isDisabled"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <div>
@@ -335,6 +374,7 @@ const clickHideQr = async () => {
             variant="soft"
             class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
             @click="clickShowQr()"
+            :disabled="isDisabled"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <div>
