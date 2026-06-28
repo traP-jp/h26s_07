@@ -1,5 +1,5 @@
 <template>
-  <div class="display-page">
+  <div ref="displayPageElement" class="display-page">
     <Iridescence
       class="display-page__background"
       :color="[1, 1, 1]"
@@ -35,6 +35,14 @@
         />
       </div>
     </div>
+    <UButton
+      class="display-page__fullscreen-button"
+      color="neutral"
+      variant="soft"
+      size="xl"
+      :icon="isFullscreen ? 'i-lucide-minimize' : 'i-lucide-expand'"
+      @click="toggleFullscreen"
+    />
     <DisplayParticipantQrCode :room-code="props.roomCode" :open="qrCodeVisible ?? false" />
   </div>
 </template>
@@ -65,6 +73,8 @@ const roomWebSocketStore = useRoomWebSocketStore()
 const { latestEvent, latestPickedBall, pickState, pickedBalls, qrCodeVisible, roomState } =
   storeToRefs(roomWebSocketStore)
 const props = defineProps<{ roomCode: string }>()
+const displayPageElement = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
 const roomId = ref<RoomId | null>(null)
 const rollingPickedBall = ref<PickedBall | null>(null)
 const drumroll = useSoundEffect('drumroll', { loop: true })
@@ -112,6 +122,19 @@ function stopRollingPickedBall() {
   rollingTimerId = null
 }
 
+function syncFullscreenState() {
+  isFullscreen.value = document.fullscreenElement === displayPageElement.value
+}
+
+async function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    await document.exitFullscreen()
+    return
+  }
+
+  await displayPageElement.value?.requestFullscreen()
+}
+
 watch(
   pickState,
   (nextPickState) => {
@@ -156,6 +179,8 @@ watch(latestEvent, (event) => {
 })
 
 onMounted(async () => {
+  document.addEventListener('fullscreenchange', syncFullscreenState)
+
   if (!props.roomCode) return
 
   const room = await roomsStore.getRoomByCode(props.roomCode)
@@ -172,6 +197,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   stopRollingPickedBall()
+  document.removeEventListener('fullscreenchange', syncFullscreenState)
   updateNumberBallFavicon(DEFAULT_NUMBER_BALL_FAVICON)
 
   if (
@@ -189,6 +215,15 @@ onBeforeUnmount(() => {
   isolation: isolate;
   height: 100vh;
   overflow: hidden;
+  background: #ffffff;
+}
+
+.display-page:fullscreen {
+  background: #ffffff;
+}
+
+.display-page:fullscreen::backdrop {
+  background: #ffffff;
 }
 
 .display-page__background {
@@ -277,6 +312,16 @@ onBeforeUnmount(() => {
   font-size: 18px;
   font-weight: 800;
   line-height: 1;
+}
+
+.display-page__fullscreen-button {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 4;
+  box-shadow: 0 12px 28px rgb(20 55 110 / 0.16);
+  backdrop-filter: blur(12px) saturate(1.2);
+  opacity: 0.6;
 }
 
 .display-page__waiting-panel {
