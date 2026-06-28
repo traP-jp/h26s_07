@@ -198,14 +198,15 @@ onBeforeUnmount(() => {
   height: 34%;
   display: grid;
   place-items: center;
+  container-type: size;
 }
 
 .display-page__latest-number {
-  width: auto !important;
-  height: 90% !important;
+  width: min(90cqw, 90cqh) !important;
+  height: auto !important;
   opacity: 0.8;
   aspect-ratio: 1 / 1;
-  font-size: 14dvh !important;
+  font-size: min(14dvh, 38cqw) !important;
   box-shadow:
     0 10px 15px -3px rgb(0 0 0 / 0.1),
     0 4px 6px -4px rgb(0 0 0 / 0.1);
