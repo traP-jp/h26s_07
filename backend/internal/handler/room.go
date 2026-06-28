@@ -376,7 +376,7 @@ func (h *RoomHandler) ShowQRCode(c *echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
 	}
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *RoomHandler) HideQRCode(c *echo.Context) error {
@@ -399,7 +399,7 @@ func (h *RoomHandler) HideQRCode(c *echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
 	}
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *RoomHandler) PostPickStart(c *echo.Context) error {
