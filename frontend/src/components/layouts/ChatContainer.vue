@@ -1,25 +1,62 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { Uuid, Message, DateTime } from '@/api/schema'
+import { nextTick, onMounted, ref, watch } from 'vue'
+import type { Uuid, Message, DateTime, WebSocketMode } from '@/api/schema'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
-const room = defineProps<{ roomCode: string; textarea: boolean }>()
+import { useRoomsStore } from '@/stores/rooms'
+
+const room = withDefaults(
+  defineProps<{
+    roomCode: string
+    textarea?: boolean
+    connect?: boolean
+  }>(),
+  {
+    textarea: false,
+    connect: true,
+  },
+)
+
 const messages = ref<Message[]>([])
+const chatContainer = ref<HTMLElement | null>(null)
+
+const scrollToBottom = async () => {
+  await nextTick()
+  const element = chatContainer.value
+  if (!element) return
+
+  element.scrollTop = element.scrollHeight
+}
 
 const addUserMessage = (m: Message) => {
   messages.value.push(m)
+  void scrollToBottom()
 }
 
 const addSpecialMessage = (id: Uuid, content: string, createdAt: DateTime) => {
   messages.value.push({
-    messageId: id,
+    messageId: `${id}-${messages.value.length}` as Uuid,
     content: content,
     author: { userId: '' },
     createdAt: createdAt,
   })
+  void scrollToBottom()
 }
 
 const store = useRoomWebSocketStore()
-store.connect({ roomId: room.roomCode, mode: room.textarea ? 'participant' : 'display' })
+const roomsStore = useRoomsStore()
+
+onMounted(async () => {
+  if (!room.connect) return
+
+  const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
+  if (!roomId) return
+
+  const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
+  if (store.isActiveConnection({ roomId, mode })) return
+
+  store.connect({ roomId, mode })
+})
+
 watch(
   () => store.latestMessage,
   (newValue) => {
@@ -71,7 +108,7 @@ watch(
 </script>
 
 <template>
-  <div id="chatContainer">
+  <div ref="chatContainer" class="chat-container">
     <div v-for="message in messages" :key="message.messageId">
       <MessageContainer
         :user-id="message.author.userId"
@@ -84,13 +121,13 @@ watch(
   </div>
 </template>
 
-<style>
-#chatContainer {
+<style scoped>
+.chat-container {
   min-height: calc(100% - 50px);
-  overflow: scroll;
+  overflow: auto;
   scrollbar-width: none;
 }
-#chatContainer::-webkit-scrollbar {
+.chat-container::-webkit-scrollbar {
   display: none;
 }
 </style>
