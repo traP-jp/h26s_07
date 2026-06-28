@@ -64,7 +64,7 @@ const stats = computed(() => [
   justify-content: center;
   gap: 3px;
   min-width: 62px;
-  color: #8548c6;
+  color: #1f4f8f;
   line-height: 1;
 }
 
@@ -74,15 +74,18 @@ const stats = computed(() => [
 }
 
 .room-stats-bar__label {
-  color: #bd84ea;
+  color: #43678f;
   font-size: 0.75em;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .room-stats-bar__value {
   display: inline-flex;
   align-items: baseline;
   gap: 1px;
+  min-width: 2.4em;
+  justify-content: center;
+  color: #1f4f8f;
   font-size: 1.8125em;
   font-weight: 800;
   letter-spacing: 0;
