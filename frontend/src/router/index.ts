@@ -53,6 +53,12 @@ const router = createRouter({
           props: true,
         },
         {
+          path: '/:roomCode/controller',
+          name: 'Controller',
+          component: () => import('@/views/Controller.vue'),
+          props: true,
+        },
+        {
           path: '/rurun',
           name: 'rurun',
           component: () => import('@/views/Rurun.vue'),

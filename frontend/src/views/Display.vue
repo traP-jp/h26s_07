@@ -203,6 +203,7 @@ onBeforeUnmount(() => {
 .display-page__latest-number {
   width: auto !important;
   height: 90% !important;
+  opacity: 0.8;
   aspect-ratio: 1 / 1;
   font-size: 14dvh !important;
   box-shadow:

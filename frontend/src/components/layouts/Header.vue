@@ -12,7 +12,7 @@ const iconUrl = computed(() => `https://q.trap.jp/api/v3/public/icon/${userId}`)
     <template #right>
       <UButton
         icon="i-lucide-plus"
-        to="./new"
+        to="/new"
         target="_blank"
         aria-label="新しいルームを作成"
         class="sm:hidden rounded-full"

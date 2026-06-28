@@ -47,7 +47,7 @@ const qrCode = useQRCode(participantUrl, {
   height: 100%;
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .display-participant-qr__panel {
