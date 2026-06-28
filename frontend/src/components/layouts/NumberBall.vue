@@ -3,7 +3,7 @@ const props = defineProps<{
   ballColor: string
   textColor: string
   text: string
-  size: number
+  size?: number
 }>()
 </script>
 
@@ -13,9 +13,9 @@ const props = defineProps<{
     :style="{
       backgroundColor: props.ballColor,
       color: props.textColor,
-      width: `${props.size}px`,
-      height: `${props.size}px`,
-      fontSize: `${props.size * 0.42}px`,
+      width: props.size === undefined ? undefined : `${props.size}px`,
+      height: props.size === undefined ? undefined : `${props.size}px`,
+      fontSize: props.size === undefined ? undefined : `${props.size * 0.42}px`,
     }"
     v-if="props.text == 'FREE'"
   >
@@ -26,9 +26,9 @@ const props = defineProps<{
     :style="{
       backgroundColor: props.ballColor,
       color: props.textColor,
-      width: `${props.size}px`,
-      height: `${props.size}px`,
-      fontSize: `${props.size * 0.42}px`,
+      width: props.size === undefined ? undefined : `${props.size}px`,
+      height: props.size === undefined ? undefined : `${props.size}px`,
+      fontSize: props.size === undefined ? undefined : `${props.size * 0.42}px`,
     }"
     v-else
   >
@@ -37,10 +37,13 @@ const props = defineProps<{
 </template>
 <style scoped>
 .ball {
+  width: calc(var(--cell-size, 64px) * 0.75);
+  height: calc(var(--cell-size, 64px) * 0.75);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: calc(var(--cell-size, 64px) * 0.315);
   font-weight: 900;
   aspect-ratio: 1 / 1;
   flex-shrink: 0;

@@ -33,6 +33,7 @@ type MockWebSocketEvent<TBody> = {
 const roomSocket = ws.link('*/api/rooms/:roomId/ws')
 const initialPickedBalls: PickedBall[] = [4, 18, 33]
 const scheduledDemoPickRoomIds = new Set<string>()
+const demoBingoLine = [1, 6, 11, 16, 21]
 
 const demoPickSteps = [
   {
@@ -152,31 +153,31 @@ const mockCards: Card[] = [
       { index: 4, number: 61, displayText: '61', cellState: 'closed' },
 
       { index: 5, number: 2, displayText: '2', cellState: 'closed' },
-      { index: 6, number: 17, displayText: '17', cellState: 'open' },
+      { index: 6, number: 17, displayText: '17', cellState: 'reach' },
       { index: 7, number: 32, displayText: '32', cellState: 'closed' },
       { index: 8, number: 47, displayText: '47', cellState: 'closed' },
       { index: 9, number: 62, displayText: '62', cellState: 'closed' },
 
       { index: 10, number: 3, displayText: '3', cellState: 'closed' },
-      { index: 11, number: 18, displayText: '18', cellState: 'open' },
+      { index: 11, number: 18, displayText: '18', cellState: 'reach' },
       { index: 12, number: null, displayText: 'FREE', cellState: 'open' },
       { index: 13, number: 48, displayText: '48', cellState: 'closed' },
       { index: 14, number: 63, displayText: '63', cellState: 'closed' },
 
       { index: 15, number: 4, displayText: '4', cellState: 'closed' },
-      { index: 16, number: 19, displayText: '19', cellState: 'closed' },
+      { index: 16, number: 19, displayText: '19', cellState: 'reach' },
       { index: 17, number: 34, displayText: '34', cellState: 'closed' },
       { index: 18, number: 49, displayText: '49', cellState: 'closed' },
       { index: 19, number: 64, displayText: '64', cellState: 'closed' },
 
       { index: 20, number: 5, displayText: '5', cellState: 'closed' },
-      { index: 21, number: 20, displayText: '20', cellState: 'closed' },
+      { index: 21, number: 20, displayText: '20', cellState: 'reach' },
       { index: 22, number: 35, displayText: '35', cellState: 'closed' },
       { index: 23, number: 50, displayText: '50', cellState: 'closed' },
       { index: 24, number: 65, displayText: '65', cellState: 'closed' },
     ],
     bingoLines: [],
-    reachLines: [],
+    reachLines: [demoBingoLine],
   },
 
   {
@@ -185,36 +186,36 @@ const mockCards: Card[] = [
     ownerUserId: 'demo',
     cells: [
       { index: 0, number: 1, displayText: '1', cellState: 'closed' },
-      { index: 1, number: 16, displayText: '16', cellState: 'closed' },
+      { index: 1, number: 16, displayText: '16', cellState: 'bingo' },
       { index: 2, number: 31, displayText: '31', cellState: 'closed' },
       { index: 3, number: 46, displayText: '46', cellState: 'closed' },
-      { index: 4, number: 61, displayText: '61', cellState: 'closed' },
+      { index: 4, number: 61, displayText: '61', cellState: 'open' },
 
       { index: 5, number: 2, displayText: '2', cellState: 'closed' },
-      { index: 6, number: 17, displayText: '17', cellState: 'open' },
+      { index: 6, number: 17, displayText: '17', cellState: 'bingo' },
       { index: 7, number: 32, displayText: '32', cellState: 'closed' },
       { index: 8, number: 47, displayText: '47', cellState: 'closed' },
       { index: 9, number: 62, displayText: '62', cellState: 'closed' },
 
       { index: 10, number: 3, displayText: '3', cellState: 'closed' },
-      { index: 11, number: 18, displayText: '18', cellState: 'open' },
+      { index: 11, number: 18, displayText: '18', cellState: 'bingo' },
       { index: 12, number: null, displayText: 'FREE', cellState: 'open' },
       { index: 13, number: 48, displayText: '48', cellState: 'closed' },
       { index: 14, number: 63, displayText: '63', cellState: 'closed' },
 
       { index: 15, number: 4, displayText: '4', cellState: 'closed' },
-      { index: 16, number: 19, displayText: '19', cellState: 'open' },
+      { index: 16, number: 19, displayText: '19', cellState: 'bingo' },
       { index: 17, number: 34, displayText: '34', cellState: 'closed' },
       { index: 18, number: 49, displayText: '49', cellState: 'closed' },
       { index: 19, number: 64, displayText: '64', cellState: 'closed' },
 
       { index: 20, number: 5, displayText: '5', cellState: 'closed' },
-      { index: 21, number: 20, displayText: '20', cellState: 'open' },
+      { index: 21, number: 20, displayText: '20', cellState: 'bingo' },
       { index: 22, number: 35, displayText: '35', cellState: 'closed' },
       { index: 23, number: 50, displayText: '50', cellState: 'closed' },
       { index: 24, number: 65, displayText: '65', cellState: 'closed' },
     ],
-    bingoLines: [],
+    bingoLines: [demoBingoLine],
     reachLines: [],
   },
 ]
@@ -222,12 +223,34 @@ const mockCards: Card[] = [
 let mockCardIndex = 0
 
 function currentMockCard(): Card {
-  return mockCards[mockCardIndex % mockCards.length]!
+  return mockCards[Math.min(mockCardIndex, mockCards.length - 1)]!
 }
 
 function nextMockCard(): Card {
   mockCardIndex += 1
   return currentMockCard()
+}
+
+function demoPickStepIndex(step: (typeof demoPickSteps)[number]): number {
+  const index = demoPickSteps.indexOf(step)
+  return index === -1 ? 0 : index
+}
+
+function cardChangesForDemoPickStep(step: (typeof demoPickSteps)[number]) {
+  const stepIndex = demoPickStepIndex(step)
+
+  return {
+    openedCellIndices: [[6], [11, 16, 21], [1], [4]][stepIndex] ?? [],
+    newReachLines: stepIndex === 1 ? [demoBingoLine] : [],
+    newBingoLines: stepIndex === 2 ? [demoBingoLine] : [],
+  }
+}
+
+function pickedBallsForDemoPickStep(step: (typeof demoPickSteps)[number]): PickedBall[] {
+  const stepIndex = demoPickStepIndex(step)
+  const pickedBalls = demoPickSteps.slice(0, stepIndex + 1).map((candidate) => candidate.pickedBall)
+
+  return [...new Set([...initialPickedBalls, ...pickedBalls])]
 }
 
 const mockMessages: Message[] = [
@@ -336,7 +359,7 @@ function applyDemoPickStep(room: Room, step: (typeof demoPickSteps)[number]) {
 
   return {
     pickedBall: step.pickedBall,
-    pickedBalls: [...new Set([...initialPickedBalls, step.pickedBall])],
+    pickedBalls: pickedBallsForDemoPickStep(step),
     newReaches,
     newBingos,
   }
@@ -356,7 +379,7 @@ function initializedBody(
       pickedBalls,
       bingoSummaries: room.bingoSummaries,
       reachSummaries: room.reachSummaries,
-      card: currentMockCard(),
+      ...(room.state === 'waiting' ? {} : { card: currentMockCard() }),
     }
   }
 
@@ -397,11 +420,7 @@ function sendPickFinished(
       pickedBall: result.pickedBall,
       pickState: 'idle',
       card: nextMockCard(),
-      cardChanges: {
-        openedCellIndices: [0],
-        newReachLines: [],
-        newBingoLines: [],
-      },
+      cardChanges: cardChangesForDemoPickStep(step),
       pickedBalls: result.pickedBalls,
       bingoSummaries: room.bingoSummaries,
       reachSummaries: room.reachSummaries,
