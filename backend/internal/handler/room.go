@@ -483,3 +483,4 @@ func (h *RoomHandler) StartGame(c *echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
 	}
 	return c.NoContent(http.StatusNoContent)
+}
