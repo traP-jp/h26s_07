@@ -417,7 +417,7 @@ func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user 
 		bingoSummaries = append(bingoSummaries, openapi.BingoSummary{BingoOrders: bingoOrders, User: openapi.User{UserID: openapi.UserID(bingoSummary.UserID)}})
 	}
 	for _, update := range result.ParticipantUpdates {
-		err = s.events.SendRoom(ctx, roomID, openapi.ParticipantGameFinishedEvent{
+		if err := s.events.SendParticipant(ctx, roomID, update.UserID, openapi.ParticipantGameFinishedEvent{
 			Type: openapi.ParticipantGameFinishedEventTypeGameFinished,
 			Body: openapi.ParticipantGameFinishedBody{
 				BingoSummaries: bingoSummaries,
@@ -426,8 +426,7 @@ func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user 
 				ReachSummaries: reachSummaries,
 				State:          openapi.ParticipantGameFinishedBodyState(room.State),
 			},
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
 	}
