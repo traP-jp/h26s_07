@@ -200,3 +200,55 @@ func (s *RoomService) PutSettings(ctx context.Context, roomID model.RoomID, user
 	}
 	return room.Settings, nil
 }
+
+func (s *RoomService) ShowQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByID(ctx, roomID)
+	if err != nil {
+		return model.ErrRoomNotFound
+	}
+	if !room.IsAdmin(user) {
+		return model.ErrRoomNotConfigurable
+	}
+	err = room.ShowQRCode(user, time.Now())
+	if err != nil {
+		return err
+	}
+	err = s.roomRepository.Save(ctx, room)
+	if err != nil {
+		return err
+	}
+	err = s.events.SendRoom(ctx, roomID, openapi.DisplayShowQRCodeEvent{
+		Type: openapi.ShowQRCode,
+		Body: openapi.ShowQRCodeBody{},
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *RoomService) HideQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByID(ctx, roomID)
+	if err != nil {
+		return model.ErrRoomNotFound
+	}
+	if !room.IsAdmin(user) {
+		return model.ErrRoomNotConfigurable
+	}
+	err = room.HideQRCode(user, time.Now())
+	if err != nil {
+		return err
+	}
+	err = s.roomRepository.Save(ctx, room)
+	if err != nil {
+		return err
+	}
+	err = s.events.SendRoom(ctx, roomID, openapi.DisplayHideQRCodeEvent{
+		Type: openapi.DisplayHideQRCodeEventTypeHideQRCode,
+		Body: openapi.ShowQRCodeBody{},
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
