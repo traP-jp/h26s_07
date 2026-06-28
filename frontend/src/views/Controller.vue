@@ -1,31 +1,22 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted, watch } from 'vue'
-import type { FormError, FormSubmitEvent } from '@nuxt/ui'
+import { ref, onMounted } from 'vue'
 import { apiClient } from '@/api/apiClient'
-import { useCurrentUserStore } from '@/stores/currentUser'
 import { useRoomsStore } from '@/stores/rooms'
-import { useClipboard } from '@vueuse/core'
-import { useToast } from '@nuxt/ui/composables'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const roomsStore = useRoomsStore()
 
-const form = ref()
-
-const submitting = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
-const editing = ref(false)
-
-const currentUserStore = useCurrentUserStore()
-const userId = currentUserStore.userId
 
 const props = defineProps<{
   roomCode: string
 }>()
 
-const toast = useToast()
-
 let roomId = ''
+
+const isDisabled = ref(false)
 
 onMounted(async () => {
   loading.value = true
@@ -38,6 +29,19 @@ onMounted(async () => {
     return
   }
 
+  await getLatestInfo()
+  loading.value = false
+})
+
+const gameStarted = ref(true)
+const pickStarted = ref(false)
+const pickExhausted = ref(true)
+const qrCodeShowed = ref(false)
+const startModal = ref(false)
+const finishModal = ref(false)
+const finishedModal = ref(false)
+
+const getLatestInfo = async () => {
   const { data, error } = await apiClient.GET('/api/rooms/{roomId}', {
     params: {
       path: {
@@ -49,281 +53,344 @@ onMounted(async () => {
   if (error) {
     errorMessage.value = error.message
   } else {
-    state.name = data.settings.name
-    state.description = data.settings.description
-    state.adminUserIds = data.settings.admins.map((admin) => admin.userId)
+    if (data.state === 'finished') {
+      finishedModal.value = true
+    }
+    gameStarted.value = data.state !== 'waiting'
+    pickStarted.value = data.pickState === 'picking'
+    pickExhausted.value = data.pickState === 'exhausted'
+    qrCodeShowed.value = data.qrCodeVisible
   }
-
-  loading.value = false
-})
-
-type FormState = {
-  name: string
-  description: string
-  adminUserIds: string[]
 }
 
-const state = reactive<FormState>({
-  name: '',
-  description: '',
-  adminUserIds: [],
-})
-
-function validate(formState: FormState): FormError[] {
-  const errors: FormError[] = []
-
-  if (!formState.name) {
-    errors.push({ name: 'name', message: 'ルーム名を入力してください。' })
-  }
-
-  if (!formState.description) {
-    errors.push({ name: 'description', message: '説明を入力してください。' })
-  }
-
-  if (formState.adminUserIds.length === 0) {
-    errors.push({ name: 'admins', message: '管理者を1人以上設定してください。' })
-  }
-
-  if (!formState.adminUserIds.some((id) => userId === id)) {
-    errors.push({ name: 'admins', message: '自身を管理者から外すことはできません。' })
-  }
-
-  return errors
+const clickGameStart = () => {
+  isDisabled.value = true
+  startModal.value = true
 }
 
-async function onSubmit(event: FormSubmitEvent<FormState>) {
-  submitting.value = true
-  const { error } = await apiClient.PUT('/api/rooms/{roomId}/settings', {
+const clickGameFinish = () => {
+  isDisabled.value = true
+  finishModal.value = true
+}
+
+const clickStartModal = async () => {
+  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/start', {
     params: {
       path: {
         roomId,
       },
     },
-    body: { settings: event.data },
   })
-
-  submitting.value = false
-  editing.value = false
-
   if (error) {
-    console.error('ERROR: ', error)
-    toast.add({ title: '設定の変更に失敗しました。' })
-    throw new Error('設定の変更に失敗しました。')
-  } else {
-    toast.add({ title: '設定を更新しました。' })
+    errorMessage.value = error.message
   }
+  await getLatestInfo()
+  startModal.value = false
+  isDisabled.value = false
 }
 
-const beforeEdit = ref<FormState>()
-
-watch(
-  editing,
-  (newValue) => {
-    if (newValue) {
-      beforeEdit.value = {
-        name: state.name,
-        description: state.description,
-        adminUserIds: [...state.adminUserIds],
-      }
-    }
-  },
-  { immediate: true },
-)
-
-const baseUrl = window.location.origin
-
-const participantUrl = ref(`${baseUrl}/${props.roomCode}/participant`)
-const displayUrl = ref(`${baseUrl}/${props.roomCode}/display`)
-const controllerUrl = ref(`${baseUrl}/${props.roomCode}/controller`)
-const { copy } = useClipboard()
-
-const copyUrl = (text: string) => {
-  copy(text)
-  toast.add({ title: 'URLをコピーしました。', description: text })
-}
-
-const cancelEdit = () => {
-  editing.value = false
-  Object.assign(state, {
-    name: (beforeEdit.value as FormState).name,
-    description: (beforeEdit.value as FormState).description,
-    adminUserIds: [...(beforeEdit.value as FormState).adminUserIds],
+const clickFinishModal = async () => {
+  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/finish', {
+    params: {
+      path: {
+        roomId,
+      },
+    },
   })
+  if (error) {
+    errorMessage.value = error.message
+  }
+  await getLatestInfo()
+  finishModal.value = false
+  isDisabled.value = false
+}
 
-  form.value?.clear()
+const clickPickStart = async () => {
+  isDisabled.value = true
+  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/start', {
+    params: {
+      path: {
+        roomId,
+      },
+    },
+  })
+  if (error) {
+    errorMessage.value = error.message
+  }
+  await getLatestInfo()
+  isDisabled.value = false
+}
+
+const clickPickFinish = async () => {
+  isDisabled.value = true
+  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/finish', {
+    params: {
+      path: {
+        roomId,
+      },
+    },
+  })
+  if (error) {
+    errorMessage.value = error.message
+  }
+  await getLatestInfo()
+  isDisabled.value = false
+}
+
+const clickPickCancel = async () => {
+  isDisabled.value = true
+  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/cancel', {
+    params: {
+      path: {
+        roomId,
+      },
+    },
+  })
+  if (error) {
+    errorMessage.value = error.message
+  }
+  await getLatestInfo()
+  isDisabled.value = false
+}
+
+const clickShowQr = async () => {
+  isDisabled.value = true
+  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/qrcode/show', {
+    params: {
+      path: {
+        roomId,
+      },
+    },
+  })
+  if (error) {
+    errorMessage.value = error.message
+  }
+  await getLatestInfo()
+  isDisabled.value = false
+}
+
+const clickHideQr = async () => {
+  isDisabled.value = true
+  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/qrcode/hide', {
+    params: {
+      path: {
+        roomId,
+      },
+    },
+  })
+  if (error) {
+    errorMessage.value = error.message
+  }
+  await getLatestInfo()
+  isDisabled.value = false
 }
 </script>
 
 <template>
+  <UModal
+    v-model:open="startModal"
+    :dismissible="false"
+    title="本当にゲームを開始しますか？"
+    description="ゲームを一度開始すると、以降、新たにプレイヤーがゲームに参加することはできません。"
+    :ui="{ footer: 'justify-end' }"
+    :close="false"
+  >
+    <template #footer>
+      <UButton
+        label="やっぱ開始しない"
+        color="neutral"
+        variant="outline"
+        @click="((startModal = false), (isDisabled = false))"
+      />
+      <UButton label="本当に開始する！" color="neutral" @click="clickStartModal()" />
+    </template>
+  </UModal>
+
+  <UModal
+    v-model:open="finishModal"
+    :dismissible="false"
+    title="本当にゲームを終了しますか？"
+    description="ゲームを一度終了すると、再開することはできません。新たな球の抽選やチャットへの投稿はできなくなります。"
+    :ui="{ footer: 'justify-end' }"
+    :close="false"
+  >
+    <template #footer>
+      <UButton
+        label="やっぱ終了しない"
+        color="neutral"
+        variant="outline"
+        @click="((finishModal = false), (isDisabled = false))"
+      />
+      <UButton label="本当に終了する！" color="neutral" @click="clickFinishModal()" />
+    </template>
+  </UModal>
+
+  <UModal
+    v-model:open="finishedModal"
+    :dismissible="false"
+    title="このゲームは終了しました。"
+    :ui="{ footer: 'justify-end' }"
+    :close="false"
+  >
+    <template #footer>
+      <UButton label="トップへ戻る" color="neutral" @click="router.push('/')" />
+    </template>
+  </UModal>
+
   <UContainer class="pt-6">
     <div v-if="loading">読み込み中...</div>
-    <div v-else-if="errorMessage">{{ errorMessage }}</div>
+    <div v-else-if="errorMessage">
+      {{ errorMessage }}　ゲームの操作を続けるには再読み込みしてください。
+    </div>
     <template v-else>
-      <h2 class="text-3xl font-bold mb-6">ルーム{{ props.roomCode }}の設定</h2>
+      <h2 class="text-3xl font-bold mb-6">ルーム{{ props.roomCode }}の操作</h2>
 
-      <h3 class="text-2xl font-bold mb-2">情報</h3>
-      <UFormField label="参加画面">
-        <div class="flex flex-wrap gap-2">
-          <UIcon name="i-lucide-rocket" class="size-5 m-1.5" />
-          <UFieldGroup class="">
-            <UInput
-              color="neutral"
-              readonly
-              v-model="participantUrl"
-              :ui="{
-                base: '[direction:rtl] text-left !rounded-r-none !rounded-l-md',
-              }"
-            />
+      <div class="grid h-[70dvh] grid-rows-5 overflow-hidden gap-4">
+        <template v-if="!gameStarted">
+          <UButton
+            variant="solid"
+            class="row-span-4 min-h-0 h-full w-full overflow-hidden rounded-2xl text-6xl font-extrabold leading-none grid place-items-center"
+            @click="clickGameStart()"
+            :disabled="isDisabled"
+          >
+            <span class="flex flex-col items-center justify-center gap-4">
+              <UIcon name="i-lucide-power" class="size-32" />
+              <div>
+                <span class="whitespace-nowrap">ゲーム</span>
+                <span class="whitespace-nowrap">を</span>
+                <span class="whitespace-nowrap">開始</span>
+              </div>
+            </span>
+          </UButton>
+        </template>
+
+        <template v-else>
+          <template v-if="!pickStarted">
             <UButton
-              color="neutral"
-              variant="subtle"
-              class="hidden sm:inline-flex rounded-r-md!"
-              icon="i-lucide-clipboard"
-              @click="copyUrl(participantUrl)"
+              variant="solid"
+              class="row-span-3 min-h-0 h-full w-full overflow-hidden rounded-2xl text-6xl font-extrabold leading-none grid place-items-center"
+              @click="clickPickStart()"
+              v-if="!pickExhausted"
+              :disabled="isDisabled"
             >
-              参加画面のURLをコピー
+              <span class="flex flex-col items-center justify-center gap-4">
+                <UIcon name="i-lucide-circle-play" class="size-32" />
+                <div>
+                  <span class="whitespace-nowrap">抽選</span>
+                  <span class="whitespace-nowrap">を</span>
+                  <span class="whitespace-nowrap">開始</span>
+                </div>
+              </span>
             </UButton>
             <UButton
-              color="neutral"
-              variant="subtle"
-              class="sm:hidden"
-              icon="i-lucide-clipboard"
-              @click="copyUrl(participantUrl)"
-            />
-          </UFieldGroup>
-          <UButton
-            variant="soft"
-            :to="participantUrl"
-            target="_blank"
-            icon="i-lucide-square-arrow-out-up-right"
-            >参加画面へ移動</UButton
-          >
-        </div>
-      </UFormField>
-
-      <UFormField label="表示画面" class="mt-4">
-        <div class="flex flex-wrap gap-2">
-          <UIcon name="i-lucide-monitor" class="size-5 m-1.5" />
-          <UFieldGroup>
-            <UInput
-              color="neutral"
-              readonly
-              v-model="displayUrl"
-              :ui="{
-                base: '[direction:rtl] text-left !rounded-r-none !rounded-l-md',
-              }"
-            />
-            <UButton
-              color="neutral"
-              variant="subtle"
-              class="hidden sm:inline-flex rounded-r-md!"
-              icon="i-lucide-clipboard"
-              @click="copyUrl(displayUrl)"
+              variant="solid"
+              class="row-span-3 min-h-0 h-full w-full overflow-hidden rounded-2xl text-6xl font-extrabold leading-none grid place-items-center"
+              disabled
+              v-else
             >
-              表示画面のURLをコピー
+              <span class="flex flex-col items-center justify-center gap-4">
+                <UIcon name="i-lucide-x" class="size-32" />
+                <div>
+                  <span class="whitespace-nowrap">抽選</span>
+                  <span class="whitespace-nowrap">を</span>
+                  <span class="whitespace-nowrap">開始</span>
+                </div>
+              </span>
             </UButton>
-            <UButton
-              color="neutral"
-              variant="subtle"
-              class="sm:hidden"
-              icon="i-lucide-clipboard"
-              @click="copyUrl(displayUrl)"
-            />
-          </UFieldGroup>
-          <UButton
-            variant="soft"
-            :to="displayUrl"
-            target="_blank"
-            icon="i-lucide-square-arrow-out-up-right"
-            >表示画面へ移動</UButton
-          >
-        </div>
-      </UFormField>
+          </template>
 
-      <UFormField label="操作画面（管理者限定）" class="mt-4">
-        <div class="flex flex-wrap gap-2">
-          <UIcon name="i-lucide-gamepad" class="size-5 m-1.5" />
-          <UFieldGroup>
-            <UInput
-              color="neutral"
-              readonly
-              v-model="controllerUrl"
-              :ui="{
-                base: '[direction:rtl] text-left !rounded-r-none !rounded-l-md',
-              }"
-            />
+          <template v-else>
             <UButton
-              color="neutral"
-              variant="subtle"
-              class="hidden sm:inline-flex rounded-r-md!"
-              icon="i-lucide-clipboard"
-              @click="copyUrl(controllerUrl)"
+              variant="solid"
+              class="row-span-2 min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
+              @click="clickPickFinish()"
+              :disabled="isDisabled"
             >
-              操作画面のURLをコピー
+              <span class="flex flex-col items-center justify-center gap-4">
+                <UIcon name="i-lucide-circle-pause" class="size-24" />
+                <div>
+                  <span class="whitespace-nowrap">抽選</span>
+                  <span class="whitespace-nowrap">を</span>
+                  <span class="whitespace-nowrap">終了</span>
+                </div>
+              </span>
             </UButton>
-            <UButton
-              color="neutral"
-              variant="subtle"
-              class="sm:hidden"
-              icon="i-lucide-clipboard"
-              @click="copyUrl(controllerUrl)"
-            />
-          </UFieldGroup>
-          <UButton
-            variant="soft"
-            :to="controllerUrl"
-            target="_blank"
-            icon="i-lucide-square-arrow-out-up-right"
-            >操作画面へ移動</UButton
-          >
-        </div>
-      </UFormField>
 
-      <h3 class="text-2xl font-bold mb-2 mt-6">設定の変更</h3>
-      <UForm ref="form" :validate="validate" :state="state" class="space-y-4" @submit="onSubmit">
-        <UFormField label="ルーム名" name="name" required>
-          <UInput
-            v-model="state.name"
-            placeholder="イベントの名前・タイトルなど"
-            class="w-full"
-            :disabled="!editing"
-          />
-        </UFormField>
-        <UFormField label="説明" name="description" required>
-          <UTextarea
-            v-model="state.description"
-            placeholder="イベントの内容・詳細など"
-            class="w-full"
-            :rows="4"
-            :disabled="!editing"
-          />
-        </UFormField>
-        <UFormField label="管理者" name="admins" required>
-          <UInputTags
-            v-model="state.adminUserIds"
-            placeholder="管理者のtraQ IDを入力、Enterで確定"
-            class="w-full"
-            :disabled="!editing"
-          />
-        </UFormField>
-        <div class="flex justify-end">
-          <UButton @click.prevent="editing = true" :loading="submitting" v-if="!editing"
-            >設定を編集</UButton
-          >
-          <div class="flex flex-wrap gap-2" v-else>
             <UButton
-              type="button"
               variant="outline"
-              :loading="submitting"
-              @click.prevent="cancelEdit()"
-              >編集をキャンセル</UButton
+              class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
+              @click="clickPickCancel()"
+              :disabled="isDisabled"
             >
-            <UButton type="submit" variant="solid" :loading="submitting" icon="i-lucide-save"
-              >編集を保存</UButton
-            >
-          </div>
-        </div>
-      </UForm>
+              <span class="flex flex-col items-center justify-center gap-4">
+                <div>
+                  <span class="whitespace-nowrap">抽選</span>
+                  <span class="whitespace-nowrap">を</span>
+                  <span class="whitespace-nowrap">キャンセル</span>
+                </div>
+              </span>
+            </UButton>
+          </template>
+
+          <UButton
+            variant="outline"
+            class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
+            @click="clickGameFinish()"
+            :disabled="isDisabled"
+          >
+            <span class="flex flex-col items-center justify-center gap-4">
+              <div>
+                <span class="whitespace-nowrap">ゲーム</span>
+                <span class="whitespace-nowrap">を</span>
+                <span class="whitespace-nowrap">終了</span>
+              </div>
+            </span>
+          </UButton>
+        </template>
+
+        <template v-if="qrCodeShowed">
+          <UButton
+            variant="soft"
+            class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
+            @click="clickHideQr()"
+            :disabled="isDisabled"
+          >
+            <span class="flex flex-col items-center justify-center gap-4">
+              <div>
+                <UIcon
+                  name="i-lucide-qr-code"
+                  class="size-8 inline-flex shrink-0 translate-y-[-0.1em] mr-1"
+                />
+                <span class="whitespace-nowrap">QR</span>
+                <span class="whitespace-nowrap">コード</span>
+                <span class="whitespace-nowrap">を</span>
+                <span class="whitespace-nowrap">非表示</span>
+              </div>
+            </span>
+          </UButton>
+        </template>
+        <template v-else>
+          <UButton
+            variant="soft"
+            class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
+            @click="clickShowQr()"
+            :disabled="isDisabled"
+          >
+            <span class="flex flex-col items-center justify-center gap-4">
+              <div>
+                <UIcon
+                  name="i-lucide-qr-code"
+                  class="size-8 inline-flex shrink-0 translate-y-[-0.1em] mr-1"
+                />
+                <span class="whitespace-nowrap">QR</span>
+                <span class="whitespace-nowrap">コード</span>
+                <span class="whitespace-nowrap">を</span>
+                <span class="whitespace-nowrap">表示</span>
+              </div>
+            </span>
+          </UButton>
+        </template>
+      </div>
     </template>
   </UContainer>
 </template>
