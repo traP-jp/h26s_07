@@ -23,6 +23,7 @@ const messages = ref<Message[]>([])
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
+const activeRoomId = ref<Uuid | null>(null)
 const participantChatOpen = ref(false)
 const participantChatClosing = ref(false)
 let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
@@ -85,6 +86,7 @@ const notificationType = (message: Message) => {
 onMounted(async () => {
   const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
   if (!roomId) return
+  activeRoomId.value = roomId
 
   await loadMessages(roomId)
 
@@ -180,7 +182,7 @@ watch(participantChatOpen, (open) => {
           </div>
         </div>
       </div>
-      <PostMessage :room-code="room.roomCode" variant="light"></PostMessage>
+      <PostMessage v-if="activeRoomId" :room-id="activeRoomId" variant="light"></PostMessage>
     </section>
 
     <UDrawer
@@ -230,7 +232,7 @@ watch(participantChatOpen, (open) => {
               </div>
             </div>
           </div>
-          <PostMessage :room-code="room.roomCode" variant="light"></PostMessage>
+          <PostMessage v-if="activeRoomId" :room-id="activeRoomId" variant="light"></PostMessage>
         </section>
       </template>
     </UDrawer>
@@ -253,8 +255,8 @@ watch(participantChatOpen, (open) => {
       </div>
     </div>
 
-    <div v-if="room.textarea" style="height: 30px">
-      <PostMessage :room-code="room.roomCode"></PostMessage>
+    <div v-if="room.textarea && activeRoomId" style="height: 30px">
+      <PostMessage :room-id="activeRoomId"></PostMessage>
     </div>
   </template>
 </template>

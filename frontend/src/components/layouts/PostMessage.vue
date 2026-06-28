@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { apiClient } from '@/api/apiClient'
 const room = withDefaults(
   defineProps<{
-    roomCode: string
+    roomId: string
     variant?: 'default' | 'light'
   }>(),
   {
@@ -25,7 +25,7 @@ const post = async () => {
   }
   try {
     const response = await apiClient.POST('/api/rooms/{roomId}/chats', {
-      params: { path: { roomId: room.roomCode } },
+      params: { path: { roomId: room.roomId } },
       body: data,
     })
     if (response.error) {
