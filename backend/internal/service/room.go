@@ -404,12 +404,14 @@ func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user 
 	if err := s.roomRepository.Save(ctx, room); err != nil {
 		return err
 	}
-	reachSummaries := make([]openapi.ReachSummary, 0, len(room.ReachSummaries()))
-	for _, reachSumamry := range room.ReachSummaries() {
-		reachSummaries = append(reachSummaries, openapi.ReachSummary{User: openapi.User{UserID: openapi.UserID(reachSumamry.UserID)}})
+	roomReachSummaries := room.ReachSummaries()
+	reachSummaries := make([]openapi.ReachSummary, 0, len(roomReachSummaries))
+	for _, reachSummary := range roomReachSummaries {
+		reachSummaries = append(reachSummaries, openapi.ReachSummary{User: openapi.User{UserID: openapi.UserID(reachSummary.UserID)}})
 	}
-	bingoSummaries := make([]openapi.BingoSummary, 0, len(room.BingoSummaries()))
-	for _, bingoSummary := range room.BingoSummaries() {
+	roomBingoSummaries := room.BingoSummaries()
+	bingoSummaries := make([]openapi.BingoSummary, 0, len(roomBingoSummaries))
+	for _, bingoSummary := range roomBingoSummaries {
 		bingoOrders := make([]int, 0, len(bingoSummary.BingoOrders))
 		for _, bingoOrder := range bingoSummary.BingoOrders {
 			bingoOrders = append(bingoOrders, int(bingoOrder))
