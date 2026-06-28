@@ -10,6 +10,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
+	"github.com/traP-jp/h26_07/backend/internal/utils"
 
 	authmiddleware "github.com/traP-jp/h26_07/backend/internal/middleware"
 	"github.com/traP-jp/h26_07/backend/internal/model"
@@ -267,13 +268,13 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 			State:          openapi.RoomState(room.State),
 			Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 			PickState:      openapi.PickState(room.PickState),
-			PickedBalls:    convertPickedBallsToOpenAPI(room.PickedBalls),
+			PickedBalls:    utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
 			BingoSummaries: convertBingoSummariesToOpenAPI(room.BingoSummaries()),
 			ReachSummaries: convertReachSummariesToOpenAPI(room.ReachSummaries()),
 		}
 		if room.State != model.RoomStateWaiting {
-			if card, ok := findCard(room, userID); ok {
-				body.Card = new(convertCardToOpenAPI(room, card))
+			if card, ok := utils.FindCard(room, userID); ok {
+				body.Card = new(utils.ConvertCardToOpenAPI(room, card))
 			}
 		}
 		return openapi.ParticipantInitializedEvent{
@@ -288,7 +289,7 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 				Settings:         convertRoomSettingsToOpenAPI(room.Settings),
 				PickState:        openapi.PickState(room.PickState),
 				ParticipantCount: room.ParticipantCount(),
-				PickedBalls:      convertPickedBallsToOpenAPI(room.PickedBalls),
+				PickedBalls:      utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
 				QrCodeVisible:    room.QrCodeVisible,
 				BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
 				ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
