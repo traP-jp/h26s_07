@@ -4,8 +4,9 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const currentUserStore = useCurrentUserStore()
-const userId = currentUserStore.userId
-const iconUrl = computed(() => `https://q.trap.jp/api/v3/public/icon/${userId}`)
+const iconUrl = computed(() =>
+  currentUserStore.userId ? `https://q.trap.jp/api/v3/public/icon/${currentUserStore.userId}` : '',
+)
 
 const router = useRouter()
 </script>
@@ -31,8 +32,8 @@ const router = useRouter()
       <UButton icon="i-lucide-plus" to="/new" target="_blank" class="hidden sm:inline-flex"
         >新しいルームを作成</UButton
       >
-      <UAvatar :src="iconUrl" loading="lazy" />
-      <div>{{ userId }}</div>
+      <UAvatar v-if="currentUserStore.userId" :src="iconUrl" loading="lazy" />
+      <div v-if="currentUserStore.userId">{{ currentUserStore.userId }}</div>
     </template>
   </UHeader>
 </template>

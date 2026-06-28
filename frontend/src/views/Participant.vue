@@ -4,7 +4,7 @@ import BingoCardPaper from '@/components/layouts/BingoCardPaper.vue'
 import ChatContainer from '@/components/layouts/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
-import type { RoomCode, Card, RoomId } from '@/api/schema'
+import type { RoomCode, Card, RoomId, UserId } from '@/api/schema'
 import { useRoomsStore } from '@/stores/rooms'
 import { useCurrentUserStore } from '@/stores/currentUser'
 import { storeToRefs } from 'pinia'
@@ -27,9 +27,12 @@ const isGameWaiting = computed(() => roomState.value === 'waiting')
 let fireworks: Fireworks | undefined
 let fireworksStopTimer: ReturnType<typeof setTimeout> | undefined
 const errorMessage = ref('')
+const currentUserId = ref<UserId>()
 
 onMounted(async () => {
   if (!roomCode) return
+
+  currentUserId.value = await currentUserStore.getUserId()
 
   await roomsStore.init()
   const room = roomsByCode.value.get(roomCode)
@@ -42,7 +45,7 @@ onMounted(async () => {
   }
 
   const isParticipant =
-    room?.participants.some((participant) => participant.user.userId === currentUserStore.userId) ??
+    room?.participants.some((participant) => participant.user.userId === currentUserId.value) ??
     false
 
   if (!isParticipant) {

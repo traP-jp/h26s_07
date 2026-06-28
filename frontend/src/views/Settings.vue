@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted, watch } from 'vue'
 import type { FormError, FormSubmitEvent } from '@nuxt/ui'
+import type { UserId } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
 import { useCurrentUserStore } from '@/stores/currentUser'
 import { useRoomsStore } from '@/stores/rooms'
@@ -17,7 +18,7 @@ const errorMessage = ref('')
 const editing = ref(false)
 
 const currentUserStore = useCurrentUserStore()
-const userId = currentUserStore.userId
+const currentUserId = ref<UserId>()
 
 const props = defineProps<{
   roomCode: string
@@ -29,6 +30,8 @@ let roomId = ''
 
 onMounted(async () => {
   loading.value = true
+
+  currentUserId.value = await currentUserStore.getUserId()
 
   roomId = (await roomsStore.getRoomIdByCode(props.roomCode)) as string
 
@@ -84,7 +87,7 @@ function validate(formState: FormState): FormError[] {
     errors.push({ name: 'admins', message: '管理者を1人以上設定してください。' })
   }
 
-  if (!formState.adminUserIds.some((id) => userId === id)) {
+  if (!formState.adminUserIds.some((id) => currentUserId.value === id)) {
     errors.push({ name: 'admins', message: '自身を管理者から外すことはできません。' })
   }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import type { Room } from '@/api/schema'
+import type { Room, UserId } from '@/api/schema'
 
 import { apiClient } from '@/api/apiClient'
 import { useCurrentUserStore } from '@/stores/currentUser'
@@ -10,12 +10,15 @@ const currentUserStore = useCurrentUserStore()
 const loading = ref(true)
 const errorMessage = ref('')
 const rooms = ref(new Array<Room>())
+const currentUserId = ref<UserId>()
 
 const joinModalOpen = ref(false)
 const selectedRoom = ref<Room | null>(null)
 
 onMounted(async () => {
   loading.value = true
+
+  currentUserId.value = await currentUserStore.getUserId()
 
   const { data, error } = await apiClient.GET('/api/rooms')
   if (error) {
@@ -29,13 +32,13 @@ onMounted(async () => {
 
 const joinedRooms = computed(() => {
   return rooms.value.filter((room) =>
-    room.participants.some((participant) => participant.user.userId === currentUserStore.userId),
+    room.participants.some((participant) => participant.user.userId === currentUserId.value),
   )
 })
 
 const adminRooms = computed(() => {
   return rooms.value.filter((room) =>
-    room.settings.admins.some((admin) => admin.userId === currentUserStore.userId),
+    room.settings.admins.some((admin) => admin.userId === currentUserId.value),
   )
 })
 
@@ -43,7 +46,7 @@ const waitingRooms = computed(() => {
   return rooms.value.filter(
     (room) =>
       room.state == 'waiting' &&
-      !room.participants.some((participant) => participant.user.userId === currentUserStore.userId),
+      !room.participants.some((participant) => participant.user.userId === currentUserId.value),
   )
 })
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import type { FormError, FormSubmitEvent } from '@nuxt/ui'
 import { useRouter } from 'vue-router'
 import { apiClient } from '@/api/apiClient'
@@ -22,15 +22,12 @@ const state = reactive<FormState>({
   adminUserIds: [],
 })
 
-watch(
-  () => currentUserStore.userId,
-  (userId) => {
-    if (userId && state.adminUserIds.length === 0) {
-      state.adminUserIds = [userId]
-    }
-  },
-  { immediate: true },
-)
+onMounted(async () => {
+  const userId = await currentUserStore.getUserId()
+  if (userId && state.adminUserIds.length === 0) {
+    state.adminUserIds = [userId]
+  }
+})
 
 function validate(formState: FormState): FormError[] {
   const errors: FormError[] = []

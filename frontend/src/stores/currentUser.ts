@@ -1,35 +1,63 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { apiClient } from '@/api/apiClient'
-
-import type { UserId } from '@/api/schema'
+import type { User, UserId } from '@/api/schema'
 
 export const useCurrentUserStore = defineStore('currentUser', () => {
   const currentUserId = ref<UserId | null>(null)
+  const initialized = ref(false)
+  const loginRequired = ref(false)
+  let initPromise: Promise<void> | null = null
 
-  async function init() {
-    if (currentUserId.value !== null) {
+  async function init(): Promise<void> {
+    if (initialized.value) {
+      return
+    }
+    if (initPromise !== null) {
+      return initPromise
+    }
+
+    initPromise = fetchCurrentUser()
+    await initPromise
+  }
+
+  async function getUserId(): Promise<UserId> {
+    await init()
+    if (currentUserId.value === null) {
+      throw new Error('Failed to fetch current user')
+    }
+    return currentUserId.value
+  }
+
+  async function fetchCurrentUser(): Promise<void> {
+    loginRequired.value = false
+
+    const response = await fetch('/api/me', {
+      headers: {
+        Accept: 'application/json',
+      },
+      redirect: 'manual',
+    })
+
+    if (response.type === 'opaqueredirect' || response.status === 0) {
+      loginRequired.value = true
+      initialized.value = true
       return
     }
 
-    const { data, error } = await apiClient.GET('/api/me')
-
-    if (error !== undefined || data === undefined) {
+    if (!response.ok) {
       throw new Error('Failed to fetch current user')
     }
 
+    const data = (await response.json()) as User
     currentUserId.value = data.userId
+    initialized.value = true
   }
 
   return {
-    userId: computed(() => {
-      if (currentUserId.value === null) {
-        throw new Error('ユーザー情報が初期化されていません')
-      }
-
-      return currentUserId.value
-    }),
-    init,
+    initialized,
+    loginRequired,
+    userId: computed(() => currentUserId.value),
+    getUserId,
   }
 })
