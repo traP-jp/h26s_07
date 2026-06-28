@@ -511,7 +511,10 @@ func (room *Room) CancelPick(actor UserID, now time.Time) error {
 }
 
 func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID RecordIDGenerator, now time.Time) (PickFinishedResult, error) {
-	if !room.CanFinishPick(actor) {
+	if !room.IsAdmin(actor) {
+		return PickFinishedResult{}, ErrRoomForbidden
+	}
+	if room.State != RoomStatePlaying || room.PickState != RoomPickStatePicking {
 		return PickFinishedResult{}, ErrRoomPickNotFinishable
 	}
 	if !picked.Valid() {

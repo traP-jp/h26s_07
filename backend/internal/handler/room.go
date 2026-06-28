@@ -460,6 +460,35 @@ func (h *RoomHandler) PostPickCancel(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (h *RoomHandler) PostPickFinish(c *echo.Context) error {
+	userRaw, ok := authmiddleware.GetAuthenticatedUser(c)
+	if !ok {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+	roomIDString := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDString)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
+	}
+	user := model.UserID(userRaw.Name)
+	err = h.roomService.FinishPick(c.Request().Context(), model.RoomID(roomID), user)
+
+	if err != nil {
+		if isRoomNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, openapi.Error{Message: "room not found"})
+		}
+		if errors.Is(err, model.ErrRoomForbidden) {
+			return c.JSON(http.StatusForbidden, openapi.Error{Message: "admin required"})
+		}
+		if errors.Is(err, model.ErrRoomPickNotFinishable) || errors.Is(err, model.ErrNoDrawableBalls) || errors.Is(err, model.ErrBallAlreadyPicked) {
+			return c.JSON(http.StatusConflict, openapi.Error{Message: "pick is not finishable"})
+		}
+
+		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
 func (h *RoomHandler) StartGame(c *echo.Context) error {
 	userRaw, ok := authmiddleware.GetAuthenticatedUser(c)
 	if !ok {
@@ -480,6 +509,35 @@ func (h *RoomHandler) StartGame(c *echo.Context) error {
 		} else if errors.Is(err, model.ErrRoomNotStartable) {
 			return c.JSON(http.StatusConflict, openapi.Error{Message: "room not startable"})
 		}
+		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *RoomHandler) PostPickFinish(c *echo.Context) error {
+	userRaw, ok := authmiddleware.GetAuthenticatedUser(c)
+	if !ok {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+	roomIDString := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDString)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
+	}
+	user := model.UserID(userRaw.Name)
+	err = h.roomService.FinishPick(c.Request().Context(), model.RoomID(roomID), user)
+
+	if err != nil {
+		if isRoomNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, openapi.Error{Message: "room not found"})
+		}
+		if errors.Is(err, model.ErrRoomForbidden) {
+			return c.JSON(http.StatusForbidden, openapi.Error{Message: "admin required"})
+		}
+		if errors.Is(err, model.ErrRoomPickNotFinishable) || errors.Is(err, model.ErrNoDrawableBalls) || errors.Is(err, model.ErrBallAlreadyPicked) {
+			return c.JSON(http.StatusConflict, openapi.Error{Message: "pick is not finishable"})
+		}
+
 		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
 	}
 	return c.NoContent(http.StatusNoContent)
