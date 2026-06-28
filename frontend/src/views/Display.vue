@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
   z-index: 1;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 390px);
+  grid-template-columns: minmax(0, 1fr) clamp(310px, 27vw, 440px);
   gap: 20px;
   height: 100vh;
   padding: 2%;

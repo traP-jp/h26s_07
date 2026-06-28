@@ -3,13 +3,22 @@ import type { UserId } from '@/api/schema'
 defineProps<{
   userId: UserId
   content: string
+  notificationType?: 'bingo' | 'reach' | 'notice'
 }>()
 </script>
 
 <template>
   <div class="message">
     <UserIcon v-if="userId != ''" :user-id="userId" class="icon"></UserIcon>
-    <div class="nakami" :class="{ special: userId == '' }">
+    <div
+      class="nakami"
+      :class="{
+        special: userId == '',
+        'special--bingo': notificationType === 'bingo',
+        'special--reach': notificationType === 'reach',
+        'special--notice': notificationType === 'notice',
+      }"
+    >
       {{ content }}
     </div>
   </div>
@@ -35,21 +44,32 @@ defineProps<{
 .nakami.special {
   width: 100%;
   max-width: 100%;
-  background: rgb(250, 226, 22);
   text-align: center;
   border-radius: 10px;
-  color: #272727;
   font-weight: 600;
   font-size: 1.4em;
   line-height: 1;
 }
+.nakami.special--bingo {
+  background: #3972b8;
+  color: #ffffff;
+}
+.nakami.special--reach {
+  background: #ffffff;
+  color: #185aa9;
+}
+.nakami.special--notice {
+  border-color: #f1d529;
+  background: #fff2a8;
+  color: #37506f;
+}
 .nakami {
   max-width: 75%;
   padding: 10px 14px;
-  background: #424242;
-  border: 1px solid rgb(12, 54, 203);
+  background: #ffffff;
+  border: 1px solid rgb(56 114 177 / 0.28);
   border-radius: 0 14px 14px 14px;
-  color: #cfcfcf;
+  color: #24364d;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;

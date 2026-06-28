@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
 import type { Uuid, Message, DateTime, WebSocketMode } from '@/api/schema'
+import { apiClient } from '@/api/apiClient'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoomsStore } from '@/stores/rooms'
 
@@ -34,6 +35,17 @@ const addUserMessage = async (m: Message) => {
   void scrollToBottom()
 }
 
+const loadMessages = async (roomId: Uuid) => {
+  const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
+    params: { path: { roomId } },
+  })
+
+  if (response.data) {
+    messages.value = response.data
+    void scrollToBottom()
+  }
+}
+
 const addSpecialMessage = (id: Uuid, content: string, createdAt: DateTime) => {
   messages.value.push({
     messageId: `${id}-${messages.value.length}` as Uuid,
@@ -47,11 +59,20 @@ const addSpecialMessage = (id: Uuid, content: string, createdAt: DateTime) => {
 const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 
-onMounted(async () => {
-  if (!room.connect) return
+const notificationType = (message: Message) => {
+  if (message.author.userId !== '') return undefined
+  if (message.messageId.startsWith('newBingos')) return 'bingo'
+  if (message.messageId.startsWith('newReaches')) return 'reach'
+  return 'notice'
+}
 
+onMounted(async () => {
   const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
   if (!roomId) return
+
+  await loadMessages(roomId)
+
+  if (!room.connect) return
 
   const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
   if (store.isActiveConnection({ roomId, mode })) return
@@ -82,7 +103,7 @@ watch(
       if (newValue.length >= 2) {
         addSpecialMessage(
           'newBingos',
-          `${newValue[0]?.user.userId} と他 ${newValue.length - 1} 人がビンゴしました！`,
+          `${newValue.map((bingo) => bingo.user.userId).join('、')} がビンゴしました！`,
           'ima',
         )
       } else if (newValue.length == 1) {
@@ -110,11 +131,16 @@ watch(
 </script>
 
 <template>
-  <div ref="chatContainer" id="chatContainer">
+  <div
+    ref="chatContainer"
+    id="chatContainer"
+    :class="{ 'chat-container--display': room.variant === 'display' }"
+  >
     <div v-for="message in messages" :key="message.messageId">
       <MessageContainer
         :user-id="message.author.userId"
         :content="message.content"
+        :notification-type="notificationType(message)"
       ></MessageContainer>
     </div>
   </div>
@@ -136,21 +162,24 @@ watch(
   padding: 8px 0 14px;
 }
 
-.chat-container--display :deep(.message) {
+.chat-container--display .message {
   padding-right: 12px;
   padding-left: 12px;
 }
 
-.chat-container--display :deep(.nakami) {
+.chat-container--display .nakami:not(.special) {
   background: rgb(255 255 255 / 0.86);
   border-color: rgb(56 114 177 / 0.28);
   color: #24364d;
+  font-size: 14px;
 }
 
-.chat-container--display :deep(.nakami.special) {
-  background: #fff2a8;
-  color: #37506f;
-  font-size: 18px;
+.chat-container--display .nakami {
+  opacity: 0.88;
+}
+
+.chat-container--display .nakami.special {
+  font-size: 16px;
   line-height: 1.25;
 }
 
