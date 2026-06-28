@@ -39,7 +39,6 @@ func NewCard(cardID CardID, cardNumber CardNumber, owner UserID, numbers [24]Bal
 		number := numbers[numberIndex]
 		numberIndex++
 		if !number.Valid() || !numberInColumn(index, number) {
-			fmt.Println(!number.Valid(), !numberInColumn(index, number))
 			return Card{}, ErrInvalidCard
 		}
 		column := int(index) / 5
