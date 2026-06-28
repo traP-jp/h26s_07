@@ -46,11 +46,11 @@ const loadMessages = async (roomId: Uuid) => {
   }
 }
 
-const addSpecialMessage = (id: Uuid, content: string, createdAt: DateTime) => {
+const addSpecialMessage = (id: Uuid, content: string, createdAt: DateTime, userId?: string) => {
   messages.value.push({
     messageId: `${id}-${messages.value.length}` as Uuid,
     content: content,
-    author: { userId: '' },
+    author: { userId: userId ?? '' },
     createdAt: createdAt,
   })
   void scrollToBottom()
@@ -60,10 +60,10 @@ const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 
 const notificationType = (message: Message) => {
-  if (message.author.userId !== '') return undefined
   if (message.messageId.startsWith('newBingos')) return 'bingo'
   if (message.messageId.startsWith('newReaches')) return 'reach'
-  return 'notice'
+  if (message.messageId.startsWith('allPicked')) return 'notice'
+  return undefined
 }
 
 onMounted(async () => {
@@ -100,14 +100,13 @@ watch(
   () => store.latestNewBingos,
   (newValue) => {
     if (newValue) {
-      if (newValue.length >= 2) {
+      if (newValue.length >= 1) {
         addSpecialMessage(
           'newBingos',
-          `${newValue.map((bingo) => bingo.user.userId).join('、')} がビンゴしました！`,
+          `${newValue.map((bingo) => bingo.user.userId).join('，')} がビンゴしました！`,
           'ima',
+          newValue[0]?.user.userId,
         )
-      } else if (newValue.length == 1) {
-        addSpecialMessage('newBingos', `${newValue[0]?.user.userId} がビンゴしました！`, 'ima')
       }
     }
   },
@@ -121,9 +120,15 @@ watch(
           'newReaches',
           `${newValue[0]?.user.userId} と他 ${newValue.length - 1} 人がリーチしました！`,
           'ima',
+          newValue[0]?.user.userId,
         )
       } else if (newValue.length == 1) {
-        addSpecialMessage('newReaches', `${newValue[0]?.user.userId} がリーチしました！`, 'ima')
+        addSpecialMessage(
+          'newReaches',
+          `${newValue[0]?.user.userId} がリーチしました！`,
+          'ima',
+          newValue[0]?.user.userId,
+        )
       }
     }
   },
@@ -141,6 +146,7 @@ watch(
         <MessageContainer
           :user-id="message.author.userId"
           :content="message.content"
+          :special="message.createdAt == 'ima'"
           :notification-type="notificationType(message)"
         ></MessageContainer>
       </div>

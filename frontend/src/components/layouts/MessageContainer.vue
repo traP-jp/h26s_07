@@ -4,6 +4,7 @@ defineProps<{
   userId: UserId
   content: string
   notificationType?: 'bingo' | 'reach' | 'notice'
+  special: boolean
 }>()
 </script>
 
@@ -13,7 +14,7 @@ defineProps<{
     <div
       class="nakami"
       :class="{
-        special: userId == '',
+        special: special,
         'special--bingo': notificationType === 'bingo',
         'special--reach': notificationType === 'reach',
         'special--notice': notificationType === 'notice',
