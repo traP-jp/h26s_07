@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import BingoCardPaper from '@/components/layouts/BingoCardPaper.vue'
-import ChatContainer from '@/components/layouts/ChatContainer.vue'
+import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
+import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
 import type { RoomCode, Card, RoomId, UserId } from '@/api/schema'

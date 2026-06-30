@@ -9,6 +9,8 @@ import type {
   ReachSummary,
 } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
+import MessageContainer from '@/components/chat/MessageContainer.vue'
+import PostMessage from '@/components/chat/PostMessage.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoomsStore } from '@/stores/rooms'
 import { storeToRefs } from 'pinia'

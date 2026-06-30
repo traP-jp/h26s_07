@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import type { CardCellState, PickedBall } from '@/api/schema'
-import NumberBall from '@/components/layouts/NumberBall.vue'
+import NumberBall from '@/components/common/NumberBall.vue'
 import { getBallPalette } from '@/components/display/ballPalette'
 
 const props = defineProps<{

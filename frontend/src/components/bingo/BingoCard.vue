@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Card } from '@/api/schema'
-import CardCell from '@/components/layouts/CardCell.vue'
+import CardCell from '@/components/bingo/CardCell.vue'
 
 const props = withDefaults(
   defineProps<{

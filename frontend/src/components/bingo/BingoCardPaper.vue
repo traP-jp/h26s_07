@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Card, CardCell as CardCellType, CardChanges, Line } from '@/api/schema'
-import CardCell from '@/components/layouts/CardCell.vue'
+import CardCell from '@/components/bingo/CardCell.vue'
 import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(

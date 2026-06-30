@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { UserId } from '@/api/schema'
+import UserIcon from '@/components/common/UserIcon.vue'
+
 defineProps<{
   userId: UserId
   content: string
