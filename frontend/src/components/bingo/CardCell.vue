@@ -4,7 +4,6 @@ import NumberBall from '@/components/common/NumberBall.vue'
 import { computed } from 'vue'
 const props = defineProps<{
   cell: CardCell
-  size?: number
 }>()
 
 const ballColor = computed(() => {
@@ -40,6 +39,5 @@ const textColor = computed(() => {
     :ball-color="ballColor"
     :text-color="textColor"
     :text="props.cell.displayText"
-    :size="props.size"
   />
 </template>

@@ -79,7 +79,6 @@ const balls = computed<BallCell[]>(() =>
           :ball-color="ball.ballColor"
           :text-color="ball.textColor"
           :text="String(ball.number)"
-          :size="42"
         />
       </div>
     </div>
@@ -103,6 +102,7 @@ const balls = computed<BallCell[]>(() =>
   width: 42px;
   height: 42px;
   aspect-ratio: 1 / 1;
+  --cell-size: 42px;
 }
 
 @media (max-width: 860px) {
@@ -114,15 +114,15 @@ const balls = computed<BallCell[]>(() =>
 
   .ball-state-grid__cell,
   .ball-state-grid__number {
-    width: 100% !important;
-    height: auto !important;
+    width: 100%;
+    height: auto;
     min-width: 18px;
     min-height: 18px;
     aspect-ratio: 1 / 1;
   }
 
   .ball-state-grid__number {
-    font-size: 2.2vw !important;
+    font-size: 2.2vw;
   }
 }
 </style>

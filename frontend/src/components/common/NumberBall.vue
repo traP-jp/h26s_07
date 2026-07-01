@@ -3,32 +3,25 @@ const props = defineProps<{
   ballColor: string
   textColor: string
   text: string
-  size?: number
 }>()
 </script>
 
 <template>
   <div
-    class="ball"
+    class="ball number-ball"
     :style="{
       backgroundColor: props.ballColor,
       color: props.textColor,
-      width: props.size === undefined ? undefined : `${props.size}px`,
-      height: props.size === undefined ? undefined : `${props.size}px`,
-      fontSize: props.size === undefined ? undefined : `${props.size * 0.42}px`,
     }"
     v-if="props.text == 'FREE'"
   >
     <UIcon name="i-lucide-star" />
   </div>
   <div
-    class="ball"
+    class="ball number-ball"
     :style="{
       backgroundColor: props.ballColor,
       color: props.textColor,
-      width: props.size === undefined ? undefined : `${props.size}px`,
-      height: props.size === undefined ? undefined : `${props.size}px`,
-      fontSize: props.size === undefined ? undefined : `${props.size * 0.42}px`,
     }"
     v-else
   >
@@ -37,15 +30,16 @@ const props = defineProps<{
 </template>
 <style scoped>
 .ball {
-  width: calc(var(--cell-size, 64px) * 0.75);
-  height: calc(var(--cell-size, 64px) * 0.75);
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(var(--cell-size, 64px) * 0.315);
+  font-size: calc(var(--cell-size, 64px) * 0.42);
   font-weight: 900;
-  aspect-ratio: 1 / 1;
   flex-shrink: 0;
   box-sizing: border-box;
   box-shadow: 0 3px 9px rgb(0 0 0 / 0.08);

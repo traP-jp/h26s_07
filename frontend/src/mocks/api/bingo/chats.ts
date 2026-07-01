@@ -1,7 +1,7 @@
-import type { CreateMessageRequest, Message } from '@/api/schema'
+import type { CreateMessageRequest, Message, MessageCreatedBody } from '@/api/schema'
 
 import { http } from '../../http'
-import { currentUser, readJson } from './core'
+import { broadcastRoomEvent, currentUser, pathParam, readJson } from './core'
 
 const mockMessages: Message[] = [
   {
@@ -23,13 +23,20 @@ export const chatHandlers = [
     return response(200).json(mockMessages)
   }),
 
-  http.post('/api/rooms/{roomId}/chats', async ({ request, response }) => {
+  http.post('/api/rooms/{roomId}/chats', async ({ request, response, params }) => {
     const body = await readJson<CreateMessageRequest>(request)
     const message: Message = {
       messageId: crypto.randomUUID(),
       content: body?.content ?? 'モックメッセージ',
       author: currentUser(request),
       createdAt: new Date().toISOString(),
+    }
+
+    mockMessages.push(message)
+
+    const roomId = pathParam(params.roomId)
+    if (roomId) {
+      broadcastRoomEvent<MessageCreatedBody>(roomId, 'MessageCreated', { message })
     }
 
     return response(200).json(message)

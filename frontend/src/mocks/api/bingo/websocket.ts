@@ -22,7 +22,7 @@ import type {
 } from '@/api/schema'
 import { ws } from 'msw'
 
-import { pathParam, socketConnections, type MockSocketConnection } from './core'
+import { broadcastRoomEvent, pathParam, socketConnections, type MockSocketConnection } from './core'
 import { fallbackRoom, mockRooms } from './rooms'
 
 type MockWebSocketEvent<TBody> = {
@@ -33,6 +33,7 @@ type MockWebSocketEvent<TBody> = {
 const roomSocket = ws.link('*/api/rooms/:roomId/ws')
 const initialPickedBalls: PickedBall[] = [4, 18, 33]
 const scheduledDemoPickRoomIds = new Set<string>()
+const scheduledDemoChatRoomIds = new Set<string>()
 const demoBingoLine = [1, 6, 11, 16, 21]
 
 const demoPickSteps = [
@@ -277,20 +278,40 @@ function pickedBallsForDemoPickStep(step: (typeof demoPickSteps)[number]): Picke
   return [...new Set([...initialPickedBalls, ...pickedBalls])]
 }
 
-const mockMessages: Message[] = [
+const demoChatMessages = [
   {
-    messageId: '00000000-0000-4000-8000-000000000101',
-    content: 'モックルームへようこそ',
     author: { userId: 'mumumu' },
-    createdAt: '2026-06-27T10:02:00.000Z',
+    content: 'いい感じに進んでる',
   },
   {
-    messageId: '00000000-0000-4000-8000-000000000102',
-    content: '準備できています',
     author: { userId: 'rurun' },
-    createdAt: '2026-06-27T10:03:00.000Z',
+    content: 'リーチきた！',
   },
-]
+  {
+    author: { userId: 'kurao' },
+    content: '次こそビンゴしたい',
+  },
+  {
+    author: { userId: 'howard127' },
+    content: 'あと1個でいけそう',
+  },
+  {
+    author: { userId: 'kurosaki' },
+    content: '今の演出めっちゃ目立つ',
+  },
+  {
+    author: { userId: 'howard127' },
+    content: 'B列ぜんぜん来ない',
+  },
+  {
+    author: { userId: 'rurun' },
+    content: 'ビンゴした人おめでとう！',
+  },
+  {
+    author: { userId: 'mumumu' },
+    content: '次の抽選お願いします',
+  },
+] satisfies Pick<Message, 'author' | 'content'>[]
 
 function sendEvent<TBody>(
   connection: MockSocketConnection,
@@ -303,16 +324,6 @@ function sendEvent<TBody>(
   } satisfies MockWebSocketEvent<TBody>
 
   connection.send(JSON.stringify(event))
-}
-
-function roomConnectionList(roomId: string): MockSocketConnection[] {
-  return [...socketConnections].filter((connection) => connection.roomId === roomId)
-}
-
-function broadcastRoom<TBody>(roomId: string, type: WebSocketEventType, body: TBody): void {
-  for (const connection of roomConnectionList(roomId)) {
-    sendEvent(connection, type, body)
-  }
 }
 
 function roomByPathParam(roomParam: string): Room {
@@ -494,10 +505,22 @@ function sendGameFinished(connection: MockSocketConnection): void {
 }
 
 function scheduleDemoChatMessages(roomId: string): void {
-  for (const [index, message] of mockMessages.entries()) {
+  if (scheduledDemoChatRoomIds.has(roomId)) {
+    return
+  }
+
+  scheduledDemoChatRoomIds.add(roomId)
+
+  for (const [index, messageTemplate] of demoChatMessages.entries()) {
     window.setTimeout(
       () => {
-        broadcastRoom<MessageCreatedBody>(roomId, 'MessageCreated', { message })
+        const message: Message = {
+          ...messageTemplate,
+          messageId: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        }
+
+        broadcastRoomEvent<MessageCreatedBody>(roomId, 'MessageCreated', { message })
       },
       2000 + index * 3000,
     )

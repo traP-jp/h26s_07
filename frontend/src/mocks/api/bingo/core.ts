@@ -1,4 +1,4 @@
-import type { User, UserId, WebSocketMode } from '@/api/schema'
+import type { User, UserId, WebSocketEventType, WebSocketMode } from '@/api/schema'
 
 type JsonRequest = {
   json(): Promise<unknown>
@@ -13,6 +13,20 @@ export type MockSocketConnection = {
 }
 
 export const socketConnections = new Set<MockSocketConnection>()
+
+export function broadcastRoomEvent<TBody>(
+  roomId: string,
+  type: WebSocketEventType,
+  body: TBody,
+): void {
+  const event = JSON.stringify({ type, body })
+
+  for (const connection of socketConnections) {
+    if (connection.roomId === roomId) {
+      connection.send(event)
+    }
+  }
+}
 
 export function currentUser(request: Request): User {
   const forwardedUser = request.headers.get('X-Forwarded-User')?.trim()

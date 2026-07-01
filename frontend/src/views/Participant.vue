@@ -165,9 +165,9 @@ function stopBingoFireworks(dispose = false) {
       </div>
       <BingoCardPaper
         v-else
+        class="participant-room__bingo-card"
         :card="displayCard"
         :card-changes="latestCardChanges"
-        cell-size="var(--participant-card-cell-size)"
         :placeholder="displayCard === null"
       />
     </div>
@@ -178,22 +178,17 @@ function stopBingoFireworks(dispose = false) {
       textarea
       variant="participant"
     />
+
     <div ref="fireworksOverlay" class="participant-room__fireworks" aria-hidden="true"></div>
   </div>
 </template>
 
 <style scoped>
 .participant-room {
-  box-sizing: border-box;
-  position: fixed;
-  inset: 0;
-  display: grid;
-  width: 100%;
+  display: flex;
   height: 100dvh;
-  overflow: hidden;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  gap: 18px;
   padding: 18px;
+
   background:
     radial-gradient(circle at 12% 18%, rgb(176 226 255 / 0.75), transparent 34%),
     radial-gradient(circle at 82% 16%, rgb(255 197 223 / 0.7), transparent 32%),
@@ -203,22 +198,21 @@ function stopBingoFireworks(dispose = false) {
 }
 
 .participant-room__card {
-  --participant-card-cell-size: clamp(70px, min(14.8vw, 14dvh), 112px);
-
   display: flex;
-  min-width: 0;
-  min-height: 0;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  padding-bottom: 0;
+  container-type: size;
+}
+
+.participant-room__bingo-card {
+  width: min(85cqw, 80cqh);
 }
 
 .participant-room__chat {
-  min-width: 0;
+  width: 360px;
+  flex-shrink: 0;
   height: 100%;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .participant-room__waiting {
@@ -266,17 +260,16 @@ function stopBingoFireworks(dispose = false) {
 
 @media (max-width: 639px) {
   .participant-room {
-    display: flex;
     height: 100dvh;
     align-items: center;
     justify-content: center;
+    gap: 0;
     padding: 8px 8px 68px;
   }
 
   .participant-room__card {
-    --participant-card-cell-size: clamp(48px, min(15.5vw, 11dvh), 72px);
-
     width: 100%;
+    height: 100%;
   }
 
   .participant-room__waiting {
@@ -293,6 +286,7 @@ function stopBingoFireworks(dispose = false) {
   }
 
   .participant-room__chat {
+    width: auto;
     height: auto;
     min-height: 0;
   }

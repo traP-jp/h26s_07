@@ -16,7 +16,6 @@
               :ball-color="displayBallPalette.picked"
               :text-color="displayBallPalette.text"
               :text="displayBallText"
-              :size="260"
             />
           </div>
           <div v-if="isGameWaiting" class="display-page__waiting-panel" role="status">
@@ -201,11 +200,11 @@ onBeforeUnmount(() => {
 }
 
 .display-page__latest-number {
-  width: min(90cqw, 90cqh) !important;
-  height: auto !important;
+  width: min(90cqw, 90cqh);
+  height: auto;
   opacity: 0.8;
   aspect-ratio: 1 / 1;
-  font-size: min(14dvh, 38cqw) !important;
+  font-size: min(14dvh, 38cqw);
   box-shadow:
     0 10px 15px -3px rgb(0 0 0 / 0.1),
     0 4px 6px -4px rgb(0 0 0 / 0.1);

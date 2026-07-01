@@ -7,10 +7,9 @@ const props = withDefaults(
   defineProps<{
     card?: Card | null
     cardChanges?: CardChanges | null
-    cellSize?: number | string
     placeholder?: boolean
   }>(),
-  { cardChanges: null, cellSize: 48, placeholder: false },
+  { cardChanges: null, placeholder: false },
 )
 
 type CardEffectMode = 'bingo' | 'reach'
@@ -22,11 +21,6 @@ type LineEffectItem = {
 }
 
 const cardNo = computed(() => props.card?.cardNumber ?? 'not assigned')
-const size = computed(() => props.cellSize)
-const cellSizeStyle = computed(() =>
-  typeof size.value === 'number' ? `${size.value}px` : size.value,
-)
-const ballSize = computed(() => (typeof size.value === 'number' ? size.value * 0.75 : undefined))
 const title = ['B', 'I', 'N', 'G', 'O']
 const placeholderCells: CardCellType[] = Array.from({ length: 25 }, (_, index) => ({
   index,
@@ -160,32 +154,33 @@ watch(
   <div
     class="bingo-paper"
     :class="{ 'bingo-paper--placeholder': props.placeholder || !props.card }"
-    :style="{ '--cell-size': cellSizeStyle }"
   >
-    <div class="bingo-title">
-      <div v-for="letter in title" :key="letter" class="bingo-title-cell">
-        {{ letter }}
-      </div>
-    </div>
-
     <div class="bingo-grid">
-      <div
-        v-for="cell in cells"
-        :key="cell.index"
-        class="grid-cell"
-        :class="gridCellClass(cell)"
-        :style="gridCellStyle(cell)"
-      >
-        <CardCell :cell="cell" :size="ballSize" />
+      <div class="bingo-title">
+        <div v-for="letter in title" :key="letter" class="bingo-title-cell">
+          {{ letter }}
+        </div>
       </div>
 
-      <div
-        v-for="lineEffect in persistentLineEffects"
-        :key="`${lineEffect.id}-${effectSerial}`"
-        class="line-effect line-effect--persistent"
-        :class="`line-effect--${lineEffect.mode}`"
-        :style="lineEffect.style"
-      ></div>
+      <div class="bingo-grid__cells">
+        <div
+          v-for="cell in cells"
+          :key="cell.index"
+          class="grid-cell"
+          :class="gridCellClass(cell)"
+          :style="gridCellStyle(cell)"
+        >
+          <CardCell :cell="cell" :style="{ width: '80%', height: '80%' }" />
+        </div>
+
+        <div
+          v-for="lineEffect in persistentLineEffects"
+          :key="`${lineEffect.id}-${effectSerial}`"
+          class="line-effect"
+          :class="`line-effect--${lineEffect.mode}`"
+          :style="lineEffect.style"
+        ></div>
+      </div>
     </div>
 
     <div
@@ -217,13 +212,11 @@ watch(
 .bingo-paper {
   position: relative;
   box-sizing: border-box;
-  display: inline-block;
-  width: fit-content;
-  max-width: 100%;
-  padding: calc(var(--cell-size) * 0.2) calc(var(--cell-size) * 0.2) calc(var(--cell-size) * 0.1);
-  overflow: hidden;
+  --cell-size: calc(100cqw / 5.8);
+  padding: 3% 2.5% 1%;
   background: #c32020;
   box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+  container-type: inline-size;
 }
 
 .bingo-paper--placeholder .grid-cell {
@@ -234,10 +227,14 @@ watch(
   opacity: 0.35;
 }
 
+.bingo-grid {
+  display: grid;
+  gap: 0.5em;
+}
+
 .bingo-title {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  margin-bottom: 0.5em;
 }
 
 .bingo-title-cell {
@@ -246,20 +243,19 @@ watch(
   font-weight: 900;
   letter-spacing: 0.05em;
   line-height: 1;
-  font-size: calc(var(--cell-size) * 0.6);
+  font-size: calc(var(--cell-size) * 0.7);
 }
 
-.bingo-grid {
+.bingo-grid__cells {
   position: relative;
   display: grid;
-  grid-template-rows: repeat(5, var(--cell-size));
-  grid-auto-columns: var(--cell-size);
-  gap: 0;
+  aspect-ratio: 1 / 1;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  grid-auto-flow: column;
   border-top: 4px solid #c32020;
   border-left: 4px solid #c32020;
   background: #c32020;
-  place-content: center;
-  grid-auto-flow: column;
 }
 
 .grid-cell {
@@ -317,10 +313,6 @@ watch(
     0 0 0 calc(var(--cell-size) * 0.025) rgb(255 193 224 / 0.18),
     0 0 12px rgb(255 185 105 / 0.22);
   animation: reach-ball-aura 1700ms ease-in-out infinite;
-}
-
-.grid-cell--line-reach.grid-cell--reach-missing:not(.grid-cell--line-bingo) :deep(.ball) {
-  animation: reach-ball-wobble 1500ms ease-in-out infinite;
 }
 
 .grid-cell--line-bingo :deep(.ball) {
@@ -456,23 +448,15 @@ watch(
 
 .bingo-footer {
   margin-top: 8px;
-  display: flex;
-  justify-content: end;
-  align-items: center;
   color: #ffffff;
   font-style: italic;
-  min-width: 0;
 }
 
 .card-no {
   display: block;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
   overflow-wrap: anywhere;
-  word-break: break-all;
   line-height: 1.2;
-  font-size: calc(var(--cell-size) * 0.16);
+  font-size: calc(var(--cell-size) * 0.18);
   text-align: right;
 }
 
@@ -520,18 +504,6 @@ watch(
   100% {
     opacity: 0.28;
     transform: scale(1);
-  }
-}
-
-@keyframes reach-missing-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgb(118 202 255 / 0);
-    transform: scale(1);
-  }
-  45% {
-    box-shadow: 0 0 0 calc(var(--cell-size) * 0.08) rgb(118 202 255 / 0.28);
-    transform: scale(1.07);
   }
 }
 
@@ -597,29 +569,6 @@ watch(
   18%,
   72% {
     opacity: 1;
-  }
-}
-
-@keyframes line-sweep {
-  0% {
-    transform: scaleX(0);
-  }
-  100% {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes line-comet {
-  0% {
-    left: 0;
-    opacity: 0;
-  }
-  18% {
-    opacity: 1;
-  }
-  100% {
-    left: 100%;
-    opacity: 0;
   }
 }
 
