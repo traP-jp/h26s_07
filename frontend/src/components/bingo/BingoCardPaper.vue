@@ -233,6 +233,7 @@ watch(
 
 .bingo-title {
   display: grid;
+  user-select: none;
   grid-template-columns: repeat(5, 1fr);
 }
 
