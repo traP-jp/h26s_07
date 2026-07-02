@@ -102,7 +102,6 @@ const balls = computed<BallCell[]>(() =>
   width: 42px;
   height: 42px;
   aspect-ratio: 1 / 1;
-  --cell-size: 42px;
 }
 
 @media (max-width: 860px) {

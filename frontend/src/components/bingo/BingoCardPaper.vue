@@ -151,36 +151,31 @@ watch(
 </script>
 
 <template>
-  <div
-    class="bingo-paper"
-    :class="{ 'bingo-paper--placeholder': props.placeholder || !props.card }"
-  >
-    <div class="bingo-grid">
-      <div class="bingo-title">
-        <div v-for="letter in title" :key="letter" class="bingo-title-cell">
-          {{ letter }}
-        </div>
+  <div class="bingo-paper">
+    <div class="bingo-title">
+      <div v-for="letter in title" :key="letter" class="bingo-title-cell">
+        {{ letter }}
+      </div>
+    </div>
+
+    <div class="bingo-cells">
+      <div
+        v-for="cell in cells"
+        :key="cell.index"
+        class="grid-cell"
+        :class="gridCellClass(cell)"
+        :style="gridCellStyle(cell)"
+      >
+        <CardCell :cell="cell" :style="{ width: '80%', height: '80%' }" />
       </div>
 
-      <div class="bingo-grid__cells">
-        <div
-          v-for="cell in cells"
-          :key="cell.index"
-          class="grid-cell"
-          :class="gridCellClass(cell)"
-          :style="gridCellStyle(cell)"
-        >
-          <CardCell :cell="cell" :style="{ width: '80%', height: '80%' }" />
-        </div>
-
-        <div
-          v-for="lineEffect in persistentLineEffects"
-          :key="`${lineEffect.id}-${effectSerial}`"
-          class="line-effect"
-          :class="`line-effect--${lineEffect.mode}`"
-          :style="lineEffect.style"
-        ></div>
-      </div>
+      <div
+        v-for="lineEffect in persistentLineEffects"
+        :key="`${lineEffect.id}-${effectSerial}`"
+        class="line-effect"
+        :class="`line-effect--${lineEffect.mode}`"
+        :style="lineEffect.style"
+      ></div>
     </div>
 
     <div
@@ -197,9 +192,7 @@ watch(
       <span class="bingo-celebration__text">BINGO!!</span>
     </div>
 
-    <div class="bingo-footer">
-      <span class="card-no">Card No. {{ cardNo }}</span>
-    </div>
+    <div class="card-no">Card No. {{ cardNo }}</div>
 
     <div v-if="props.placeholder || !props.card" class="bingo-placeholder-message">
       カードはまだ配られていません
@@ -211,29 +204,15 @@ watch(
 .bingo-paper {
   position: relative;
   box-sizing: border-box;
-  --cell-size: calc(100cqw / 5.8);
   padding: 3% 2.5% 1%;
   background: #c32020;
   box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
   container-type: inline-size;
 }
 
-.bingo-paper--placeholder .grid-cell {
-  background: #f3f5f8;
-}
-
-.bingo-paper--placeholder :deep(.number-ball) {
-  opacity: 0.35;
-}
-
-.bingo-grid {
-  display: grid;
-  gap: 0.5em;
-}
-
 .bingo-title {
   display: grid;
-  user-select: none;
+  margin-bottom: 0.5em;
   grid-template-columns: repeat(5, 1fr);
 }
 
@@ -241,12 +220,12 @@ watch(
   text-align: center;
   color: #ffffff;
   font-weight: 900;
-  letter-spacing: 0.05em;
   line-height: 1;
-  font-size: calc(var(--cell-size) * 0.7);
+  font-size: 12cqw;
+  user-select: none;
 }
 
-.bingo-grid__cells {
+.bingo-cells {
   position: relative;
   display: grid;
   aspect-ratio: 1 / 1;
@@ -261,21 +240,12 @@ watch(
 .grid-cell {
   position: relative;
   z-index: 1;
-  background: #ffffff;
-  border-right: 4px solid #c32020;
-  border-bottom: 4px solid #c32020;
-
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.grid-cell--line-reach {
-  background: #fff8fb;
-}
-
-.grid-cell--line-bingo {
-  background: #fff9fb;
+  background: #ffffff;
+  border-right: 4px solid #c32020;
+  border-bottom: 4px solid #c32020;
 }
 
 .grid-cell--active-line::before {
@@ -310,7 +280,7 @@ watch(
 .grid-cell--line-reach:not(.grid-cell--line-bingo) :deep(.ball) {
   box-shadow:
     0 3px 9px rgb(0 0 0 / 0.08),
-    0 0 0 calc(var(--cell-size) * 0.025) rgb(255 193 224 / 0.18),
+    0 0 0 0.43cqw rgb(255 193 224 / 0.18),
     0 0 12px rgb(255 185 105 / 0.22);
   animation: reach-ball-aura 1700ms ease-in-out infinite;
 }
@@ -325,7 +295,7 @@ watch(
   left: var(--line-x);
   z-index: 2;
   width: var(--line-length);
-  height: calc(var(--cell-size) * 0.13);
+  height: 2.2cqw;
   border-radius: 999px;
   opacity: 0;
   pointer-events: none;
@@ -346,8 +316,8 @@ watch(
   position: absolute;
   top: 50%;
   left: 0;
-  width: calc(var(--cell-size) * 0.2);
-  height: calc(var(--cell-size) * 0.2);
+  width: 3.4cqw;
+  height: 3.4cqw;
   border-radius: 999px;
   content: '';
   transform: translate(-50%, -50%);
@@ -395,7 +365,7 @@ watch(
   left: 50%;
   z-index: 4;
   display: grid;
-  width: min(82%, calc(var(--cell-size) * 4.7));
+  width: 81%;
   aspect-ratio: 1 / 0.58;
   place-items: center;
   pointer-events: none;
@@ -406,12 +376,12 @@ watch(
 .bingo-celebration__text {
   position: relative;
   z-index: 2;
-  padding: calc(var(--cell-size) * 0.12) calc(var(--cell-size) * 0.22);
-  border-radius: calc(var(--cell-size) * 0.2);
+  padding: 2.1cqw 3.8cqw;
+  border-radius: 3.4cqw;
   background: rgb(255 255 255 / 0.84);
   box-shadow: 0 10px 28px rgb(255 154 209 / 0.24);
   color: #f06fb1;
-  font-size: clamp(24px, calc(var(--cell-size) * 0.46), 54px);
+  font-size: clamp(24px, 7.9cqw, 54px);
   font-weight: 950;
   line-height: 1;
   text-shadow:
@@ -425,8 +395,8 @@ watch(
   top: 50%;
   left: 50%;
   z-index: 1;
-  width: calc(var(--cell-size) * 0.12);
-  height: calc(var(--cell-size) * 0.12);
+  width: 2.1cqw;
+  height: 2.1cqw;
   border-radius: 999px;
   background: #ffcde8;
   opacity: 0;
@@ -446,17 +416,14 @@ watch(
   background: #fff0a8;
 }
 
-.bingo-footer {
-  margin-top: 8px;
-  color: #ffffff;
-  font-style: italic;
-}
-
 .card-no {
   display: block;
+  margin-top: 8px;
+  color: #ffffff;
   overflow-wrap: anywhere;
+  font-style: italic;
   line-height: 1.2;
-  font-size: calc(var(--cell-size) * 0.18);
+  font-size: 3.1cqw;
   text-align: right;
 }
 
@@ -471,7 +438,7 @@ watch(
   background: rgb(255 255 255 / 0.92);
   box-shadow: 0 10px 28px rgb(0 0 0 / 0.16);
   color: #1f3556;
-  font-size: clamp(14px, calc(var(--cell-size) * 0.25), 20px);
+  font-size: clamp(14px, 4.3cqw, 20px);
   font-weight: 800;
   line-height: 1.4;
   text-align: center;
@@ -512,14 +479,14 @@ watch(
   100% {
     box-shadow:
       0 3px 9px rgb(0 0 0 / 0.08),
-      0 0 0 calc(var(--cell-size) * 0.02) rgb(255 193 224 / 0.14),
+      0 0 0 0.34cqw rgb(255 193 224 / 0.14),
       0 0 10px rgb(255 185 105 / 0.18);
     transform: scale(1);
   }
   45% {
     box-shadow:
       0 3px 9px rgb(0 0 0 / 0.08),
-      0 0 0 calc(var(--cell-size) * 0.055) rgb(255 193 224 / 0.22),
+      0 0 0 0.95cqw rgb(255 193 224 / 0.22),
       0 0 16px rgb(255 185 105 / 0.26);
     transform: scale(1.025);
   }
@@ -530,13 +497,13 @@ watch(
   100% {
     box-shadow:
       0 3px 9px rgb(0 0 0 / 0.08),
-      0 0 0 calc(var(--cell-size) * 0.025) rgb(255 193 224 / 0.16);
+      0 0 0 0.43cqw rgb(255 193 224 / 0.16);
     transform: scale(1) rotate(0);
   }
   35% {
     box-shadow:
       0 3px 9px rgb(0 0 0 / 0.08),
-      0 0 0 calc(var(--cell-size) * 0.065) rgb(255 193 224 / 0.24),
+      0 0 0 1.1cqw rgb(255 193 224 / 0.24),
       0 0 18px rgb(255 185 105 / 0.28);
     transform: scale(1.04) rotate(-1.5deg);
   }
@@ -550,13 +517,13 @@ watch(
   100% {
     box-shadow:
       0 3px 9px rgb(0 0 0 / 0.08),
-      0 0 0 calc(var(--cell-size) * 0.02) rgb(255 240 168 / 0.16),
+      0 0 0 0.34cqw rgb(255 240 168 / 0.16),
       0 0 10px rgb(255 122 182 / 0.18);
   }
   48% {
     box-shadow:
       0 3px 9px rgb(0 0 0 / 0.08),
-      0 0 0 calc(var(--cell-size) * 0.045) rgb(255 240 168 / 0.24),
+      0 0 0 0.78cqw rgb(255 240 168 / 0.24),
       0 0 16px rgb(255 122 182 / 0.26);
   }
 }
