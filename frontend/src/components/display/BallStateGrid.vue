@@ -2,12 +2,12 @@
 import { computed, ref, watch } from 'vue'
 
 import type { CardCellState, PickedBall } from '@/api/schema'
-import NumberBall from '@/components/layouts/NumberBall.vue'
+import NumberBall from '@/components/common/NumberBall.vue'
 import { getBallPalette } from '@/components/display/ballPalette'
 
 const props = defineProps<{
   pickedBalls: PickedBall[]
-  latestPickedBall?: PickedBall | null
+  latestBall?: PickedBall | null
 }>()
 
 type BallCell = {
@@ -22,17 +22,17 @@ type BallCell = {
 const seenBallNumbers = ref<Set<PickedBall>>(new Set())
 
 watch(
-  () => [props.pickedBalls, props.latestPickedBall] as const,
-  ([pickedBalls, latestPickedBall]) => {
-    if (pickedBalls.length === 0 && latestPickedBall == null) {
+  () => [props.pickedBalls, props.latestBall] as const,
+  ([pickedBalls, latestBall]) => {
+    if (pickedBalls.length === 0 && latestBall == null) {
       seenBallNumbers.value = new Set()
       return
     }
 
     const nextSeenBallNumbers = new Set(seenBallNumbers.value)
     pickedBalls.forEach((ball) => nextSeenBallNumbers.add(ball))
-    if (latestPickedBall != null) {
-      nextSeenBallNumbers.add(latestPickedBall)
+    if (latestBall != null) {
+      nextSeenBallNumbers.add(latestBall)
     }
     seenBallNumbers.value = nextSeenBallNumbers
   },
@@ -48,7 +48,7 @@ const balls = computed<BallCell[]>(() =>
     return {
       number,
       state: isPicked ? 'open' : 'closed',
-      isLatest: props.latestPickedBall === number,
+      isLatest: props.latestBall === number,
       ballColor: isPicked ? palette.picked : palette.waiting,
       ringColor: palette.ring,
       textColor: isPicked ? '#ffffff' : palette.text,
@@ -79,7 +79,6 @@ const balls = computed<BallCell[]>(() =>
           :ball-color="ball.ballColor"
           :text-color="ball.textColor"
           :text="String(ball.number)"
-          :size="42"
         />
       </div>
     </div>
@@ -114,15 +113,15 @@ const balls = computed<BallCell[]>(() =>
 
   .ball-state-grid__cell,
   .ball-state-grid__number {
-    width: 100% !important;
-    height: auto !important;
+    width: 100%;
+    height: auto;
     min-width: 18px;
     min-height: 18px;
     aspect-ratio: 1 / 1;
   }
 
   .ball-state-grid__number {
-    font-size: 2.2vw !important;
+    font-size: 2.2vw;
   }
 }
 </style>

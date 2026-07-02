@@ -1,22 +1,8 @@
 import type { CreateMessageRequest, Message } from '@/api/schema'
 
 import { http } from '../../http'
-import { currentUser, readJson } from './core'
-
-const mockMessages: Message[] = [
-  {
-    messageId: '00000000-0000-4000-8000-000000000101',
-    content: 'モックルームへようこそ',
-    author: { userId: 'mumumu' },
-    createdAt: '2026-06-27T10:02:00.000Z',
-  },
-  {
-    messageId: '00000000-0000-4000-8000-000000000102',
-    content: '準備できています',
-    author: { userId: 'rurun' },
-    createdAt: '2026-06-27T10:03:00.000Z',
-  },
-]
+import { currentUser, readJson, sendEvent } from './core'
+import { mockMessages } from './fixtures/index'
 
 export const chatHandlers = [
   http.get('/api/rooms/{roomId}/chats', ({ response }) => {
@@ -31,6 +17,10 @@ export const chatHandlers = [
       author: currentUser(request),
       createdAt: new Date().toISOString(),
     }
+
+    mockMessages.push(message)
+
+    sendEvent({ type: 'MessageCreated', body: { message } })
 
     return response(200).json(message)
   }),

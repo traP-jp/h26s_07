@@ -44,7 +44,6 @@ const post = async () => {
   <div class="wrapper" :class="{ 'wrapper--light': room.variant === 'light' }">
     <div class="newMessage">
       <input
-        id="newMessage"
         v-model="newMessage"
         type="text"
         placeholder="1 文字以上 500 文字以下で入力"

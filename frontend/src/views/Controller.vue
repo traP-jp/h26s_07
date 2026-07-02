@@ -2,9 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { apiClient } from '@/api/apiClient'
 import { useRoomsStore } from '@/stores/rooms'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const roomsStore = useRoomsStore()
 
 const loading = ref(false)
@@ -71,6 +69,16 @@ const clickGameStart = () => {
 const clickGameFinish = () => {
   isDisabled.value = true
   finishModal.value = true
+}
+
+const cancelGameStart = () => {
+  startModal.value = false
+  isDisabled.value = false
+}
+
+const cancelGameFinish = () => {
+  finishModal.value = false
+  isDisabled.value = false
 }
 
 const clickStartModal = async () => {
@@ -200,7 +208,7 @@ const clickHideQr = async () => {
         label="やっぱ開始しない"
         color="neutral"
         variant="outline"
-        @click="((startModal = false), (isDisabled = false))"
+        @click="cancelGameStart"
       />
       <UButton label="本当に開始する！" color="neutral" @click="clickStartModal()" />
     </template>
@@ -219,7 +227,7 @@ const clickHideQr = async () => {
         label="やっぱ終了しない"
         color="neutral"
         variant="outline"
-        @click="((finishModal = false), (isDisabled = false))"
+        @click="cancelGameFinish"
       />
       <UButton label="本当に終了する！" color="neutral" @click="clickFinishModal()" />
     </template>
@@ -233,7 +241,7 @@ const clickHideQr = async () => {
     :close="false"
   >
     <template #footer>
-      <UButton label="トップへ戻る" color="neutral" @click="router.push('/')" />
+      <UButton label="トップへ戻る" color="neutral" to="/" />
     </template>
   </UModal>
 

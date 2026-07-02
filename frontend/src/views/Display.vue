@@ -1,8 +1,3 @@
-<!--
-playGameStartCutin()
-playBingoOverlay()
--->
-
 <template>
   <div class="page">
     <div ref="displayPageElement" class="display-page">
@@ -15,24 +10,19 @@ playBingoOverlay()
       />
       <div class="display-page__stage">
         <div class="display-page__content">
-          <div class="display-page__latest-ball" aria-label="直近の抽選番号">
+          <div class="display-page__latest-ball">
             <NumberBall
               class="display-page__latest-number"
-              :ball-color="displayBallColor"
-              :text-color="displayBallTextColor"
+              :ball-color="displayBallPalette.picked"
+              :text-color="displayBallPalette.text"
               :text="displayBallText"
-              :size="260"
             />
           </div>
-          <div v-if="isGameWaiting" class="display-page__waiting-panel" role="status">
+          <div v-if="isGameWaiting" class="display-page__waiting-panel">
             <p class="display-page__waiting-title">ゲームはまだ始まっていません</p>
             <p class="display-page__waiting-text">参加者の準備ができるまでお待ちください</p>
           </div>
-          <BallStateGrid
-            v-else
-            :picked-balls="pickedBalls"
-            :latest-picked-ball="latestPickedBall"
-          />
+          <BallStateGrid v-else :picked-balls="pickedBalls" :latest-ball="latestBall" />
           <RoomStatsBar />
         </div>
         <div class="display-page__chat">
@@ -68,109 +58,36 @@ playBingoOverlay()
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import type { RoomId } from '@/api/schema'
-import type { PickedBall } from '@/api/schema'
 import Iridescence from '@/components/backgrounds/Iridescence.vue'
-import NumberBall from '@/components/layouts/NumberBall.vue'
+import NumberBall from '@/components/common/NumberBall.vue'
 import BallStateGrid from '@/components/display/BallStateGrid.vue'
-import { getBallPalette } from '@/components/display/ballPalette'
 import DisplayParticipantQrCode from '@/components/display/DisplayParticipantQrCode.vue'
 import RoomStatsBar from '@/components/display/RoomStatsBar.vue'
-import ChatContainer from '@/components/layouts/ChatContainer.vue'
-import {
-  DEFAULT_NUMBER_BALL_FAVICON,
-  updateNumberBallFavicon,
-} from '@/composables/useNumberBallFavicon'
-import { useSoundEffect } from '@/composables/useSoundEffect'
+import ChatContainer from '@/components/chat/ChatContainer.vue'
+import { useDisplayEffects } from '@/composables/useDisplayEffects'
+import { useNumberBallFavicon } from '@/composables/useNumberBallFavicon'
+import { usePickRollingEffect } from '@/composables/usePickRollingEffect'
 import { useRoomsStore } from '@/stores/rooms'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 import GameStartCutin from '@/components/GameStartCutin.vue'
 
-const showCutin = ref(false)
-const showBingo = ref(false)
-const cutinKey = ref(0)
-
-const topText = ref('GAME')
-const bottomText = ref('START')
-
-async function playGameStartCutin() {
-  showBingo.value = false
-  showCutin.value = false
-  await nextTick()
-
-  cutinKey.value += 1
-  showCutin.value = true
-}
-
-function handleCutinComplete() {
-  showCutin.value = false
-}
-
 const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
-const {
-  latestEvent,
-  latestPickedBall,
-  pickState,
-  pickedBalls,
-  qrCodeVisible,
-  roomState,
-  latestNewBingos,
-} = storeToRefs(roomWebSocketStore)
+const { latestBall, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
 const roomId = ref<RoomId | null>(null)
-const rollingPickedBall = ref<PickedBall | null>(null)
-const drumroll = useSoundEffect('drumroll', { loop: true })
-const cymbal = useSoundEffect('cymbal')
-let rollingTimerId: number | null = null
-const displayedBingoUserIds = new Set<string>()
+const { displayBallPalette, displayBallText } = usePickRollingEffect()
+const { bottomText, cutinKey, handleCutinComplete, showCutin, topText } = useDisplayEffects()
+useNumberBallFavicon()
 
 const isGameWaiting = computed(() => roomState.value === 'waiting')
-
-const displayPickedBall = computed(() => {
-  if (pickState.value === 'picking') {
-    return rollingPickedBall.value
-  }
-
-  return latestPickedBall.value
-})
-
-const displayBallText = computed(() => {
-  if (roomState.value == null || roomState.value === 'waiting' || displayPickedBall.value == null) {
-    return '?'
-  }
-
-  return String(displayPickedBall.value)
-})
-
-const displayBallColor = computed(() => {
-  if (displayPickedBall.value == null || displayBallText.value === '?') {
-    return '#f1f6fb'
-  }
-
-  return getBallPalette(displayPickedBall.value).picked
-})
-
-const displayBallTextColor = computed(() => {
-  if (displayBallText.value === '?') {
-    return '#9aa8b7'
-  }
-
-  return '#ffffff'
-})
-
-function stopRollingPickedBall() {
-  if (rollingTimerId == null) return
-
-  window.clearInterval(rollingTimerId)
-  rollingTimerId = null
-}
 
 function syncFullscreenState() {
   isFullscreen.value = document.fullscreenElement === displayPageElement.value
@@ -184,78 +101,6 @@ async function toggleFullscreen() {
 
   await displayPageElement.value?.requestFullscreen()
 }
-
-watch(
-  pickState,
-  (nextPickState) => {
-    stopRollingPickedBall()
-
-    if (nextPickState !== 'picking') {
-      rollingPickedBall.value = null
-      drumroll.stop()
-      return
-    }
-
-    drumroll.play()
-    rollingPickedBall.value = Math.floor(Math.random() * 75 + 1) as PickedBall
-    rollingTimerId = window.setInterval(() => {
-      rollingPickedBall.value = Math.floor(Math.random() * 75 + 1) as PickedBall
-    }, 60)
-  },
-  { immediate: true },
-)
-
-watch(
-  latestPickedBall,
-  (pickedBall) => {
-    if (pickedBall == null) {
-      return
-    }
-
-    updateNumberBallFavicon({
-      ballColor: getBallPalette(pickedBall).picked,
-      text: String(pickedBall),
-      textColor: '#ffffff',
-    })
-  },
-  { immediate: true },
-)
-
-watch(latestEvent, (event) => {
-  if (!event) return
-  if (event.type === 'Initialized') {
-    displayedBingoUserIds.clear()
-  }
-  if (event.type === 'PickFinished') {
-    cymbal.play()
-  }
-  if (event.type === 'GameStarted') {
-    displayedBingoUserIds.clear()
-    playGameStartCutin()
-  }
-})
-
-watch(latestNewBingos, (newBingos = []) => {
-  const increasedBingos = newBingos.filter((bingo) => !displayedBingoUserIds.has(bingo.user.userId))
-
-  for (const bingo of newBingos) {
-    displayedBingoUserIds.add(bingo.user.userId)
-  }
-
-  if (increasedBingos.length < 1) {
-    return
-  }
-
-  topText.value = String(increasedBingos.length) + ' players'
-  bottomText.value = 'BINGO!!!'
-  playGameStartCutin()
-})
-
-// watch(latestNewBingos, (newValue) => {
-//   if (newValue.length >= 1) {
-//     playBingoOverlay()
-//   }
-// })
 
 onMounted(async () => {
   document.addEventListener('fullscreenchange', syncFullscreenState)
@@ -275,9 +120,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  stopRollingPickedBall()
   document.removeEventListener('fullscreenchange', syncFullscreenState)
-  updateNumberBallFavicon(DEFAULT_NUMBER_BALL_FAVICON)
 
   if (
     roomId.value &&
@@ -357,11 +200,11 @@ onBeforeUnmount(() => {
 }
 
 .display-page__latest-number {
-  width: min(90cqw, 90cqh) !important;
-  height: auto !important;
+  width: min(90cqw, 90cqh);
+  height: auto;
   opacity: 0.8;
   aspect-ratio: 1 / 1;
-  font-size: min(14dvh, 38cqw) !important;
+  font-size: min(14dvh, 38cqw);
   box-shadow:
     0 10px 15px -3px rgb(0 0 0 / 0.1),
     0 4px 6px -4px rgb(0 0 0 / 0.1);

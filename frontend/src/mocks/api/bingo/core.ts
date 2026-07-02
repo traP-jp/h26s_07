@@ -1,4 +1,4 @@
-import type { User, UserId, WebSocketMode } from '@/api/schema'
+import type { User, UserId, WebSocketEventType, WebSocketMode } from '@/api/schema'
 
 type JsonRequest = {
   json(): Promise<unknown>
@@ -12,7 +12,21 @@ export type MockSocketConnection = {
   close(code?: number, reason?: string): void
 }
 
-export const socketConnections = new Set<MockSocketConnection>()
+let currentSocketConnection: MockSocketConnection | undefined
+
+export function setSocketConnection(connection: MockSocketConnection): void {
+  currentSocketConnection = connection
+}
+
+export function clearSocketConnection(connection: MockSocketConnection): void {
+  if (currentSocketConnection === connection) {
+    currentSocketConnection = undefined
+  }
+}
+
+export function sendEvent<TBody>(event: { type: WebSocketEventType; body: TBody }): void {
+  currentSocketConnection?.send(JSON.stringify(event))
+}
 
 export function currentUser(request: Request): User {
   const forwardedUser = request.headers.get('X-Forwarded-User')?.trim()

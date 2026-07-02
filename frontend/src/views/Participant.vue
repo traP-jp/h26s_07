@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import BingoCardPaper from '@/components/layouts/BingoCardPaper.vue'
-import ChatContainer from '@/components/layouts/ChatContainer.vue'
+import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
+import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
 import type { RoomCode, Card, RoomId, UserId } from '@/api/schema'
@@ -159,15 +159,15 @@ function stopBingoFireworks(dispose = false) {
 <template>
   <div class="participant-room">
     <div class="participant-room__card">
-      <div v-if="isGameWaiting" class="participant-room__waiting" role="status">
+      <div v-if="isGameWaiting" class="participant-room__waiting">
         <p class="participant-room__waiting-title">ゲームはまだ始まっていません</p>
         <p class="participant-room__waiting-text">開始されるまでお待ちください</p>
       </div>
       <BingoCardPaper
         v-else
+        class="participant-room__bingo-card"
         :card="displayCard"
         :card-changes="latestCardChanges"
-        cell-size="var(--participant-card-cell-size)"
         :placeholder="displayCard === null"
       />
     </div>
@@ -178,22 +178,17 @@ function stopBingoFireworks(dispose = false) {
       textarea
       variant="participant"
     />
-    <div ref="fireworksOverlay" class="participant-room__fireworks" aria-hidden="true"></div>
+
+    <div ref="fireworksOverlay" class="participant-room__fireworks"></div>
   </div>
 </template>
 
 <style scoped>
 .participant-room {
-  box-sizing: border-box;
-  position: fixed;
-  inset: 0;
-  display: grid;
-  width: 100%;
+  display: flex;
   height: 100dvh;
-  overflow: hidden;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  gap: 18px;
   padding: 18px;
+
   background:
     radial-gradient(circle at 12% 18%, rgb(176 226 255 / 0.75), transparent 34%),
     radial-gradient(circle at 82% 16%, rgb(255 197 223 / 0.7), transparent 32%),
@@ -203,28 +198,26 @@ function stopBingoFireworks(dispose = false) {
 }
 
 .participant-room__card {
-  --participant-card-cell-size: clamp(70px, min(14.8vw, 14dvh), 112px);
-
   display: flex;
-  min-width: 0;
-  min-height: 0;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  padding-bottom: 0;
+  container-type: size;
+}
+
+.participant-room__bingo-card {
+  width: min(85cqw, 80cqh);
 }
 
 .participant-room__chat {
-  min-width: 0;
+  width: 360px;
+  flex-shrink: 0;
   height: 100%;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .participant-room__waiting {
-  box-sizing: border-box;
-  width: min(100%, 420px);
-  padding: 28px 24px;
+  width: 60%;
+  padding: 30px;
   border: 1px solid rgb(255 255 255 / 0.7);
   border-radius: 14px;
   background: rgb(255 255 255 / 0.82);
@@ -266,17 +259,16 @@ function stopBingoFireworks(dispose = false) {
 
 @media (max-width: 639px) {
   .participant-room {
-    display: flex;
     height: 100dvh;
     align-items: center;
     justify-content: center;
+    gap: 0;
     padding: 8px 8px 68px;
   }
 
   .participant-room__card {
-    --participant-card-cell-size: clamp(48px, min(15.5vw, 11dvh), 72px);
-
     width: 100%;
+    height: 100%;
   }
 
   .participant-room__waiting {
@@ -293,6 +285,7 @@ function stopBingoFireworks(dispose = false) {
   }
 
   .participant-room__chat {
+    width: auto;
     height: auto;
     min-height: 0;
   }

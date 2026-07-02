@@ -57,7 +57,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const errorMessage = ref<string | null>(null)
 
   const latestEvent = ref<RoomWebSocketEvent | null>(null)
-  const latestPickedBall = ref<PickedBall | null>(null)
+  const latestBall = ref<PickedBall | null>(null)
   const latestCardChanges = ref<CardChanges | null>(null)
   const latestNewBingos = ref<BingoUpdate[]>([])
   const latestNewReaches = ref<ReachUpdate[]>([])
@@ -86,7 +86,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
 
   function resetRoomState() {
     latestEvent.value = null
-    latestPickedBall.value = null
+    latestBall.value = null
     latestCardChanges.value = null
     latestNewBingos.value = []
     latestNewReaches.value = []
@@ -145,7 +145,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       case 'PickFinished': {
         const body = event.body as PickFinishedBody
 
-        latestPickedBall.value = body.pickedBall
+        latestBall.value = body.pickedBall
         latestNewBingos.value = body.newBingos
         latestNewReaches.value = body.newReaches
         pickState.value = body.pickState
@@ -267,7 +267,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     status,
     errorMessage,
     latestEvent,
-    latestPickedBall,
+    latestBall,
     latestCardChanges,
     latestNewBingos,
     latestNewReaches,
