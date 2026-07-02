@@ -397,17 +397,47 @@ export const playingWebSocketScript: MockRoomWebSocketScript = {
   ],
 }
 
+export const finishedWebSocketScript: MockRoomWebSocketScript = {
+  onConnect: [
+    {
+      delayMs: 0,
+      event: {
+        participant: {
+          type: 'GameFinished',
+          body: {
+            state: 'finished',
+            pickState: 'idle',
+            card: lastPickSnapshot.card,
+            bingoSummaries: lastPickSnapshot.bingoSummaries,
+            reachSummaries: lastPickSnapshot.reachSummaries,
+          },
+        },
+        display: {
+          type: 'GameFinished',
+          body: {
+            state: 'finished',
+            pickState: 'idle',
+            participantCount: 6,
+            bingoSummaries: lastPickSnapshot.bingoSummaries,
+            reachSummaries: lastPickSnapshot.reachSummaries,
+          },
+        },
+      },
+    },
+  ],
+}
+
 export const roomWebSocketScripts: Record<string, MockRoomWebSocketScript> = {
   '111111': waitingWebSocketScript,
   '123456': waitingWebSocketScript,
   '234567': playingWebSocketScript,
-  '345678': playingWebSocketScript,
+  '345678': finishedWebSocketScript,
   '456789': waitingWebSocketScript,
   '567890': playingWebSocketScript,
-  '678901': playingWebSocketScript,
+  '678901': finishedWebSocketScript,
   '789012': waitingWebSocketScript,
   '890123': playingWebSocketScript,
-  '901234': playingWebSocketScript,
+  '901234': finishedWebSocketScript,
   '012345': waitingWebSocketScript,
 }
 

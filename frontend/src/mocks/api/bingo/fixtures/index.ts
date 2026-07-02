@@ -4,6 +4,7 @@ export {
   demoBingoLine,
   demoChatMessages,
   eventForMode,
+  finishedWebSocketScript,
   initialPickedBalls,
   playingWebSocketScript,
   roomByPathParam,
