@@ -171,7 +171,7 @@ export const mockRooms: Room[] = [
     roomCode: '567890',
     state: 'playing',
     pickState: 'picking',
-    qrCodeVisible: true,
+    qrCodeVisible: false,
     participants: [
       {
         user: { userId: 'kurosaki' },
@@ -349,7 +349,7 @@ export const mockRooms: Room[] = [
     roomCode: '901234',
     state: 'finished',
     pickState: 'idle',
-    qrCodeVisible: true,
+    qrCodeVisible: false,
     participants: [
       {
         user: { userId: 'kurosaki' },
