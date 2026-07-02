@@ -200,7 +200,10 @@ const clickHideQr = async () => {
         label="やっぱ開始しない"
         color="neutral"
         variant="outline"
-        @click="((startModal = false), (isDisabled = false))"
+        @click="
+          startModal = false
+          isDisabled = false
+        "
       />
       <UButton label="本当に開始する！" color="neutral" @click="clickStartModal()" />
     </template>
@@ -219,7 +222,10 @@ const clickHideQr = async () => {
         label="やっぱ終了しない"
         color="neutral"
         variant="outline"
-        @click="((finishModal = false), (isDisabled = false))"
+        @click="
+          finishModal = false
+          isDisabled = false
+        "
       />
       <UButton label="本当に終了する！" color="neutral" @click="clickFinishModal()" />
     </template>
@@ -233,7 +239,7 @@ const clickHideQr = async () => {
     :close="false"
   >
     <template #footer>
-      <UButton label="トップへ戻る" color="neutral" @click="router.push('/')" />
+      <UButton label="トップへ戻る" color="neutral" to="/" />
     </template>
   </UModal>
 
