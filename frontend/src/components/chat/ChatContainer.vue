@@ -118,6 +118,10 @@ const scrollToBottom = async () => {
   }
 }
 
+const closeParticipantChat = () => {
+  participantChatOpen.value = false
+}
+
 const addUserMessage = async (m: Message) => {
   messages.value = mergeMessages([...messages.value, m])
   void scrollToBottom()
@@ -266,7 +270,7 @@ watch(participantChatOpen, (open) => {
               color="neutral"
               variant="ghost"
               size="sm"
-              @click="participantChatOpen = false"
+              @click="closeParticipantChat"
             />
           </div>
           <div
