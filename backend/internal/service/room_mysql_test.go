@@ -1,0 +1,155 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/google/uuid"
+	"os"
+	"reflect"
+	"slices"
+	"sync"
+	"testing"
+
+	"github.com/traP-jp/h26_07/backend/internal/dbmodel"
+	"github.com/traP-jp/h26_07/backend/internal/model"
+	"github.com/traP-jp/h26_07/backend/internal/repository"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
+)
+
+type mysqlTestEvents struct{}
+
+func (mysqlTestEvents) SendRoom(context.Context, model.RoomID, any) error { return nil }
+func (mysqlTestEvents) SendParticipant(context.Context, model.RoomID, model.UserID, any) error {
+	return nil
+}
+
+// Run against the migrated dev database (schema: cmd/migrate):
+// TEST_MYSQL_DSN='<user>:<password>@tcp(127.0.0.1:3306)/h26_07?parseTime=true' go test ./internal/service -run TestMySQL -count=1
+// Only the uniquely generated room and its children are removed; other data is untouched.
+func TestMySQLRoomMutationsAcrossInstances(t *testing.T) {
+	dsn := os.Getenv("TEST_MYSQL_DSN")
+	if dsn == "" {
+		t.Skip("TEST_MYSQL_DSN is not set; run cmd/migrate first")
+	}
+	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
+	mustSucceed(t, err)
+	sqlDB, err := db.DB()
+	mustSucceed(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	// Use the existing migrated schema, never replace it with the SQLite test schema.
+	for _, row := range []any{&dbmodel.Room{}, &dbmodel.RoomCard{}, &dbmodel.RoomMessage{}} {
+		if !db.Migrator().HasTable(row) {
+			t.Fatal("missing schema: run go run ./cmd/migrate")
+		}
+	}
+	repo := repository.NewGormRoomRepository(db)
+	services := []*RoomService{
+		NewRoomService(repository.NewGormTransactionRunner(db), repo, mysqlTestEvents{}),
+		NewRoomService(repository.NewGormTransactionRunner(db), repository.NewGormRoomRepository(db), mysqlTestEvents{}),
+	}
+	ctx := context.Background()
+	room, err := services[0].CreateRoom(ctx, model.RoomSettings{Name: "mysql integration"}, "admin")
+	mustSucceed(t, err)
+	id := room.RoomID
+	t.Cleanup(func() {
+		if err := repo.Delete(ctx, id); err != nil && !errors.Is(err, repository.ErrRoomNotFound) {
+			t.Error(err)
+		}
+	})
+	mustSucceed(t, services[0].PostParticipants(ctx, id, "alice"))
+	mustSucceed(t, services[0].StartGame(ctx, id, "admin"))
+	before, err := repo.FindByID(ctx, id)
+	mustSucceed(t, err)
+	start := make(chan struct{})
+	errs := make(chan error, 8)
+	var wg sync.WaitGroup
+	// Four writers share the DB but only their own service's in-process lock.
+	for worker := 0; worker < 4; worker++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			<-start
+			for i := 0; i < 20; i++ {
+				if _, err := services[worker%2].PostMessage(ctx, id, "alice", fmt.Sprintf("%d:%d", worker, i)); err != nil {
+					errs <- err
+					return
+				}
+			}
+		}(worker)
+	}
+	// Alternate which instance performs picks while both receive concurrent chats.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < 75; i++ {
+			if err := services[i%2].StartPick(ctx, id, "admin"); err != nil {
+				errs <- err
+				return
+			}
+			if err := services[(i+1)%2].FinishPick(ctx, id, "admin"); err != nil {
+				errs <- err
+				return
+			}
+		}
+	}()
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
+	}
+	stored, err := repo.FindByID(ctx, id)
+	mustSucceed(t, err)
+	if len(stored.Messages) != 80 || len(stored.PickedBalls) != 75 || len(stored.Cards) != 1 || len(stored.Participants) != 1 {
+		t.Fatalf("lost data: messages=%d picks=%d cards=%d participants=%d", len(stored.Messages), len(stored.PickedBalls), len(stored.Cards), len(stored.Participants))
+	}
+	messages := map[string]bool{}
+	for _, m := range stored.Messages {
+		if messages[m.Content] {
+			t.Fatal("duplicate message")
+		}
+		messages[m.Content] = true
+	}
+	balls := map[model.BallNumber]bool{}
+	for _, b := range stored.PickedBalls {
+		if balls[b] {
+			t.Fatal("duplicate pick")
+		}
+		balls[b] = true
+	}
+	if stored.Cards[0].CardID != before.Cards[0].CardID {
+		t.Fatal("card identity changed")
+	}
+	for i, cell := range stored.Cards[0].Cells {
+		if !reflect.DeepEqual(cell.Number, before.Cards[0].Cells[i].Number) {
+			t.Fatal("card number changed")
+		}
+		wantOpen := cell.Number == nil || slices.Contains(stored.PickedBalls, *cell.Number)
+		if (cell.CellState == model.CardCellStateOpen || cell.CellState == model.CardCellStateBingo) != wantOpen {
+			t.Fatalf("cell %d inconsistent", i)
+		}
+	}
+	if len(stored.BingoRecords) == 0 || len(stored.ReachRecords) == 0 {
+		t.Fatal("expected populated activity records")
+	}
+	cardID := stored.Cards[0].CardID
+	mustSucceed(t, services[1].DeleteRoom(ctx, id, "admin"))
+	if _, err := repo.FindByID(ctx, id); !errors.Is(err, repository.ErrRoomNotFound) {
+		t.Fatalf("deleted room: %v", err)
+	}
+	for _, table := range []string{"rooms", "room_users", "room_admins", "room_participants", "room_cards", "room_picked_balls", "room_bingo_records", "room_reach_records", "room_messages"} {
+		var count int64
+		mustSucceed(t, db.Table(table).Where("room_id = ?", id.String()).Count(&count).Error)
+		if count != 0 {
+			t.Errorf("%s retains %d rows", table, count)
+		}
+	}
+	var cells int64
+	mustSucceed(t, db.Model(&dbmodel.RoomCardCell{}).Where("card_id = ?", uuid.UUID(cardID).String()).Count(&cells).Error)
+	if cells != 0 {
+		t.Fatalf("deleted card retains %d cells", cells)
+	}
+}
