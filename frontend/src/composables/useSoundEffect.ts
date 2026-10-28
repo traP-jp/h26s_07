@@ -75,10 +75,9 @@ export function useSoundEffect(name: SoundEffectName, options: UseSoundEffectOpt
   onMounted(() => {
     audio = new Audio(soundEffectUrls[name])
     audio.loop = options.loop ?? false
-    audio.preload = 'auto'
-    audio.load()
+    // First play primes this element lazily, preserving the page's unlock state.
+    audio.preload = 'none'
     sounds.add(audio)
-    audioUnlocked.value = false
   })
 
   onBeforeUnmount(() => {
