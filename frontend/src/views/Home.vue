@@ -9,6 +9,10 @@ const currentUserStore = useCurrentUserStore()
 
 const loading = ref(true)
 const errorMessage = ref('')
+const showFinished = ref(false)
+const visibleRooms = computed(() =>
+  rooms.value.filter((room) => showFinished.value || room.state !== 'finished'),
+)
 const rooms = ref(new Array<Room>())
 const currentUserId = ref<UserId>()
 
@@ -31,19 +35,19 @@ onMounted(async () => {
 })
 
 const joinedRooms = computed(() => {
-  return rooms.value.filter((room) =>
+  return visibleRooms.value.filter((room) =>
     room.participants.some((participant) => participant.user.userId === currentUserId.value),
   )
 })
 
 const adminRooms = computed(() => {
-  return rooms.value.filter((room) =>
+  return visibleRooms.value.filter((room) =>
     room.settings.admins.some((admin) => admin.userId === currentUserId.value),
   )
 })
 
 const waitingRooms = computed(() => {
-  return rooms.value.filter(
+  return visibleRooms.value.filter(
     (room) =>
       room.state == 'waiting' &&
       !room.participants.some((participant) => participant.user.userId === currentUserId.value),
@@ -82,6 +86,7 @@ function confirmJoinRoom() {
     </div>
 
     <template v-else>
+      <UCheckbox v-model="showFinished" label="終了したルームも表示" class="mb-4" />
       <h2 class="text-3xl font-bold mb-4">
         <UIcon name="i-lucide-zap" class="text-yellow-400 inline" />
         あなたが参加しているルーム
