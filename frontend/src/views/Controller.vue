@@ -32,7 +32,13 @@ function applyState(state: string, pickState: string, qrCodeVisible: boolean) {
 }
 
 watch(
-  () => [connection.roomState, connection.pickState, connection.qrCodeVisible] as const,
+  () =>
+    [
+      connection.roomState,
+      connection.pickState,
+      connection.qrCodeVisible,
+      connection.initializationCount,
+    ] as const,
   ([state, pick, qr]) => {
     if (
       connection.roomId === roomId &&
@@ -46,14 +52,25 @@ watch(
   },
 )
 
-async function getLatestInfo() {
+function hasWebSocketState() {
+  return (
+    connection.roomId === roomId &&
+    connection.mode === 'display' &&
+    connection.status === 'open' &&
+    connection.roomState !== null
+  )
+}
+
+async function getLatestInfo(afterControl = false) {
   try {
     const { data, error, response } = await apiClient.GET('/api/rooms/{roomId}', {
       params: { path: { roomId } },
     })
     if (response.status === 404) connection.markRoomDeleted()
     if (error || !data) throw new Error(error?.message ?? 'ルーム情報を取得できませんでした。')
-    applyState(data.state, data.pickState, data.qrCodeVisible)
+    if (!disposed && !hasWebSocketState() && !(afterControl && connection.status === 'open')) {
+      applyState(data.state, data.pickState, data.qrCodeVisible)
+    }
     return data
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '通信に失敗しました。'
@@ -82,7 +99,7 @@ async function control(path: ControlPath, matches: (state: RoomInfo) => boolean)
   } catch (error) {
     failure = error instanceof Error ? error.message : '操作に失敗しました。'
   } finally {
-    const state = await getLatestInfo()
+    const state = await getLatestInfo(true)
     if (failure && (!state || !matches(state))) errorMessage.value = failure
     startModal.value = false
     finishModal.value = false
@@ -118,16 +135,16 @@ const clickHideQr = () =>
 
 let lastKeyAt = 0
 function onKey(event: KeyboardEvent) {
+  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return
+  const key = event.key.toLowerCase()
   if (
-    event.isComposing ||
-    event.ctrlKey ||
-    event.metaKey ||
-    event.altKey ||
-    (event.target instanceof Element &&
-      event.target.closest('input, textarea, select, [contenteditable="true"]'))
+    [' ', 'enter'].includes(key) &&
+    event.target instanceof Element &&
+    event.target.closest(
+      'button, a, [role="button"], summary, input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+    )
   )
     return
-  const key = event.key.toLowerCase()
   const toggle = [' ', 'enter', 'pagedown', 'arrowright', 'pageup', 'arrowleft'].includes(key)
   const cancel = ['escape', 'backspace'].includes(key)
   if (!toggle && !cancel && key !== 'q') return
