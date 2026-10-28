@@ -54,11 +54,18 @@ paths:
       tags:
         - rooms
       summary: ルーム一覧を取得
-      description: finished を含む全ルームを返す。
+      description: finished rooms are excluded unless includeFinished is true.
       operationId: listRooms
+      parameters:
+        - name: includeFinished
+          in: query
+          description: Include finished rooms (default false).
+          schema:
+            type: boolean
+            default: false
       responses:
         "200":
-          description: ルーム一覧。finished を含む。
+          description: Room list, excluding finished rooms by default.
           content:
             application/json:
               schema:
@@ -96,6 +103,23 @@ paths:
           $ref: "#/components/responses/InternalServerError"
 
   /api/rooms/{roomId}:
+    delete:
+      tags: [rooms]
+      summary: Delete a room and all its children
+      operationId: deleteRoom
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: Deleted; RoomDeleted is broadcast before sockets close normally.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Admin required.
+        "404":
+          $ref: "#/components/responses/RoomNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     get:
       tags:
         - rooms
@@ -562,6 +586,8 @@ components:
     WebSocketEventType:
       type: string
       enum:
+        - ParticipantJoined
+        - RoomDeleted
         - Initialized
         - GameStarted
         - PickStarted
@@ -654,6 +680,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        activityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         roomId:
           $ref: "#/components/schemas/RoomId"
         roomCode:
@@ -683,6 +713,7 @@ components:
         updatedAt:
           $ref: "#/components/schemas/DateTime"
       required:
+        - activityLog
         - roomId
         - roomCode
         - state
@@ -912,6 +943,17 @@ components:
       type: object
       additionalProperties: false
       properties:
+        participantCount:
+          type: integer
+          minimum: 0
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        activityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         state:
           $ref: "#/components/schemas/RoomState"
         settings:
@@ -933,6 +975,9 @@ components:
         card:
           $ref: "#/components/schemas/Card"
       required:
+        - participantCount
+        - participants
+        - activityLog
         - state
         - settings
         - pickState
@@ -944,6 +989,14 @@ components:
       type: object
       additionalProperties: false
       properties:
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        activityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         state:
           $ref: "#/components/schemas/RoomState"
         settings:
@@ -968,6 +1021,8 @@ components:
           items:
             $ref: "#/components/schemas/ReachSummary"
       required:
+        - participants
+        - activityLog
         - state
         - settings
         - pickState
@@ -1006,6 +1061,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        newActivityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         pickedBall:
           $ref: "#/components/schemas/PickedBall"
         pickState:
@@ -1035,6 +1094,7 @@ components:
           items:
             $ref: "#/components/schemas/ReachUpdate"
       required:
+        - newActivityLog
         - pickedBall
         - pickState
         - card
@@ -1049,6 +1109,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        newActivityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         pickedBall:
           $ref: "#/components/schemas/PickedBall"
         pickState:
@@ -1077,6 +1141,7 @@ components:
           items:
             $ref: "#/components/schemas/PickedBall"
       required:
+        - newActivityLog
         - pickedBall
         - pickState
         - participantCount
@@ -1192,6 +1257,8 @@ components:
     ParticipantWebSocketEvent:
       description: participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。
       oneOf:
+        - $ref: "#/components/schemas/ParticipantParticipantJoinedEvent"
+        - $ref: "#/components/schemas/ParticipantRoomDeletedEvent"
         - $ref: "#/components/schemas/ParticipantInitializedEvent"
         - $ref: "#/components/schemas/ParticipantGameStartedEvent"
         - $ref: "#/components/schemas/ParticipantPickStartedEvent"
@@ -1205,6 +1272,8 @@ components:
     DisplayWebSocketEvent:
       description: display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。
       oneOf:
+        - $ref: "#/components/schemas/DisplayParticipantJoinedEvent"
+        - $ref: "#/components/schemas/DisplayRoomDeletedEvent"
         - $ref: "#/components/schemas/DisplayInitializedEvent"
         - $ref: "#/components/schemas/DisplayGameStartedEvent"
         - $ref: "#/components/schemas/DisplayPickStartedEvent"
@@ -1529,3 +1598,91 @@ components:
       required:
         - type
         - body
+
+    ActivityLogEntry:
+      type: object
+      additionalProperties: false
+      description: One entry per stored record (first reach per user, every bingo line). Ordered by createdAt then record id. Bingo rank is the 1-based order of users' first bingo, retained on subsequent lines. pickedBall is omitted when records do not preserve the triggering pick; lineCount is cumulative bingo lines for the user in log order.
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        kind:
+          type: string
+          enum: [reach, bingo]
+        user:
+          $ref: "#/components/schemas/User"
+        pickedBall:
+          $ref: "#/components/schemas/PickedBall"
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+        bingoRank:
+          type: integer
+          minimum: 1
+        lineCount:
+          type: integer
+          minimum: 1
+      required: [id, kind, user, createdAt]
+
+    ParticipantJoinedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        participant:
+          $ref: "#/components/schemas/User"
+        participantCount:
+          type: integer
+          minimum: 0
+        joinedAt:
+          $ref: "#/components/schemas/DateTime"
+      required: [participant, participantCount, joinedAt]
+
+    RoomDeletedBody:
+      $ref: "#/components/schemas/EmptyObject"
+
+    DisplayParticipantJoinedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [ParticipantJoined]
+            body:
+              $ref: "#/components/schemas/ParticipantJoinedBody"
+          required: [type, body]
+
+    DisplayRoomDeletedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [RoomDeleted]
+            body:
+              $ref: "#/components/schemas/RoomDeletedBody"
+          required: [type, body]
+
+    ParticipantParticipantJoinedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [ParticipantJoined]
+            body:
+              $ref: "#/components/schemas/ParticipantJoinedBody"
+          required: [type, body]
+
+    ParticipantRoomDeletedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [RoomDeleted]
+            body:
+              $ref: "#/components/schemas/RoomDeletedBody"
+          required: [type, body]
