@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Uuid, Message, DateTime, WebSocketMode } from '@/api/schema'
-import { apiClient } from '@/api/apiClient'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { Uuid, WebSocketMode } from '@/api/schema'
 import MessageContainer from '@/components/chat/MessageContainer.vue'
 import PostMessage from '@/components/chat/PostMessage.vue'
+import { useChatTimeline } from '@/composables/useChatTimeline'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoomsStore } from '@/stores/rooms'
-import { storeToRefs } from 'pinia'
 
 const room = withDefaults(
   defineProps<{
@@ -22,12 +21,6 @@ const room = withDefaults(
   },
 )
 
-const historyMessages = ref<Message[]>([])
-const messages = computed(() => [
-  ...historyMessages.value,
-  ...(store.roomId === activeRoomId.value ? store.chatMessages : []),
-])
-
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
@@ -38,68 +31,6 @@ let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
 
 const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
-const { activityLog } = storeToRefs(store)
-
-const sortedMessages = (items: Message[]) =>
-  [...items].sort((a, b) => {
-    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    if (diff !== 0) return diff
-    return a.messageId.localeCompare(b.messageId)
-  })
-
-const mergeMessages = (items: Message[]) => {
-  const messageById = new Map<string, Message>()
-  for (const message of items) {
-    messageById.set(message.messageId, message)
-  }
-  return sortedMessages([...messageById.values()])
-}
-
-const systemMessage = (id: string, content: string, createdAt: DateTime): Message => ({
-  messageId: id as Uuid,
-  content,
-  author: { userId: '' },
-  createdAt,
-})
-
-const summaryMessages = computed(() =>
-  activityLog.value.map((entry) =>
-    systemMessage(
-      entry.id,
-      entry.kind === 'reach'
-        ? `${entry.user.userId} さんがリーチ！`
-        : (entry.lineCount ?? 1) > 1
-          ? `${entry.user.userId} さんが ${entry.lineCount} ライン目のビンゴ！`
-          : `${entry.user.userId} さんが ${entry.bingoRank ?? 1} 番目にビンゴ！`,
-      entry.createdAt,
-    ),
-  ),
-)
-
-const timelineMessages = computed(() =>
-  mergeMessages([
-    ...messages.value,
-    ...summaryMessages.value,
-    ...(store.roomId === activeRoomId.value && store.pickState === 'exhausted'
-      ? [
-          systemMessage(
-            `exhausted:${activeRoomId.value}`,
-            '球が枯渇しました！',
-            summaryMessages.value.at(-1)?.createdAt ??
-              roomsStore.rooms.find((item) => item.roomId === activeRoomId.value)?.createdAt ??
-              '1970-01-01T00:00:00.000Z',
-          ),
-        ]
-      : []),
-  ]),
-)
-
-const latestMessagePreview = computed(() => {
-  const latestMessage = timelineMessages.value.at(-1)
-  if (!latestMessage) return 'チャット'
-  if (latestMessage.author.userId === '') return latestMessage.content
-  return `${latestMessage.author.userId}: ${latestMessage.content}`
-})
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -117,23 +48,12 @@ const closeParticipantChat = () => {
   participantChatOpen.value = false
 }
 
-const loadMessages = async (roomId: Uuid) => {
-  const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
-    params: { path: { roomId } },
-  })
-
-  if (response.response.status === 403) return
-
-  if (response.data && activeRoomId.value === roomId) {
-    historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
-    void scrollToBottom()
-  }
-}
-
-const notificationType = (message: Message) => {
-  if (message.author.userId !== '') return undefined
-  return activityLog.value.find((entry) => entry.id === message.messageId)?.kind ?? 'notice'
-}
+const { latestMessagePreview, loadMessages, notificationType, timelineMessages } = useChatTimeline({
+  activeRoomId,
+  store,
+  roomsStore,
+  onHistoryLoaded: () => void scrollToBottom(),
+})
 
 onMounted(async () => {
   const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
@@ -146,16 +66,6 @@ onMounted(async () => {
   }
   await loadMessages(roomId)
 })
-
-watch(
-  () => store.initializationCount,
-  () => {
-    if (activeRoomId.value && store.roomId === activeRoomId.value) {
-      void loadMessages(activeRoomId.value)
-    }
-  },
-  { flush: 'sync' },
-)
 
 onBeforeUnmount(() => {
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
