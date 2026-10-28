@@ -30,7 +30,7 @@ func newWebSocketClient(hub *WebSocketHub, request *webSocketConnectRequest, con
 	// CloseRead reads in the background so pongs and the peer's close frame are processed,
 	// and it closes the connection with StatusPolicyViolation if a data message arrives.
 	// Its context is not canceled by our own close, so the close handshake can finish;
-	// the child context lets closeWithStatus stop the write and ping loops right away.
+	// the child context is canceled when writeLoop exits, which also stops pingLoop.
 	ctx, cancel := context.WithCancel(conn.CloseRead(context.Background()))
 	return &webSocketClient{
 		hub:    hub,
@@ -60,6 +60,9 @@ func (c *webSocketClient) enqueue(payload []byte) bool {
 }
 
 func (c *webSocketClient) writeLoop() {
+	// Stop the ping loop and release Connect only after the writer has drained the queue,
+	// so events queued before close are still attempted, as before the ping loop was split out.
+	defer c.cancel()
 	defer c.close()
 	for {
 		select {
@@ -124,10 +127,6 @@ func (c *webSocketClient) closeWithStatus(code websocket.StatusCode, reason stri
 		close(c.send)
 		c.mu.Unlock()
 
-		// Canceling the shared context releases the sibling loops before the close handshake starts.
-		if c.cancel != nil {
-			c.cancel()
-		}
 		c.hub.unregister(c)
 		// Keep close handshakes out of the broadcast path, where they could delay other clients.
 		go func() { _ = c.conn.Close(code, reason) }()

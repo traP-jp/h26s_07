@@ -64,7 +64,8 @@ func (h *RoomWebSocketHandler) Connect(c *echo.Context) error {
 		return nil
 	}
 
-	// Keep the room lock through registration so no committed update can land between the snapshot and subscription.
+	// Keep the room lock through registration so no update committed by this instance can land between
+	// the snapshot and subscription. The lock is in-memory, so it does not cover other server instances.
 	unlock()
 	unlock = nil
 
