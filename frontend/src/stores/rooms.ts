@@ -4,25 +4,25 @@ import { defineStore } from 'pinia'
 import { apiClient } from '@/api/apiClient'
 import type { Room, RoomCode, RoomId } from '@/api/schema'
 
+function buildRoomsByCode(rooms: Room[]): Map<RoomCode, Room> {
+  const byCode = new Map<RoomCode, Room>()
+  for (const room of rooms) {
+    const previous = byCode.get(room.roomCode)
+    const roomIsPreferred =
+      !previous ||
+      (previous.state === 'finished' && room.state !== 'finished') ||
+      ((previous.state === 'finished') === (room.state === 'finished') &&
+        Date.parse(room.createdAt) > Date.parse(previous.createdAt))
+    if (roomIsPreferred) byCode.set(room.roomCode, room)
+  }
+  return byCode
+}
+
 export const useRoomsStore = defineStore('rooms', () => {
   const rooms = ref<Room[]>([])
   const initialized = ref(false)
 
-  const roomsByCode = computed(() => {
-    const byCode = new Map<RoomCode, Room>()
-    for (const room of rooms.value) {
-      const previous = byCode.get(room.roomCode)
-      if (
-        !previous ||
-        (previous.state === 'finished' && room.state !== 'finished') ||
-        ((previous.state === 'finished') === (room.state === 'finished') &&
-          Date.parse(room.createdAt) > Date.parse(previous.createdAt))
-      ) {
-        byCode.set(room.roomCode, room)
-      }
-    }
-    return byCode
-  })
+  const roomsByCode = computed(() => buildRoomsByCode(rooms.value))
 
   async function fetchRooms(): Promise<void> {
     const { data, error } = await apiClient.GET('/api/rooms', {
