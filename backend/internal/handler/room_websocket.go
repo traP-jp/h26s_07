@@ -1,18 +1,11 @@
 package handler
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
-	"sync"
-	"time"
 
 	"github.com/coder/websocket"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
-	"github.com/traP-jp/h26_07/backend/internal/utils"
-
 	authmiddleware "github.com/traP-jp/h26_07/backend/internal/middleware"
 	"github.com/traP-jp/h26_07/backend/internal/model"
 	"github.com/traP-jp/h26_07/backend/internal/openapi"
@@ -26,7 +19,17 @@ type RoomWebSocketHandler struct {
 	originPatterns []string
 }
 
-func NewRoomWebSocketHandler(roomService *service.RoomService, hub *WebSocketHub, originPatterns []string) *RoomWebSocketHandler {
+type webSocketConnectRequest struct {
+	userID model.UserID
+	roomID model.RoomID
+	mode   openapi.WebSocketMode
+}
+
+func NewRoomWebSocketHandler(
+	roomService *service.RoomService,
+	hub *WebSocketHub,
+	originPatterns []string,
+) *RoomWebSocketHandler {
 	return &RoomWebSocketHandler{
 		roomService:    roomService,
 		hub:            hub,
@@ -35,311 +38,100 @@ func NewRoomWebSocketHandler(roomService *service.RoomService, hub *WebSocketHub
 }
 
 func (h *RoomWebSocketHandler) Connect(c *echo.Context) error {
-	user, ok := authmiddleware.GetAuthenticatedUser(c)
-	if !ok {
-		return c.NoContent(http.StatusUnauthorized)
-	}
-	roomID, ok := parseRoomIDParam(c)
-	if !ok {
-		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
-	}
-	mode := openapi.WebSocketMode(c.QueryParam("mode"))
-	if !mode.Valid() {
-		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "invalid websocket mode"})
+	request, err := h.validateConnect(c)
+	if request == nil {
+		return err
 	}
 
-	unlock := h.roomService.LockRoom(roomID)
+	unlock := h.roomService.LockRoom(request.roomID)
 	defer func() {
 		if unlock != nil {
 			unlock()
 		}
 	}()
-	room, err := h.roomService.GetRoom(c.Request().Context(), roomID)
-	if err != nil {
-		if errors.Is(err, repository.ErrRoomNotFound) {
-			return c.JSON(http.StatusNotFound, openapi.Error{Message: "room not found"})
-		}
-		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "Internal Server Error"})
-	}
 
-	userID := model.UserID(user.Name)
-	if mode == openapi.Participant && !room.IsParticipant(userID) {
-		return c.JSON(http.StatusForbidden, openapi.Error{Message: "participant websocket requires room participant"})
+	initialPayload, err := h.initialPayload(c, request)
+	if initialPayload == nil {
+		return err
 	}
-
-	initialEvent, ok, err := buildInitializedEvent(room, mode, userID)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "Internal Server Error"})
-	}
-	if !ok {
-		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "invalid websocket mode"})
-	}
-	initialPayload, err := marshalWebSocketEvent(mode, initialEvent)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "Internal Server Error"})
-	}
-
-	conn, err := websocket.Accept(c.Response(), c.Request(), &websocket.AcceptOptions{
-		OriginPatterns: h.originPatterns,
-	})
+	conn, err := h.upgrade(c)
 	if err != nil {
 		return nil
 	}
-	ctx := conn.CloseRead(context.Background())
 
-	client := &webSocketClient{
-		hub:    h.hub,
-		roomID: roomID,
-		userID: userID,
-		mode:   mode,
-		conn:   conn,
-		ctx:    ctx,
-		send:   make(chan []byte, 64),
-	}
-	if !client.enqueue(initialPayload) {
-		client.close()
+	client := newWebSocketClient(h.hub, request, conn)
+	if !h.subscribeWithSnapshot(client, initialPayload) {
 		return nil
 	}
-	h.hub.register(client)
+
+	// Keep the room lock through registration so no committed update can land between the snapshot and subscription.
 	unlock()
 	unlock = nil
-	go client.writeLoop()
 
-	<-ctx.Done()
+	go client.writeLoop()
+	go client.pingLoop()
+	<-client.ctx.Done()
 	client.close()
 	return nil
 }
 
-func parseRoomIDParam(c *echo.Context) (model.RoomID, bool) {
-	roomID, err := uuid.Parse(c.Param("roomId"))
+func (h *RoomWebSocketHandler) validateConnect(c *echo.Context) (*webSocketConnectRequest, error) {
+	user, ok := authmiddleware.GetAuthenticatedUser(c)
+	if !ok {
+		return nil, c.NoContent(http.StatusUnauthorized)
+	}
+	roomID, ok := parseRoomIDParam(c)
+	if !ok {
+		return nil, c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
+	}
+	mode := openapi.WebSocketMode(c.QueryParam("mode"))
+	if !mode.Valid() {
+		return nil, c.JSON(http.StatusBadRequest, openapi.Error{Message: "invalid websocket mode"})
+	}
+	return &webSocketConnectRequest{
+		userID: model.UserID(user.Name),
+		roomID: roomID,
+		mode:   mode,
+	}, nil
+}
+
+func (h *RoomWebSocketHandler) initialPayload(c *echo.Context, request *webSocketConnectRequest) ([]byte, error) {
+	room, err := h.roomService.GetRoom(c.Request().Context(), request.roomID)
 	if err != nil {
-		return model.RoomID{}, false
-	}
-	return model.RoomID(roomID), true
-}
-
-type WebSocketEventSender struct {
-	hub *WebSocketHub
-}
-
-func NewWebSocketEventSender(hub *WebSocketHub) *WebSocketEventSender {
-	return &WebSocketEventSender{hub: hub}
-}
-
-func (s *WebSocketEventSender) SendRoom(_ context.Context, roomID model.RoomID, event any) error {
-	return s.hub.sendRoom(roomID, event)
-}
-
-func (s *WebSocketEventSender) SendParticipant(_ context.Context, roomID model.RoomID, userID model.UserID, event any) error {
-	return s.hub.sendParticipant(roomID, userID, event)
-}
-
-type WebSocketHub struct {
-	mu      sync.RWMutex
-	clients map[model.RoomID]map[*webSocketClient]struct{}
-}
-
-func NewWebSocketHub() *WebSocketHub {
-	return &WebSocketHub{
-		clients: make(map[model.RoomID]map[*webSocketClient]struct{}),
-	}
-}
-
-func (h *WebSocketHub) register(client *webSocketClient) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if _, ok := h.clients[client.roomID]; !ok {
-		h.clients[client.roomID] = make(map[*webSocketClient]struct{})
-	}
-	h.clients[client.roomID][client] = struct{}{}
-}
-
-func (h *WebSocketHub) unregister(client *webSocketClient) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	clients := h.clients[client.roomID]
-	if clients == nil {
-		return
-	}
-	delete(clients, client)
-	if len(clients) == 0 {
-		delete(h.clients, client.roomID)
-	}
-}
-
-func (h *WebSocketHub) sendRoom(roomID model.RoomID, event any) error {
-	h.mu.RLock()
-	clientsByRoom := h.clients[roomID]
-	clients := make([]*webSocketClient, 0, len(clientsByRoom))
-	for client := range clientsByRoom {
-		clients = append(clients, client)
-	}
-	h.mu.RUnlock()
-
-	var sendErr error
-	for _, client := range clients {
-		payload, ok, err := marshalWebSocketEventForMode(client.mode, event)
-		if err != nil {
-			sendErr = errors.Join(sendErr, err)
-			continue
+		if errors.Is(err, repository.ErrRoomNotFound) {
+			return nil, c.JSON(http.StatusNotFound, openapi.Error{Message: "room not found"})
 		}
-		if !ok {
-			continue
-		}
-		if !client.enqueue(payload) {
-			client.closeWithStatus(websocket.StatusTryAgainLater, "client is too slow")
-			sendErr = errors.Join(sendErr, errors.New("websocket client send buffer is full"))
-		}
+		return nil, c.JSON(http.StatusInternalServerError, openapi.Error{Message: "Internal Server Error"})
 	}
-	return sendErr
-}
+	if request.mode == openapi.Participant && !room.IsParticipant(request.userID) {
+		return nil, c.JSON(http.StatusForbidden, openapi.Error{Message: "participant websocket requires room participant"})
+	}
 
-func (h *WebSocketHub) sendParticipant(roomID model.RoomID, userID model.UserID, event any) error {
-	payload, err := marshalWebSocketEvent(openapi.Participant, event)
+	initialEvent, ok, err := buildInitializedEvent(room, request.mode, request.userID)
 	if err != nil {
-		return err
+		return nil, c.JSON(http.StatusInternalServerError, openapi.Error{Message: "Internal Server Error"})
 	}
-
-	h.mu.RLock()
-	clientsByRoom := h.clients[roomID]
-	clients := make([]*webSocketClient, 0, len(clientsByRoom))
-	for client := range clientsByRoom {
-		if client.mode == openapi.Participant && client.userID == userID {
-			clients = append(clients, client)
-		}
+	if !ok {
+		return nil, c.JSON(http.StatusBadRequest, openapi.Error{Message: "invalid websocket mode"})
 	}
-	h.mu.RUnlock()
-
-	var sendErr error
-	for _, client := range clients {
-		if !client.enqueue(payload) {
-			client.closeWithStatus(websocket.StatusTryAgainLater, "client is too slow")
-			sendErr = errors.Join(sendErr, errors.New("websocket client send buffer is full"))
-		}
+	initialPayload, err := marshalWebSocketEvent(request.mode, initialEvent)
+	if err != nil {
+		return nil, c.JSON(http.StatusInternalServerError, openapi.Error{Message: "Internal Server Error"})
 	}
-	return sendErr
+	return initialPayload, nil
 }
 
-type webSocketClient struct {
-	hub    *WebSocketHub
-	roomID model.RoomID
-	userID model.UserID
-	mode   openapi.WebSocketMode
-	conn   *websocket.Conn
-	ctx    context.Context
-	send   chan []byte
-
-	mu        sync.Mutex
-	closed    bool
-	closeOnce sync.Once
-}
-
-func (c *webSocketClient) enqueue(payload []byte) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.closed {
-		return false
-	}
-	select {
-	case c.send <- payload:
-		return true
-	default:
-		return false
-	}
-}
-
-func (c *webSocketClient) writeLoop() {
-	ticker := time.NewTicker(20 * time.Second)
-	defer ticker.Stop()
-	defer c.close()
-	for {
-		select {
-		case <-c.ctx.Done():
-			return
-		case payload, ok := <-c.send:
-			if !ok {
-				return
-			}
-			ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
-			err := c.conn.Write(ctx, websocket.MessageText, payload)
-			cancel()
-			if err != nil {
-				return
-			}
-			var envelope struct {
-				Type string `json:"type"`
-			}
-			if json.Unmarshal(payload, &envelope) == nil && envelope.Type == "RoomDeleted" {
-				return
-			}
-		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
-			err := c.conn.Ping(ctx)
-			cancel()
-			if err != nil {
-				return
-			}
-		}
-	}
-}
-func (c *webSocketClient) close() {
-	c.closeWithStatus(websocket.StatusNormalClosure, "connection closed")
-}
-func (c *webSocketClient) closeWithStatus(code websocket.StatusCode, reason string) {
-	c.closeOnce.Do(func() {
-		c.mu.Lock()
-		c.closed = true
-		close(c.send)
-		c.mu.Unlock()
-		c.hub.unregister(c)
-		// Closing handshakes must not block broadcasts to other clients.
-		go func() { _ = c.conn.Close(code, reason) }()
+func (h *RoomWebSocketHandler) upgrade(c *echo.Context) (*websocket.Conn, error) {
+	return websocket.Accept(c.Response(), c.Request(), &websocket.AcceptOptions{
+		OriginPatterns: h.originPatterns,
 	})
 }
 
-func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID model.UserID) (any, bool, error) {
-	switch mode {
-	case openapi.Participant:
-		body := openapi.ParticipantInitializedBody{
-			ActivityLog:      utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
-			Participants:     utils.ParticipantUsers(room),
-			ParticipantCount: len(room.Participants),
-			State:            openapi.RoomState(room.State),
-			Settings:         convertRoomSettingsToOpenAPI(room.Settings),
-			PickState:        openapi.PickState(room.PickState),
-			PickedBalls:      utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
-			BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
-			ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
-		}
-		if room.State != model.RoomStateWaiting {
-			if card, ok := utils.FindCard(room, userID); ok {
-				body.Card = new(utils.ConvertCardToOpenAPI(room, card))
-			}
-		}
-		return openapi.ParticipantInitializedEvent{
-			Type: openapi.ParticipantInitializedEventTypeInitialized,
-			Body: body,
-		}, true, nil
-	case openapi.Display:
-		return openapi.DisplayInitializedEvent{
-			Type: openapi.DisplayInitializedEventTypeInitialized,
-			Body: openapi.DisplayInitializedBody{
-				ActivityLog:      utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
-				Participants:     utils.ParticipantUsers(room),
-				State:            openapi.RoomState(room.State),
-				Settings:         convertRoomSettingsToOpenAPI(room.Settings),
-				PickState:        openapi.PickState(room.PickState),
-				ParticipantCount: room.ParticipantCount(),
-				PickedBalls:      utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
-				QrCodeVisible:    room.QrCodeVisible,
-				BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
-				ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
-			},
-		}, true, nil
-	default:
-		return nil, false, nil
+func (h *RoomWebSocketHandler) subscribeWithSnapshot(client *webSocketClient, initialPayload []byte) bool {
+	if !client.enqueue(initialPayload) {
+		client.close()
+		return false
 	}
+	h.hub.register(client)
+	return true
 }
