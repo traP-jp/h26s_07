@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Card, CardCell as CardCellType, CardChanges, Line } from '@/api/schema'
 import CardCell from '@/components/bingo/CardCell.vue'
+import { createLineEffectStyle, isInLine, lineKey } from '@/components/bingo/lineEffects'
 import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
@@ -70,28 +71,6 @@ const persistentLineEffects = computed<LineEffectItem[]>(() => {
   ]
 })
 
-function createLineEffectStyle(line: Line): Record<string, string> {
-  if (!line || line.length < 2) return {}
-
-  const start = cellCenter(line[0]!)
-  const end = cellCenter(line[line.length - 1]!)
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const length = Math.hypot(dx, dy)
-  const angle = Math.atan2(dy, dx)
-
-  return {
-    '--line-x': `${start.x}%`,
-    '--line-y': `${start.y}%`,
-    '--line-length': `${length}%`,
-    '--line-angle': `${angle}rad`,
-  }
-}
-
-function lineKey(line: Line) {
-  return line.join('-')
-}
-
 const celebrationParticles = Array.from({ length: 18 }, (_, index) => ({
   id: index,
   style: {
@@ -100,10 +79,6 @@ const celebrationParticles = Array.from({ length: 18 }, (_, index) => ({
     '--particle-delay': `${index * 26}ms`,
   },
 }))
-
-const isInLine = (line: Line[] | undefined, cellIndex: number) => {
-  return line?.some((candidate) => candidate.includes(cellIndex)) ?? false
-}
 
 const isInActiveEffectLine = (cellIndex: number) => activeEffectLine.value.includes(cellIndex)
 
@@ -131,16 +106,6 @@ const gridCellClass = (cell: CardCellType) => ({
 const gridCellStyle = (cell: CardCellType) => ({
   '--shine-delay': `${activeLineOrder(cell.index) * 110}ms`,
 })
-
-function cellCenter(index: number) {
-  const column = Math.floor(index / 5)
-  const row = index % 5
-
-  return {
-    x: ((column + 0.5) / 5) * 100,
-    y: ((row + 0.5) / 5) * 100,
-  }
-}
 
 watch(
   () => props.cardChanges,
