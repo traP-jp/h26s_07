@@ -50,6 +50,10 @@ func (s *RoomService) LockRoom(id model.RoomID) func() { return s.locks.lock(id)
 type pendingEvent func(context.Context) error
 type eventQueueKey struct{}
 
+// mutate applies a room write in lock, transaction, row-lock, mutation, commit order.
+// The process lock prevents concurrent requests here from losing updates, while the
+// repository's SELECT FOR UPDATE prevents lost updates across service instances.
+// Events stay queued until commit so a rollback cannot be observed by clients.
 func (s *RoomService) mutate(ctx context.Context, id model.RoomID, fn func(context.Context) error) error {
 	unlock := s.LockRoom(id)
 	defer unlock()
