@@ -3,7 +3,7 @@ import { storeToRefs } from 'pinia'
 
 import type { PickedBall } from '@/api/schema'
 import { getBallPalette } from '@/components/display/ballPalette'
-import { useSoundEffect } from '@/composables/useSoundEffect'
+import { useAudioUnlock, useSoundEffect } from '@/composables/useSoundEffect'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 function createRandomPickedBall() {
@@ -12,10 +12,11 @@ function createRandomPickedBall() {
 
 export function usePickRollingEffect() {
   const roomWebSocketStore = useRoomWebSocketStore()
-  const { latestBall, latestEvent, pickState, roomState } = storeToRefs(roomWebSocketStore)
+  const { latestBall, latestEvent, pickState, roomState, status } = storeToRefs(roomWebSocketStore)
   const rollingPickedBall = ref<PickedBall | null>(null)
   const drumroll = useSoundEffect('drumroll', { loop: true })
   const cymbal = useSoundEffect('cymbal')
+  const { audioUnlocked, unlockAudio } = useAudioUnlock()
   let rollingTimerId: number | null = null
 
   const displayBall = computed(() => {
@@ -67,25 +68,28 @@ export function usePickRollingEffect() {
     }, 60)
   }
 
-  watch(latestEvent, (event) => {
-    if (!event) return
-
-    switch (event.type) {
-      case 'PickStarted':
+  watch(
+    [pickState, status, audioUnlocked],
+    ([pick, connectionStatus]) => {
+      if (pick === 'picking' && connectionStatus === 'open') {
         startRollingBall()
         drumroll.play()
-        break
-      case 'PickFinished':
+      } else {
         stopRollingBall()
         drumroll.stop()
-        cymbal.play()
-        break
-      case 'PickCanceled':
-      case 'GameFinished':
-      case 'AllPicked':
-        stopRollingBall()
-        drumroll.stop()
-        break
+      }
+    },
+    { immediate: true },
+  )
+
+  watch(latestEvent, (event) => {
+    if (event?.type === 'PickFinished') {
+      drumroll.stop()
+      cymbal.play()
+    }
+    if (event && ['PickCanceled', 'GameFinished', 'AllPicked'].includes(event.type)) {
+      stopRollingBall()
+      drumroll.stop()
     }
   })
 
@@ -95,6 +99,8 @@ export function usePickRollingEffect() {
   })
 
   return {
+    audioUnlocked,
+    unlockAudio,
     displayBallPalette,
     displayBallText,
     pickState,
