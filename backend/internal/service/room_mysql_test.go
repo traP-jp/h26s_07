@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/traP-jp/h26_07/backend/internal/openapi"
 	"os"
 	"reflect"
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/traP-jp/h26_07/backend/internal/dbmodel"
 	"github.com/traP-jp/h26_07/backend/internal/model"
@@ -152,4 +154,100 @@ func TestMySQLRoomMutationsAcrossInstances(t *testing.T) {
 	if cells != 0 {
 		t.Fatalf("deleted card retains %d cells", cells)
 	}
+}
+
+// Each writer has its own service lock, exercising database serialization.
+func TestMySQLConcurrentIncrementalChatsAndJoins(t *testing.T) {
+	dsn := os.Getenv("TEST_MYSQL_DSN")
+	if dsn == "" {
+		t.Skip("TEST_MYSQL_DSN is not set; run cmd/migrate first")
+	}
+	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
+	mustSucceed(t, err)
+	sqlDB, err := db.DB()
+	mustSucceed(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	repo := repository.NewGormRoomRepository(db)
+	events := &concurrentMessageEvents{ids: map[string]int{}, counts: map[int]int{}}
+	newService := func() *RoomService {
+		return NewRoomService(repository.NewGormTransactionRunner(db), repository.NewGormRoomRepository(db), events)
+	}
+	s := newService()
+	room, err := s.CreateRoom(ctx, model.RoomSettings{Name: "concurrent incremental"}, "admin")
+	mustSucceed(t, err)
+	t.Cleanup(func() {
+		if err := repo.Delete(context.Background(), room.RoomID); err != nil {
+			t.Error(err)
+		}
+	})
+	run := func(n int, fn func(int) error) {
+		t.Helper()
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		errs := make(chan error, n)
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func(i int) { defer wg.Done(); <-start; errs <- fn(i) }(i)
+		}
+		close(start)
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			mustSucceed(t, err)
+		}
+	}
+	run(20, func(i int) error {
+		return newService().PostParticipants(ctx, room.RoomID, model.UserID(fmt.Sprintf("member-%d", i%10)))
+	})
+	run(50, func(i int) error {
+		_, err := newService().PostMessage(ctx, room.RoomID, model.UserID(fmt.Sprintf("member-%d", i%10)), fmt.Sprintf("chat-%d", i))
+		return err
+	})
+	stored, err := repo.FindByID(ctx, room.RoomID)
+	mustSucceed(t, err)
+	if len(stored.Participants) != 10 || len(stored.Messages) != 50 {
+		t.Fatalf("participants=%d messages=%d", len(stored.Participants), len(stored.Messages))
+	}
+	events.mu.Lock()
+	defer events.mu.Unlock()
+	for _, message := range stored.Messages {
+		if events.ids[uuid.UUID(message.MessageID).String()] != 2 {
+			t.Fatal("missing MessageCreated events")
+		}
+	}
+	if len(events.ids) != 50 {
+		t.Fatalf("message events: %d", len(events.ids))
+	}
+	for count := 1; count <= 10; count++ {
+		if events.counts[count] != 2 {
+			t.Fatalf("join count %d emitted %d times", count, events.counts[count])
+		}
+	}
+}
+
+type concurrentMessageEvents struct {
+	mu     sync.Mutex
+	ids    map[string]int
+	counts map[int]int
+}
+
+func (e *concurrentMessageEvents) SendRoom(_ context.Context, _ model.RoomID, event any) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	switch event := event.(type) {
+	case openapi.ParticipantMessageCreatedEvent:
+		e.ids[event.Body.Message.MessageID]++
+	case openapi.DisplayMessageCreatedEvent:
+		e.ids[event.Body.Message.MessageID]++
+	case openapi.ParticipantParticipantJoinedEvent:
+		e.counts[event.Body.ParticipantCount]++
+	case openapi.DisplayParticipantJoinedEvent:
+		e.counts[event.Body.ParticipantCount]++
+	}
+	return nil
+}
+func (e *concurrentMessageEvents) SendParticipant(context.Context, model.RoomID, model.UserID, any) error {
+	return nil
 }

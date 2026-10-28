@@ -119,22 +119,15 @@ func (s *RoomService) ListRooms(ctx context.Context, includeFinished ...bool) ([
 }
 
 func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
+	now := time.Now()
+	joined, count, err := s.roomRepository.JoinParticipant(ctx, roomID, user, now)
 	if err != nil {
 		return err
 	}
-	alreadyJoined := room.IsParticipant(user)
-	now := time.Now()
-	if err := room.Join(user, now); err != nil {
-		return err
-	}
-	if err := s.roomRepository.Save(ctx, room); err != nil {
-		return err
-	}
-	if alreadyJoined {
+	if !joined {
 		return nil
 	}
-	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}, ParticipantCount: len(room.Participants), JoinedAt: now}
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}, ParticipantCount: count, JoinedAt: now}
 	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayParticipantJoinedEvent{Type: openapi.DisplayParticipantJoinedEventTypeParticipantJoined, Body: body}); err != nil {
 		return err
 	}
@@ -142,20 +135,12 @@ func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID,
 }
 
 func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {
-	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
-	if err != nil {
-		return nil, err
-	}
 	messageID, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
-	createdMessage, err := room.PostMessage(user, content, time.Now(), model.MessageID(messageID))
-	if err != nil {
-		return nil, err
-	}
-	err = s.roomRepository.Save(ctx, room)
-	if err != nil {
+	createdMessage := model.Message{MessageID: model.MessageID(messageID), Author: user, Content: content, CreatedAt: time.Now()}
+	if err := s.roomRepository.AppendMessage(ctx, roomID, createdMessage); err != nil {
 		return nil, err
 	}
 	err = s.queueRoomEvent(ctx, roomID, openapi.ParticipantMessageCreatedEvent{
