@@ -13,7 +13,9 @@ export const useRoomsStore = defineStore('rooms', () => {
   })
 
   async function fetchRooms(): Promise<void> {
-    const { data, error } = await apiClient.GET('/api/rooms')
+    const { data, error } = await apiClient.GET('/api/rooms', {
+      params: { query: { includeFinished: true } },
+    })
 
     if (error !== undefined || data === undefined) {
       throw new Error('Failed to fetch rooms')
@@ -58,7 +60,18 @@ export const useRoomsStore = defineStore('rooms', () => {
     await fetchRooms()
   }
 
+  async function deleteRoom(roomId: RoomId): Promise<void> {
+    const { error } = await apiClient.DELETE('/api/rooms/{roomId}', {
+      params: { path: { roomId } },
+    })
+    if (error !== undefined) throw new Error('ルームの削除に失敗しました。')
+    rooms.value = rooms.value.filter((room) => room.roomId !== roomId)
+    initialized.value = false
+    await fetchRooms()
+  }
+
   return {
+    deleteRoom,
     rooms,
     roomsByCode,
     fetchRooms,

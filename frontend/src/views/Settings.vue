@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted, watch } from 'vue'
+import RoomDeletedNotice from '@/components/common/RoomDeletedNotice.vue'
+import { reactive, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import type { FormError, FormSubmitEvent } from '@nuxt/ui'
 import type { UserId } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
@@ -8,6 +9,8 @@ import { useRoomsStore } from '@/stores/rooms'
 import { useClipboard } from '@vueuse/core'
 import { useToast } from '@nuxt/ui/composables'
 
+import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
+const connection = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 
 const form = ref()
@@ -27,6 +30,11 @@ const props = defineProps<{
 const toast = useToast()
 
 let roomId = ''
+let disposed = false
+onBeforeUnmount(() => {
+  disposed = true
+  if (connection.roomId === roomId && connection.mode === 'display') connection.disconnect()
+})
 
 onMounted(async () => {
   loading.value = true
@@ -35,13 +43,16 @@ onMounted(async () => {
 
   roomId = (await roomsStore.getRoomIdByCode(props.roomCode)) as string
 
+  if (disposed) return
+
   if (!roomId) {
     loading.value = false
     errorMessage.value = 'コードに対応するルームが見つかりませんでした。'
     return
   }
 
-  const { data, error } = await apiClient.GET('/api/rooms/{roomId}', {
+  connection.connect({ roomId, mode: 'display' })
+  const { data, error, response } = await apiClient.GET('/api/rooms/{roomId}', {
     params: {
       path: {
         roomId,
@@ -50,8 +61,10 @@ onMounted(async () => {
   })
 
   if (error) {
+    if (response.status === 404) connection.markRoomDeleted()
     errorMessage.value = error.message
   } else {
+    if (disposed) return
     state.name = data.settings.name
     state.description = data.settings.description
     state.adminUserIds = data.settings.admins.map((admin) => admin.userId)
@@ -159,10 +172,12 @@ const cancelEdit = () => {
 
 <template>
   <UContainer class="pt-6">
+    <RoomDeletedNotice />
     <div v-if="loading">読み込み中...</div>
     <div v-else-if="errorMessage">{{ errorMessage }}</div>
     <template v-else>
       <h2 class="text-3xl font-bold mb-6">ルーム{{ props.roomCode }}の設定</h2>
+      <p class="mb-4">参加者: {{ connection.participantCount ?? 0 }} 人</p>
 
       <h3 class="text-2xl font-bold mb-2">情報</h3>
       <UFormField label="参加画面">
