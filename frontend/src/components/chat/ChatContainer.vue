@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type {
-  Uuid,
-  Message,
-  DateTime,
-  WebSocketMode,
-  BingoSummary,
-  ReachSummary,
-} from '@/api/schema'
+import type { Uuid, Message, DateTime, WebSocketMode } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
 import MessageContainer from '@/components/chat/MessageContainer.vue'
 import PostMessage from '@/components/chat/PostMessage.vue'
@@ -29,9 +22,12 @@ const room = withDefaults(
   },
 )
 
-const messages = ref<Message[]>([])
-const noticeMessages = ref<Message[]>([])
-const summaryMessages = ref<Message[]>([])
+const historyMessages = ref<Message[]>([])
+const messages = computed(() => [
+  ...historyMessages.value,
+  ...(store.roomId === activeRoomId.value ? store.chatMessages : []),
+])
+
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
@@ -42,7 +38,7 @@ let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
 
 const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
-const { bingoSummaries, reachSummaries } = storeToRefs(store)
+const { activityLog } = storeToRefs(store)
 
 const sortedMessages = (items: Message[]) =>
   [...items].sort((a, b) => {
@@ -66,37 +62,22 @@ const systemMessage = (id: string, content: string, createdAt: DateTime): Messag
   createdAt,
 })
 
-const groupSummariesByCreatedAt = <T extends { createdAt: DateTime; user: { userId: string } }>(
-  summaries: T[],
-) => {
-  const groups = new Map<DateTime, T[]>()
-  for (const summary of summaries) {
-    groups.set(summary.createdAt, [...(groups.get(summary.createdAt) ?? []), summary])
-  }
-  return [...groups.entries()]
-}
-
-const bingoMessages = (summaries: BingoSummary[]) =>
-  groupSummariesByCreatedAt(summaries).map(([createdAt, group]) =>
+const summaryMessages = computed(() =>
+  activityLog.value.map((entry) =>
     systemMessage(
-      `newBingos-${createdAt}`,
-      `${group.map((summary) => summary.user.userId).join('、')} がビンゴしました！`,
-      createdAt,
+      entry.id,
+      entry.kind === 'reach'
+        ? `${entry.user.userId} さんがリーチ！`
+        : (entry.lineCount ?? 1) > 1
+          ? `${entry.user.userId} さんが ${entry.lineCount} ライン目のビンゴ！`
+          : `${entry.user.userId} さんが ${entry.bingoRank ?? 1} 番目にビンゴ！`,
+      entry.createdAt,
     ),
-  )
-
-const reachMessages = (summaries: ReachSummary[]) =>
-  groupSummariesByCreatedAt(summaries).map(([createdAt, group]) => {
-    const content =
-      group.length >= 2
-        ? `${group[0]?.user.userId} と他 ${group.length - 1} 人がリーチしました！`
-        : `${group[0]?.user.userId} がリーチしました！`
-
-    return systemMessage(`newReaches-${createdAt}`, content, createdAt)
-  })
+  ),
+)
 
 const timelineMessages = computed(() =>
-  mergeMessages([...messages.value, ...summaryMessages.value, ...noticeMessages.value]),
+  mergeMessages([...messages.value, ...summaryMessages.value]),
 )
 
 const latestMessagePreview = computed(() => {
@@ -122,35 +103,20 @@ const closeParticipantChat = () => {
   participantChatOpen.value = false
 }
 
-const addUserMessage = async (m: Message) => {
-  messages.value = mergeMessages([...messages.value, m])
-  void scrollToBottom()
-}
-
 const loadMessages = async (roomId: Uuid) => {
   const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
     params: { path: { roomId } },
   })
 
-  if (response.data) {
-    messages.value = mergeMessages(response.data)
+  if (response.data && activeRoomId.value === roomId) {
+    historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
     void scrollToBottom()
   }
 }
 
-const addNoticeMessage = (id: string, content: string, createdAt: DateTime) => {
-  noticeMessages.value = mergeMessages([
-    ...noticeMessages.value,
-    systemMessage(`${id}-${noticeMessages.value.length}`, content, createdAt),
-  ])
-  void scrollToBottom()
-}
-
 const notificationType = (message: Message) => {
   if (message.author.userId !== '') return undefined
-  if (message.messageId.startsWith('newBingos')) return 'bingo'
-  if (message.messageId.startsWith('newReaches')) return 'reach'
-  return 'notice'
+  return activityLog.value.find((entry) => entry.id === message.messageId)?.kind ?? 'notice'
 }
 
 onMounted(async () => {
@@ -158,47 +124,16 @@ onMounted(async () => {
   if (!roomId) return
   activeRoomId.value = roomId
 
+  if (room.connect) {
+    const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
+    if (!store.isActiveConnection({ roomId, mode })) store.connect({ roomId, mode })
+  }
   await loadMessages(roomId)
-
-  if (!room.connect) return
-
-  const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
-  if (store.isActiveConnection({ roomId, mode })) return
-
-  store.connect({ roomId, mode })
 })
 
 onBeforeUnmount(() => {
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
 })
-
-watch(
-  () => store.latestMessage,
-  (newValue) => {
-    if (newValue) {
-      addUserMessage(newValue)
-    }
-  },
-)
-watch(
-  () => store.pickState,
-  (newValue) => {
-    if (newValue == 'exhausted') {
-      addNoticeMessage('allPicked', '球が枯渇しました！', new Date().toISOString() as DateTime)
-    }
-  },
-)
-
-watch(
-  [bingoSummaries, reachSummaries],
-  ([nextBingoSummaries, nextReachSummaries]) => {
-    summaryMessages.value = mergeMessages([
-      ...bingoMessages(nextBingoSummaries),
-      ...reachMessages(nextReachSummaries),
-    ])
-  },
-  { deep: true, immediate: true },
-)
 
 watch(
   () => timelineMessages.value.length,
