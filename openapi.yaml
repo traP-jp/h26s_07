@@ -129,7 +129,7 @@ paths:
       tags:
         - participants
       summary: ルームに参加
-      description: waiting 中のルームに参加する。同じユーザーが同じルームに再参加した場合は冪等に成功し、重複 participant は作らない。
+      description: waiting 中のルームに参加する。既に参加済みのユーザーはルームの状態にかかわらず冪等に成功し、重複 participant は作らない。
       operationId: joinRoom
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -236,7 +236,7 @@ paths:
       tags:
         - controls
       summary: ゲームを開始
-      description: 開始時点の参加者全員にカードを一括生成する。
+      description: 開始時点の参加者全員にカードを一括生成する。既に playing の場合は変更せず成功する。
       operationId: startGame
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -250,7 +250,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: ルームが waiting ではない、または開始できない状態。
+          description: ルームが finished、または参加者がいないため開始できない状態。
           content:
             application/json:
               schema:
@@ -263,7 +263,7 @@ paths:
       tags:
         - controls
       summary: ゲームを終了
-      description: admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
+      description: 既に finished の場合は変更せず成功する。admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
       operationId: finishGame
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -277,7 +277,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: ルームが waiting、または既に finished。
+          description: ルームが waiting。
           content:
             application/json:
               schema:
@@ -290,7 +290,7 @@ paths:
       tags:
         - controls
       summary: 抽選を開始
-      description: 抽選中状態にする。結果はまだ決めない。抽選可能な球がない場合は成功しない。
+      description: 抽選中状態にする。結果はまだ決めない。既に picking の場合も成功し、PickStarted を再送する。抽選可能な球がない場合は成功しない。
       operationId: startPick
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -304,7 +304,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: playing + idle ではない、または抽選可能な球がない。
+          description: playing ではない、または抽選可能な球がない。
           content:
             application/json:
               schema:
@@ -317,7 +317,7 @@ paths:
       tags:
         - controls
       summary: 抽選をキャンセル
-      description: 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。
+      description: 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。既に idle の場合は変更せず成功する。
       operationId: cancelPick
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -331,7 +331,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: 現在抽選中ではない、またはゲーム状態が不正。
+          description: 抽選状態またはゲーム状態が不正。
           content:
             application/json:
               schema:
