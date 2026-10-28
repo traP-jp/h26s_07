@@ -23,8 +23,8 @@ export const useRoomsStore = defineStore('rooms', () => {
     initialized.value = true
   }
 
-  async function init(): Promise<void> {
-    if (initialized.value) {
+  async function init(force = false): Promise<void> {
+    if (initialized.value && !force) {
       return
     }
 
@@ -33,6 +33,7 @@ export const useRoomsStore = defineStore('rooms', () => {
 
   async function getRoomByCode(roomCode: RoomCode): Promise<Room | null> {
     await init()
+    if (!roomsByCode.value.has(roomCode)) await init(true)
     return roomsByCode.value.get(roomCode) ?? null
   }
 
