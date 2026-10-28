@@ -77,7 +77,21 @@ const summaryMessages = computed(() =>
 )
 
 const timelineMessages = computed(() =>
-  mergeMessages([...messages.value, ...summaryMessages.value]),
+  mergeMessages([
+    ...messages.value,
+    ...summaryMessages.value,
+    ...(store.roomId === activeRoomId.value && store.pickState === 'exhausted'
+      ? [
+          systemMessage(
+            `exhausted:${activeRoomId.value}`,
+            '球が枯渇しました！',
+            summaryMessages.value.at(-1)?.createdAt ??
+              roomsStore.rooms.find((item) => item.roomId === activeRoomId.value)?.createdAt ??
+              '1970-01-01T00:00:00.000Z',
+          ),
+        ]
+      : []),
+  ]),
 )
 
 const latestMessagePreview = computed(() => {
@@ -108,6 +122,8 @@ const loadMessages = async (roomId: Uuid) => {
     params: { path: { roomId } },
   })
 
+  if (response.response.status === 403) return
+
   if (response.data && activeRoomId.value === roomId) {
     historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
     void scrollToBottom()
@@ -130,6 +146,16 @@ onMounted(async () => {
   }
   await loadMessages(roomId)
 })
+
+watch(
+  () => store.initializationCount,
+  () => {
+    if (activeRoomId.value && store.roomId === activeRoomId.value) {
+      void loadMessages(activeRoomId.value)
+    }
+  },
+  { flush: 'sync' },
+)
 
 onBeforeUnmount(() => {
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)

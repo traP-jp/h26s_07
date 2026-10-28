@@ -16,12 +16,12 @@ type RequestBody = {
   content: string
 }
 const post = async () => {
-  if (newMessage.value.length == 0) return
+  if ([...newMessage.value].length == 0) return
 
   const data: RequestBody = {
     content: newMessage.value,
   }
-  if (newMessage.value.length > 500) {
+  if ([...newMessage.value].length > 500) {
     throw new Error('Error 400 : Message Invalid')
   }
   try {
