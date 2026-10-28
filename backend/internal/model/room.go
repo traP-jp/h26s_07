@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"slices"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -225,11 +226,11 @@ func (room *Room) ParticipantCount() int {
 }
 
 func (room *Room) Join(userID UserID, now time.Time) error {
-	if !room.CanJoin() {
-		return ErrRoomNotJoinable
-	}
 	if room.IsParticipant(userID) {
 		return nil
+	}
+	if !room.CanJoin() {
+		return ErrRoomNotJoinable
 	}
 
 	room.Participants = append(room.Participants, Participant{
@@ -251,7 +252,7 @@ func (room *Room) PostMessage(user UserID, content string, now time.Time, messag
 	if room.State == RoomStateFinished {
 		return Message{}, ErrRoomMessageNotPostable
 	}
-	if content == "" || len(content) > 500 {
+	if content == "" || utf8.RuneCountInString(content) > 500 {
 		return Message{}, ErrMessageInvalid
 	}
 	message := Message{
@@ -489,6 +490,9 @@ func (room *Room) FinishGame(actor UserID, now time.Time) (GameFinishedResult, e
 func (room *Room) StartPick(actor UserID, now time.Time) error {
 	if !room.IsAdmin(actor) {
 		return ErrRoomForbidden
+	}
+	if room.State == RoomStatePlaying && room.PickState == RoomPickStatePicking {
+		return nil
 	}
 	if room.State != RoomStatePlaying || room.PickState != RoomPickStateIdle {
 		return ErrRoomPickNotStartable
