@@ -1,129 +1,39 @@
 <script setup lang="ts">
 import RoomDeletedNotice from '@/components/common/RoomDeletedNotice.vue'
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import { apiClient } from '@/api/apiClient'
+import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
+import { useControllerRoomControls } from '@/composables/useControllerRoomControls'
+import { useControllerShortcuts } from '@/composables/useControllerShortcuts'
 import { useRoomsStore } from '@/stores/rooms'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
-import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 const roomsStore = useRoomsStore()
 const connection = useRoomWebSocketStore()
 const props = defineProps<{ roomCode: string }>()
 const loading = ref(true)
-const errorMessage = ref('')
-const networkErrorMessage = '通信できませんでした。ネットワーク接続を確認してください。'
-let roomId = ''
-const isDisabled = ref(false)
-const gameStarted = ref(true)
-const pickStarted = ref(false)
-const pickExhausted = ref(true)
-const qrCodeShowed = ref(false)
-const startModal = ref(false)
-const finishModal = ref(false)
-const finishedModal = ref(false)
-const ready = ref(false)
-
-function applyState(state: string, pickState: string, qrCodeVisible: boolean) {
-  gameStarted.value = state !== 'waiting'
-  pickStarted.value = pickState === 'picking'
-  pickExhausted.value = pickState === 'exhausted'
-  qrCodeShowed.value = qrCodeVisible
-  finishedModal.value = state === 'finished'
-  ready.value = true
-}
-
-watch(
-  () =>
-    [
-      connection.roomState,
-      connection.pickState,
-      connection.qrCodeVisible,
-      connection.initializationCount,
-    ] as const,
-  ([state, pick, qr]) => {
-    if (
-      connection.roomId === roomId &&
-      connection.mode === 'display' &&
-      state &&
-      pick &&
-      qr !== null
-    ) {
-      applyState(state, pick, qr)
-    }
-  },
-)
-
-// A fresh snapshot after reconnecting means the network is back; drop a stale
-// "network down" message so the operator is not misled.
-watch(
-  () => connection.initializationCount,
-  () => {
-    if (errorMessage.value === networkErrorMessage) errorMessage.value = ''
-  },
-)
-
-function hasWebSocketState() {
-  return (
-    connection.roomId === roomId &&
-    connection.mode === 'display' &&
-    connection.status === 'open' &&
-    connection.roomState !== null
-  )
-}
-
-// fetch() rejects with a TypeError ("Failed to fetch") when the network is down.
-const describeError = (error: unknown, fallback: string) =>
-  error instanceof TypeError
-    ? networkErrorMessage
-    : error instanceof Error
-      ? error.message
-      : fallback
-
-async function getLatestInfo(afterControl = false) {
-  try {
-    const { data, error, response } = await apiClient.GET('/api/rooms/{roomId}', {
-      params: { path: { roomId } },
-    })
-    if (response.status === 404) connection.markRoomDeleted()
-    if (error || !data) throw new Error(error?.message ?? 'ルーム情報を取得できませんでした。')
-    if (!disposed && !hasWebSocketState() && !(afterControl && connection.status === 'open')) {
-      applyState(data.state, data.pickState, data.qrCodeVisible)
-    }
-    return data
-  } catch (error) {
-    errorMessage.value = describeError(error, '通信に失敗しました。')
-    return null
-  }
-}
-
-type ControlPath =
-  | '/api/rooms/{roomId}/control/start'
-  | '/api/rooms/{roomId}/control/finish'
-  | '/api/rooms/{roomId}/control/pick/start'
-  | '/api/rooms/{roomId}/control/pick/finish'
-  | '/api/rooms/{roomId}/control/pick/cancel'
-  | '/api/rooms/{roomId}/control/qrcode/show'
-  | '/api/rooms/{roomId}/control/qrcode/hide'
-type RoomInfo = NonNullable<Awaited<ReturnType<typeof getLatestInfo>>>
-
-async function control(path: ControlPath, matches: (state: RoomInfo) => boolean) {
-  if (isDisabled.value || !ready.value) return
-  isDisabled.value = true
-  errorMessage.value = ''
-  let failure = ''
-  try {
-    const { error } = await apiClient.POST(path, { params: { path: { roomId } } })
-    if (error) failure = error.message
-  } catch (error) {
-    failure = describeError(error, '操作に失敗しました。')
-  } finally {
-    const state = await getLatestInfo(true)
-    if (failure && (!state || !matches(state))) errorMessage.value = failure
-    startModal.value = false
-    finishModal.value = false
-    isDisabled.value = false
-  }
-}
+const roomId = ref('')
+const {
+  clickFinishModal,
+  clickHideQr,
+  clickPickCancel,
+  clickPickFinish,
+  clickPickStart,
+  clickShowQr,
+  clickStartModal,
+  errorMessage,
+  finishModal,
+  finishedModal,
+  gameStarted,
+  getLatestInfo,
+  isDisabled,
+  pickExhausted,
+  pickStarted,
+  qrCodeShowed,
+  ready,
+  startModal,
+  dispose,
+  isDisposed,
+} = useControllerRoomControls(roomId, connection)
 
 const clickGameStart = () => {
   startModal.value = true
@@ -137,58 +47,24 @@ const cancelGameStart = () => {
 const cancelGameFinish = () => {
   finishModal.value = false
 }
-const clickStartModal = () =>
-  control('/api/rooms/{roomId}/control/start', (s) => s.state === 'playing')
-const clickFinishModal = () =>
-  control('/api/rooms/{roomId}/control/finish', (s) => s.state === 'finished')
-const clickPickStart = () =>
-  control('/api/rooms/{roomId}/control/pick/start', (s) => s.pickState === 'picking')
-const clickPickFinish = () =>
-  control('/api/rooms/{roomId}/control/pick/finish', (s) => s.pickState !== 'picking')
-const clickPickCancel = () =>
-  control('/api/rooms/{roomId}/control/pick/cancel', (s) => s.pickState === 'idle')
-const clickShowQr = () => control('/api/rooms/{roomId}/control/qrcode/show', (s) => s.qrCodeVisible)
-const clickHideQr = () =>
-  control('/api/rooms/{roomId}/control/qrcode/hide', (s) => !s.qrCodeVisible)
 
-let lastKeyAt = 0
-function onKey(event: KeyboardEvent) {
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return
-  const key = event.key.toLowerCase()
-  if (
-    [' ', 'enter'].includes(key) &&
-    event.target instanceof Element &&
-    event.target.closest(
-      'button, a, [role="button"], summary, input, textarea, select, [contenteditable]:not([contenteditable="false"])',
-    )
-  )
-    return
-  const toggle = [' ', 'enter', 'pagedown', 'arrowright', 'pageup', 'arrowleft'].includes(key)
-  const cancel = ['escape', 'backspace'].includes(key)
-  if (!toggle && !cancel && key !== 'q') return
-  if (
-    startModal.value ||
-    finishModal.value ||
-    finishedModal.value ||
-    document.querySelector('[role="dialog"]')
-  )
-    return
-  event.preventDefault()
-  if (
-    event.repeat ||
-    Date.now() - lastKeyAt < 400 ||
-    isDisabled.value ||
-    loading.value ||
-    !ready.value
-  )
-    return
-  lastKeyAt = Date.now()
-  if (key === 'q') void (qrCodeShowed.value ? clickHideQr() : clickShowQr())
-  else if (gameStarted.value && !pickExhausted.value) {
-    if (cancel && pickStarted.value) void clickPickCancel()
-    else if (toggle) void (pickStarted.value ? clickPickFinish() : clickPickStart())
-  }
-}
+const shortcuts = useControllerShortcuts({
+  isDisabled,
+  loading,
+  ready,
+  startModal,
+  finishModal,
+  finishedModal,
+  gameStarted,
+  pickStarted,
+  pickExhausted,
+  qrCodeShowed,
+  clickShowQr,
+  clickHideQr,
+  clickPickStart,
+  clickPickFinish,
+  clickPickCancel,
+})
 
 const savedStyles: Array<{
   element: HTMLElement
@@ -196,7 +72,6 @@ const savedStyles: Array<{
   overscrollBehavior: string
   touchAction: string
 }> = []
-let disposed = false
 onMounted(async () => {
   for (const element of [document.documentElement, document.body]) {
     savedStyles.push({
@@ -211,12 +86,12 @@ onMounted(async () => {
       touchAction: 'manipulation',
     })
   }
-  window.addEventListener('keydown', onKey)
+  shortcuts.attach()
   try {
-    roomId = (await roomsStore.getRoomIdByCode(props.roomCode)) ?? ''
-    if (disposed) return
-    if (!roomId) throw new Error('コードに対応するルームが見つかりませんでした。')
-    connection.connect({ roomId, mode: 'display' })
+    roomId.value = (await roomsStore.getRoomIdByCode(props.roomCode)) ?? ''
+    if (isDisposed()) return
+    if (!roomId.value) throw new Error('コードに対応するルームが見つかりませんでした。')
+    connection.connect({ roomId: roomId.value, mode: 'display' })
     await getLatestInfo()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '通信に失敗しました。'
@@ -225,10 +100,10 @@ onMounted(async () => {
   }
 })
 onBeforeUnmount(() => {
-  disposed = true
-  window.removeEventListener('keydown', onKey)
+  dispose()
+  shortcuts.detach()
   for (const { element, ...style } of savedStyles) Object.assign(element.style, style)
-  if (connection.roomId === roomId && connection.mode === 'display') connection.disconnect()
+  if (connection.roomId === roomId.value && connection.mode === 'display') connection.disconnect()
 })
 </script>
 
