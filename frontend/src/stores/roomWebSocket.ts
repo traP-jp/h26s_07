@@ -65,6 +65,9 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   let enabled = false
   let lastMessageAt = 0
   const staleAfter = 120_000
+  // Events may have been dropped while the browser was offline even if the
+  // socket still looks OPEN, so force a fresh snapshot after coming back.
+  let sawOffline = false
   const errorMessage = ref<string | null>(null)
 
   const latestEvent = ref<RoomWebSocketEvent | null>(null)
@@ -385,13 +388,23 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function resumeConnection() {
-    if (document.visibilityState === 'hidden' || !enabled) return
-    if (socket.value?.readyState !== WebSocket.OPEN || Date.now() - lastMessageAt > staleAfter) {
+    if (document.visibilityState === 'hidden' || !enabled || !navigator.onLine) return
+    if (
+      sawOffline ||
+      socket.value?.readyState !== WebSocket.OPEN ||
+      Date.now() - lastMessageAt > staleAfter
+    ) {
+      sawOffline = false
       reconnectNow()
     }
   }
 
+  function markOffline() {
+    sawOffline = true
+  }
+
   function installListeners() {
+    window.addEventListener('offline', markOffline)
     window.addEventListener('online', resumeConnection)
     document.addEventListener('visibilitychange', resumeConnection)
   }
@@ -402,6 +415,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     enabled = false
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
+    window.removeEventListener('offline', markOffline)
     window.removeEventListener('online', resumeConnection)
     document.removeEventListener('visibilitychange', resumeConnection)
     const currentSocket = socket.value

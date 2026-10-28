@@ -11,6 +11,7 @@ const connection = useRoomWebSocketStore()
 const props = defineProps<{ roomCode: string }>()
 const loading = ref(true)
 const errorMessage = ref('')
+const networkErrorMessage = '通信できませんでした。ネットワーク接続を確認してください。'
 let roomId = ''
 const isDisabled = ref(false)
 const gameStarted = ref(true)
@@ -52,6 +53,15 @@ watch(
   },
 )
 
+// A fresh snapshot after reconnecting means the network is back; drop a stale
+// "network down" message so the operator is not misled.
+watch(
+  () => connection.initializationCount,
+  () => {
+    if (errorMessage.value === networkErrorMessage) errorMessage.value = ''
+  },
+)
+
 function hasWebSocketState() {
   return (
     connection.roomId === roomId &&
@@ -60,6 +70,14 @@ function hasWebSocketState() {
     connection.roomState !== null
   )
 }
+
+// fetch() rejects with a TypeError ("Failed to fetch") when the network is down.
+const describeError = (error: unknown, fallback: string) =>
+  error instanceof TypeError
+    ? networkErrorMessage
+    : error instanceof Error
+      ? error.message
+      : fallback
 
 async function getLatestInfo(afterControl = false) {
   try {
@@ -73,7 +91,7 @@ async function getLatestInfo(afterControl = false) {
     }
     return data
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '通信に失敗しました。'
+    errorMessage.value = describeError(error, '通信に失敗しました。')
     return null
   }
 }
@@ -97,7 +115,7 @@ async function control(path: ControlPath, matches: (state: RoomInfo) => boolean)
     const { error } = await apiClient.POST(path, { params: { path: { roomId } } })
     if (error) failure = error.message
   } catch (error) {
-    failure = error instanceof Error ? error.message : '操作に失敗しました。'
+    failure = describeError(error, '操作に失敗しました。')
   } finally {
     const state = await getLatestInfo(true)
     if (failure && (!state || !matches(state))) errorMessage.value = failure
