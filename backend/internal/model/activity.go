@@ -26,6 +26,7 @@ func (room *Room) ActivityLog() []ActivityLogEntry {
 	for _, r := range room.BingoRecords {
 		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: "bingo", UserID: r.UserID, CreatedAt: r.CreatedAt})
 	}
+	// Equal timestamps are common within one pick; stored record IDs make their order stable after reloads.
 	slices.SortFunc(entries, func(a, b ActivityLogEntry) int {
 		if c := a.CreatedAt.Compare(b.CreatedAt); c != 0 {
 			return c

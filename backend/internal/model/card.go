@@ -12,6 +12,18 @@ const (
 	FreeCellIndex = 12
 )
 
+func (number CardNumber) Valid() bool {
+	if len(number) != 36 {
+		return false
+	}
+	for _, r := range number {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func NewCard(cardID CardID, cardNumber CardNumber, owner UserID, numbers [24]BallNumber) (Card, error) {
 	if !cardNumber.Valid() {
 		return Card{}, ErrInvalidCard
