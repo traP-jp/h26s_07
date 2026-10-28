@@ -24,7 +24,11 @@ export function clearSocketConnection(connection: MockSocketConnection): void {
   }
 }
 
-export function sendEvent<TBody>(event: { type: WebSocketEventType; body: TBody }): void {
+export function sendEvent<TBody>(
+  event: { type: WebSocketEventType; body: TBody },
+  roomId?: string,
+): void {
+  if (roomId && currentSocketConnection?.roomId !== roomId) return
   currentSocketConnection?.send(JSON.stringify(event))
 }
 

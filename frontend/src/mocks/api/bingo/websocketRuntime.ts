@@ -1,3 +1,4 @@
+import type { ActivityLogEntry } from '@/api/schema'
 import { sendEvent, type MockSocketConnection } from './core'
 import {
   demoChatMessages,
@@ -19,6 +20,9 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
     return {
       type: 'Initialized',
       body: {
+        activityLog: room.activityLog,
+        participants: room.participants.map((participant) => participant.user),
+        participantCount: room.participants.length,
         state: room.state,
         settings: room.settings,
         pickState: room.pickState,
@@ -32,6 +36,8 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
   return {
     type: 'Initialized',
     body: {
+      activityLog: room.activityLog,
+      participants: room.participants.map((participant) => participant.user),
       state: room.state,
       settings: room.settings,
       pickState: room.pickState,
@@ -50,7 +56,17 @@ function scheduleScript(
 ): void {
   for (const item of script) {
     window.setTimeout(() => {
-      sendEvent(eventForMode(item.event, connection.mode))
+      const event = eventForMode(item.event, connection.mode)
+      if (event.type === 'PickFinished') {
+        const room = roomByPathParam(connection.roomId)
+        const body = event.body as { newActivityLog: ActivityLogEntry[] }
+        room.activityLog = [
+          ...new Map(
+            [...room.activityLog, ...body.newActivityLog].map((entry) => [entry.id, entry]),
+          ).values(),
+        ]
+      }
+      sendEvent(event, connection.roomId)
     }, item.delayMs)
   }
 }
