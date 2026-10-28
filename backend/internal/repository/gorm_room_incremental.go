@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"github.com/google/uuid"
 	"time"
 
 	"github.com/traP-jp/h26_07/backend/internal/dbmodel"
@@ -106,4 +107,69 @@ func (r *GormRoomRepository) JoinParticipant(ctx context.Context, id model.RoomI
 		return false, 0, err
 	}
 	return joined, count, nil
+}
+
+// LockPickRoom is a validation projection, never suitable for Save. Picked balls
+// are bounded by 75 and are needed by StartPick's exhaustion validation.
+func (r *GormRoomRepository) LockPickRoom(ctx context.Context, id model.RoomID, actor model.UserID) (*model.Room, error) {
+	room, err := r.lockRoomForUser(ctx, id, actor)
+	if err != nil {
+		return nil, err
+	}
+	if err := loadPickedBalls(gormDB(ctx, r.db), []string{id.String()}, map[string]*model.Room{id.String(): room}); err != nil {
+		return nil, err
+	}
+	return room, nil
+}
+
+func (r *GormRoomRepository) UpdatePickState(ctx context.Context, room *model.Room) error {
+	return gormDB(ctx, r.db).Model(&dbmodel.Room{}).Where("room_id = ?", room.RoomID.String()).Updates(map[string]any{"pick_state": string(room.PickState), "updated_at": gormDB(ctx, r.db).NowFunc()}).Error
+}
+
+func (r *GormRoomRepository) UpdateQRCode(ctx context.Context, room *model.Room) error {
+	return gormDB(ctx, r.db).Model(&dbmodel.Room{}).Where("room_id = ?", room.RoomID.String()).Updates(map[string]any{"qr_code_visible": room.QrCodeVisible, "updated_at": gormDB(ctx, r.db).NowFunc()}).Error
+}
+
+// SaveFinishedPick persists the delta produced by Room.FinishPick. The caller
+// must hold the room lock in the same transaction as the aggregate read.
+func (r *GormRoomRepository) SaveFinishedPick(ctx context.Context, before model.Room, room *model.Room) error {
+	db := gormDB(ctx, r.db)
+	id := room.RoomID.String()
+	ball := dbmodel.RoomPickedBall{PickedBallID: uuid.NewString(), RoomID: id, PickOrder: uint16(len(room.PickedBalls)), Number: uint8(room.PickedBalls[len(room.PickedBalls)-1]), PickedAt: room.UpdatedAt}
+	if err := db.Create(&ball).Error; err != nil {
+		return err
+	}
+	cardIDs := make(map[model.UserID]string, len(room.Cards))
+	for i, card := range room.Cards {
+		cardID := cardIDString(card.CardID)
+		cardIDs[card.OwnerUserID] = cardID
+		for j, cell := range card.Cells {
+			if cell.CellState == before.Cards[i].Cells[j].CellState {
+				continue
+			}
+			if err := db.Model(&dbmodel.RoomCardCell{}).Where("card_id = ? AND cell_index = ?", cardID, uint8(cell.Index)).Update("cell_state", string(cell.CellState)).Error; err != nil {
+				return err
+			}
+		}
+	}
+	bingos := make([]dbmodel.RoomBingoRecord, 0)
+	for _, record := range room.BingoRecords[len(before.BingoRecords):] {
+		bingos = append(bingos, dbmodel.RoomBingoRecord{RecordID: recordIDString(record.RecordID), RoomID: id, UserID: string(record.UserID), CardID: cardIDs[record.UserID], LineIndex: uint8(record.Line), BingoOrder: uint(record.Order), CreatedAt: record.CreatedAt})
+	}
+	if err := createInBatches(db, bingos); err != nil {
+		return err
+	}
+	reaches := make([]dbmodel.RoomReachRecord, 0)
+	for _, record := range room.ReachRecords[len(before.ReachRecords):] {
+		reaches = append(reaches, dbmodel.RoomReachRecord{RecordID: recordIDString(record.RecordID), RoomID: id, UserID: string(record.UserID), LineIndex: uint8(record.Line), LastCellIndex: uint8(record.LastCellIndex), CreatedAt: record.CreatedAt})
+	}
+	if err := createInBatches(db, reaches); err != nil {
+		return err
+	}
+	return r.UpdatePickState(ctx, room)
+}
+
+// LockRoomForUser loads only row metadata and actor membership for validation.
+func (r *GormRoomRepository) LockRoomForUser(ctx context.Context, id model.RoomID, actor model.UserID) (*model.Room, error) {
+	return r.lockRoomForUser(ctx, id, actor)
 }

@@ -479,7 +479,7 @@ func (s *RoomService) finishGame(ctx context.Context, roomID model.RoomID, user 
 }
 
 func (s *RoomService) showQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
+	room, err := s.roomRepository.LockRoomForUser(ctx, roomID, user)
 	if err != nil {
 		if err == repository.ErrRoomNotFound {
 			return model.ErrRoomNotFound
@@ -489,7 +489,7 @@ func (s *RoomService) showQRCode(ctx context.Context, roomID model.RoomID, user 
 	if err := room.ShowQRCode(user, time.Now()); err != nil {
 		return err
 	}
-	err = s.roomRepository.Save(ctx, room)
+	err = s.roomRepository.UpdateQRCode(ctx, room)
 	if err != nil {
 		return err
 	}
@@ -504,7 +504,7 @@ func (s *RoomService) showQRCode(ctx context.Context, roomID model.RoomID, user 
 }
 
 func (s *RoomService) hideQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
+	room, err := s.roomRepository.LockRoomForUser(ctx, roomID, user)
 	if err != nil {
 		if err == repository.ErrRoomNotFound {
 			return model.ErrRoomNotFound
@@ -514,7 +514,7 @@ func (s *RoomService) hideQRCode(ctx context.Context, roomID model.RoomID, user 
 	if err := room.HideQRCode(user, time.Now()); err != nil {
 		return err
 	}
-	err = s.roomRepository.Save(ctx, room)
+	err = s.roomRepository.UpdateQRCode(ctx, room)
 	if err != nil {
 		return err
 	}
@@ -529,21 +529,21 @@ func (s *RoomService) hideQRCode(ctx context.Context, roomID model.RoomID, user 
 }
 
 func (s *RoomService) startPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
-	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
+	room, err := s.roomRepository.LockPickRoom(ctx, roomID, actor)
 	if err != nil {
 		return err
 	}
 
 	if err := room.StartPick(actor, time.Now()); err != nil {
 		if errors.Is(err, model.ErrNoDrawableBalls) {
-			if saveErr := s.roomRepository.Save(ctx, room); saveErr != nil {
+			if saveErr := s.roomRepository.UpdatePickState(ctx, room); saveErr != nil {
 				return saveErr
 			}
 		}
 		return err
 	}
 
-	if err := s.roomRepository.Save(ctx, room); err != nil {
+	if err := s.roomRepository.UpdatePickState(ctx, room); err != nil {
 		return err
 	}
 
@@ -565,7 +565,7 @@ func (s *RoomService) startPick(ctx context.Context, roomID model.RoomID, actor 
 }
 
 func (s *RoomService) cancelPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
-	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
+	room, err := s.roomRepository.LockRoomForUser(ctx, roomID, actor)
 	if err != nil {
 		return err
 	}
@@ -580,7 +580,7 @@ func (s *RoomService) cancelPick(ctx context.Context, roomID model.RoomID, actor
 		return err
 	}
 
-	if err := s.roomRepository.Save(ctx, room); err != nil {
+	if err := s.roomRepository.UpdatePickState(ctx, room); err != nil {
 		return err
 	}
 
@@ -622,6 +622,7 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 	for _, e := range room.ActivityLog() {
 		oldIDs[e.ID] = true
 	}
+	before := *room
 	now := time.Now()
 	result, err := room.FinishPick(actor, picked, func() (model.RecordID, error) {
 		recordID, err := uuid.NewV7()
@@ -634,7 +635,7 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 		return err
 	}
 
-	if err := s.roomRepository.Save(ctx, result.Room); err != nil {
+	if err := s.roomRepository.SaveFinishedPick(ctx, before, result.Room); err != nil {
 		return err
 	}
 

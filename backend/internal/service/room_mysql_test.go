@@ -251,3 +251,85 @@ func (e *concurrentMessageEvents) SendRoom(_ context.Context, _ model.RoomID, ev
 func (e *concurrentMessageEvents) SendParticipant(context.Context, model.RoomID, model.UserID, any) error {
 	return nil
 }
+
+func TestMySQLConcurrentPickTransitionsAcrossInstances(t *testing.T) {
+	dsn := os.Getenv("TEST_MYSQL_DSN")
+	if dsn == "" {
+		t.Skip("TEST_MYSQL_DSN is not set; run cmd/migrate first")
+	}
+	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{})
+	mustSucceed(t, err)
+	sqlDB, err := db.DB()
+	mustSucceed(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	repo := repository.NewGormRoomRepository(db)
+	services := []*RoomService{
+		NewRoomService(repository.NewGormTransactionRunner(db), repo, mysqlTestEvents{}),
+		NewRoomService(repository.NewGormTransactionRunner(db), repository.NewGormRoomRepository(db), mysqlTestEvents{}),
+	}
+	room, err := services[0].CreateRoom(ctx, model.RoomSettings{Name: "racing picks"}, "admin")
+	mustSucceed(t, err)
+	t.Cleanup(func() { mustSucceed(t, repo.Delete(context.Background(), room.RoomID)) })
+	mustSucceed(t, services[0].PostParticipants(ctx, room.RoomID, "alice"))
+	mustSucceed(t, services[0].StartGame(ctx, room.RoomID, "admin"))
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for worker, svc := range services {
+		wg.Add(1)
+		go func(worker int, svc *RoomService) {
+			defer wg.Done()
+			<-start
+			for i := 0; i < 150; i++ {
+				var err error
+				switch (i + worker) % 3 {
+				case 0:
+					err = svc.StartPick(ctx, room.RoomID, "admin")
+				case 1:
+					err = svc.FinishPick(ctx, room.RoomID, "admin")
+				case 2:
+					err = svc.CancelPick(ctx, room.RoomID, "admin")
+				}
+				if err != nil && !errors.Is(err, model.ErrRoomPickNotStartable) && !errors.Is(err, model.ErrRoomPickNotFinishable) && !errors.Is(err, model.ErrRoomPickNotCancelable) && !errors.Is(err, model.ErrNoDrawableBalls) {
+					errs <- err
+					return
+				}
+			}
+		}(worker, svc)
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		mustSucceed(t, err)
+	}
+	stored, err := repo.FindByID(ctx, room.RoomID)
+	mustSucceed(t, err)
+	// Drain the remaining balls to prove that racing cancellations leave a usable state.
+	for len(stored.PickedBalls) < 75 {
+		mustSucceed(t, services[0].StartPick(ctx, room.RoomID, "admin"))
+		mustSucceed(t, services[1].FinishPick(ctx, room.RoomID, "admin"))
+		stored, err = repo.FindByID(ctx, room.RoomID)
+		mustSucceed(t, err)
+	}
+	if stored.PickState != model.RoomPickStateExhausted {
+		t.Fatalf("final pick state: %s", stored.PickState)
+	}
+	seen := map[model.BallNumber]bool{}
+	for _, ball := range stored.PickedBalls {
+		if seen[ball] {
+			t.Fatalf("duplicate ball: %d", ball)
+		}
+		seen[ball] = true
+	}
+	if len(seen) != 75 || len(stored.BingoRecords) != 12 || len(stored.ReachRecords) != 1 {
+		t.Fatalf("inconsistent final aggregate: %+v", stored)
+	}
+	for _, cell := range stored.Cards[0].Cells {
+		if cell.CellState != model.CardCellStateBingo {
+			t.Fatalf("unopened final cell: %+v", cell)
+		}
+	}
+}
