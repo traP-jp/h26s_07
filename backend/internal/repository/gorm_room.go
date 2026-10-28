@@ -1012,3 +1012,29 @@ func cmpString(a, b string) int {
 		return 0
 	}
 }
+
+func (r *GormRoomRepository) FindByIDForUpdate(ctx context.Context, roomID model.RoomID) (*model.Room, error) {
+	var roomRow dbmodel.Room
+	err := gormDB(ctx, r.db).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("room_id = ?", roomIDString(roomID)).
+		First(&roomRow).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrRoomNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	rooms, err := r.buildRooms(ctx, []dbmodel.Room{roomRow})
+	if err != nil {
+		return nil, err
+	}
+	return rooms[0], nil
+}
+
+func (r *GormRoomRepository) ActiveCodeExists(ctx context.Context, code model.RoomCode) (bool, error) {
+	var count int64
+	err := gormDB(ctx, r.db).Model(&dbmodel.Room{}).Where("room_code = ? AND state <> ?", string(code), string(model.RoomStateFinished)).Count(&count).Error
+	return count > 0, err
+}
