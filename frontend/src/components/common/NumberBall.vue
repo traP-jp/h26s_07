@@ -47,7 +47,6 @@ const props = defineProps<{
     box-shadow 260ms ease,
     transform 260ms ease;
   user-select: none;
-  animation: ball-state-pop 560ms cubic-bezier(0.18, 0.85, 0.28, 1.28) both;
 }
 
 .ball-content {

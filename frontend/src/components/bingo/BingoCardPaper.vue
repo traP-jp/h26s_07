@@ -108,8 +108,7 @@ const isInLine = (line: Line[] | undefined, cellIndex: number) => {
 const isInActiveEffectLine = (cellIndex: number) => activeEffectLine.value.includes(cellIndex)
 
 const isReachMissingCell = (cell: CardCellType) => {
-  const effect = activeEffect.value
-  return effect?.mode === 'reach' && effect.line.includes(cell.index) && cell.cellState === 'closed'
+  return isInLine(props.card?.reachLines, cell.index) && cell.cellState === 'closed'
 }
 
 const activeLineOrder = (cellIndex: number) => {
@@ -118,6 +117,7 @@ const activeLineOrder = (cellIndex: number) => {
 }
 
 const gridCellClass = (cell: CardCellType) => ({
+  'grid-cell--opened': props.cardChanges?.openedCellIndices.includes(cell.index),
   'grid-cell--line-bingo': isInLine(props.card?.bingoLines, cell.index),
   'grid-cell--line-reach': isInLine(props.card?.reachLines, cell.index),
   'grid-cell--active-line': isInActiveEffectLine(cell.index),
@@ -171,7 +171,7 @@ watch(
 
       <div
         v-for="lineEffect in persistentLineEffects"
-        :key="`${lineEffect.id}-${effectSerial}`"
+        :key="lineEffect.id"
         class="line-effect"
         :class="`line-effect--${lineEffect.mode}`"
         :style="lineEffect.style"
@@ -444,6 +444,21 @@ watch(
   text-align: center;
 }
 
+.grid-cell--opened {
+  animation: cell-punch 620ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes cell-punch {
+  0% {
+    transform: perspective(400px) rotateX(-24deg) scale(0.94);
+  }
+  45% {
+    transform: perspective(400px) rotateX(8deg) scale(1.04);
+    box-shadow: inset 0 0 0 5px #4caf5066;
+  }
+  100% {
+    transform: none;
+  }
+}
 @keyframes reach-cell-glow {
   0% {
     opacity: 0;
@@ -609,6 +624,9 @@ watch(
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .grid-cell--opened,
+  .grid-cell--line-reach :deep(.ball),
+  .grid-cell--line-bingo :deep(.ball),
   .grid-cell--active-reach::before,
   .grid-cell--active-bingo::before,
   .grid-cell--reach-missing :deep(.ball),

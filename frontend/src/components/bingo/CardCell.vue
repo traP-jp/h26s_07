@@ -34,10 +34,5 @@ const textColor = computed(() => {
 </script>
 
 <template>
-  <NumberBall
-    :key="props.cell.cellState"
-    :ball-color="ballColor"
-    :text-color="textColor"
-    :text="props.cell.displayText"
-  />
+  <NumberBall :ball-color="ballColor" :text-color="textColor" :text="props.cell.displayText" />
 </template>
