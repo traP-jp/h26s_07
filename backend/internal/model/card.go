@@ -82,13 +82,9 @@ func MakeRandomCard(owner UserID) (Card, error) {
 		}
 		shuffleBalls(useNumbers)
 		if i == 2 {
-			for _, ball := range useNumbers[:4] {
-				numbers = append(numbers, ball)
-			}
+			numbers = append(numbers, useNumbers[:4]...)
 		} else {
-			for _, ball := range useNumbers[:5] {
-				numbers = append(numbers, ball)
-			}
+			numbers = append(numbers, useNumbers[:5]...)
 		}
 	}
 	cardID, err := uuid.NewV7()

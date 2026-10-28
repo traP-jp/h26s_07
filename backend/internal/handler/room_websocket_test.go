@@ -61,9 +61,9 @@ func TestSlowClientReceivesCloseStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	serverConn := <-accepted
-	defer serverConn.CloseNow()
+	defer func() { _ = serverConn.CloseNow() }()
 	hub := NewWebSocketHub()
 	id := model.RoomID(uuid.New())
 	slow := &webSocketClient{hub: hub, roomID: id, mode: openapi.Display, ctx: serverConn.CloseRead(ctx), conn: serverConn, send: make(chan []byte, 1)}
@@ -158,7 +158,7 @@ func TestRoomDeletedDeliveredBeforeNormalClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	<-ready
 	if err := hub.sendRoom(id, openapi.DisplayRoomDeletedEvent{Type: openapi.DisplayRoomDeletedEventTypeRoomDeleted, Body: openapi.RoomDeletedBody{}}); err != nil {
 		t.Fatal(err)
