@@ -13,6 +13,7 @@ var (
 )
 
 type RoomRepository interface {
+	Delete(ctx context.Context, roomID model.RoomID) error
 	Save(ctx context.Context, room *model.Room) error
 	FindByID(ctx context.Context, roomID model.RoomID) (*model.Room, error)
 	FindByIDForUpdate(ctx context.Context, roomID model.RoomID) (*model.Room, error)

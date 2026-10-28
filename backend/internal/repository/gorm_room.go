@@ -447,6 +447,19 @@ func (r *GormRoomRepository) buildRoomSummaries(ctx context.Context, roomRows []
 		return nil, err
 	}
 
+	recordRooms := make(map[string]*model.Room, len(roomIDs))
+	for _, id := range roomIDs {
+		recordRooms[id] = &model.Room{}
+	}
+	if err := loadBingoRecords(db, roomIDs, recordRooms); err != nil {
+		return nil, err
+	}
+	if err := loadReachRecords(db, roomIDs, recordRooms); err != nil {
+		return nil, err
+	}
+	for _, id := range roomIDs {
+		summaryByID[id].ActivityLogEntries = recordRooms[id].ActivityLog()
+	}
 	return summaries, nil
 }
 
@@ -1037,4 +1050,35 @@ func (r *GormRoomRepository) ActiveCodeExists(ctx context.Context, code model.Ro
 	var count int64
 	err := gormDB(ctx, r.db).Model(&dbmodel.Room{}).Where("room_code = ? AND state <> ?", string(code), string(model.RoomStateFinished)).Count(&count).Error
 	return count > 0, err
+}
+
+// Delete removes children in foreign-key order in the caller's transaction.
+func (r *GormRoomRepository) Delete(ctx context.Context, id model.RoomID) error {
+	if !hasGormTransaction(ctx) {
+		return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return r.Delete(context.WithValue(ctx, gormTransactionContextKey{}, tx), id) })
+	}
+	tx := gormDB(ctx, r.db)
+	roomID := roomIDString(id)
+	for _, row := range []any{&dbmodel.RoomMessage{}, &dbmodel.RoomBingoRecord{}, &dbmodel.RoomReachRecord{}} {
+		if err := tx.Where("room_id = ?", roomID).Delete(row).Error; err != nil {
+			return err
+		}
+	}
+	cards := tx.Model(&dbmodel.RoomCard{}).Select("card_id").Where("room_id = ?", roomID)
+	if err := tx.Where("card_id IN (?)", cards).Delete(&dbmodel.RoomCardCell{}).Error; err != nil {
+		return err
+	}
+	for _, row := range []any{&dbmodel.RoomCard{}, &dbmodel.RoomPickedBall{}, &dbmodel.RoomParticipant{}, &dbmodel.RoomAdmin{}, &dbmodel.RoomUser{}} {
+		if err := tx.Where("room_id = ?", roomID).Delete(row).Error; err != nil {
+			return err
+		}
+	}
+	result := tx.Where("room_id = ?", roomID).Delete(&dbmodel.Room{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrRoomNotFound
+	}
+	return nil
 }

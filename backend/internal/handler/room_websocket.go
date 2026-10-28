@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sync"
@@ -268,6 +269,12 @@ func (c *webSocketClient) writeLoop() {
 			if err != nil {
 				return
 			}
+			var envelope struct {
+				Type string `json:"type"`
+			}
+			if json.Unmarshal(payload, &envelope) == nil && envelope.Type == "RoomDeleted" {
+				return
+			}
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
 			err := c.conn.Ping(ctx)
@@ -297,12 +304,15 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 	switch mode {
 	case openapi.Participant:
 		body := openapi.ParticipantInitializedBody{
-			State:          openapi.RoomState(room.State),
-			Settings:       convertRoomSettingsToOpenAPI(room.Settings),
-			PickState:      openapi.PickState(room.PickState),
-			PickedBalls:    utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
-			BingoSummaries: convertBingoSummariesToOpenAPI(room.BingoSummaries()),
-			ReachSummaries: convertReachSummariesToOpenAPI(room.ReachSummaries()),
+			ActivityLog:      utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
+			Participants:     utils.ParticipantUsers(room),
+			ParticipantCount: len(room.Participants),
+			State:            openapi.RoomState(room.State),
+			Settings:         convertRoomSettingsToOpenAPI(room.Settings),
+			PickState:        openapi.PickState(room.PickState),
+			PickedBalls:      utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
+			BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
+			ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
 		}
 		if room.State != model.RoomStateWaiting {
 			if card, ok := utils.FindCard(room, userID); ok {
@@ -317,6 +327,8 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 		return openapi.DisplayInitializedEvent{
 			Type: openapi.DisplayInitializedEventTypeInitialized,
 			Body: openapi.DisplayInitializedBody{
+				ActivityLog:      utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
+				Participants:     utils.ParticipantUsers(room),
 				State:            openapi.RoomState(room.State),
 				Settings:         convertRoomSettingsToOpenAPI(room.Settings),
 				PickState:        openapi.PickState(room.PickState),

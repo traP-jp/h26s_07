@@ -48,6 +48,7 @@ func testService(t *testing.T) (*RoomService, *repository.GormRoomRepository, *t
 	if err := service.PostParticipants(context.Background(), room.RoomID, "alice"); err != nil {
 		t.Fatal(err)
 	}
+	events.events = nil
 	return service, repo, events, room.RoomID
 }
 func mustSucceed(t *testing.T, err error) {

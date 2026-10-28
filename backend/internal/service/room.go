@@ -107,8 +107,15 @@ func (s *RoomService) GetRoom(ctx context.Context, roomID model.RoomID) (*model.
 	return s.roomRepository.FindByID(ctx, roomID)
 }
 
-func (s *RoomService) ListRooms(ctx context.Context) ([]model.RoomSummary, error) {
-	return s.roomRepository.List(ctx)
+func (s *RoomService) ListRooms(ctx context.Context, includeFinished ...bool) ([]model.RoomSummary, error) {
+	rooms, err := s.roomRepository.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(includeFinished) > 0 && includeFinished[0] {
+		return rooms, nil
+	}
+	return slices.DeleteFunc(rooms, func(r model.RoomSummary) bool { return r.State == model.RoomStateFinished }), nil
 }
 
 func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID, user model.UserID) error {
@@ -116,10 +123,22 @@ func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID,
 	if err != nil {
 		return err
 	}
-	if err := room.Join(user, time.Now()); err != nil {
+	alreadyJoined := room.IsParticipant(user)
+	now := time.Now()
+	if err := room.Join(user, now); err != nil {
 		return err
 	}
-	return s.roomRepository.Save(ctx, room)
+	if err := s.roomRepository.Save(ctx, room); err != nil {
+		return err
+	}
+	if alreadyJoined {
+		return nil
+	}
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}, ParticipantCount: len(room.Participants), JoinedAt: now}
+	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayParticipantJoinedEvent{Type: openapi.DisplayParticipantJoinedEventTypeParticipantJoined, Body: body}); err != nil {
+		return err
+	}
+	return s.queueRoomEvent(ctx, roomID, openapi.ParticipantParticipantJoinedEvent{Type: openapi.ParticipantParticipantJoinedEventTypeParticipantJoined, Body: body})
 }
 
 func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {
@@ -614,6 +633,10 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 	if err != nil {
 		return err
 	}
+	oldIDs := map[model.RecordID]bool{}
+	for _, e := range room.ActivityLog() {
+		oldIDs[e.ID] = true
+	}
 	now := time.Now()
 	result, err := room.FinishPick(actor, picked, func() (model.RecordID, error) {
 		recordID, err := uuid.NewV7()
@@ -630,7 +653,7 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 		return err
 	}
 
-	if err := s.sendPickFinishedEvents(ctx, roomID, result); err != nil {
+	if err := s.sendPickFinishedEvents(ctx, roomID, result, oldIDs); err != nil {
 		return err
 	}
 	if result.AllPicked {
@@ -641,8 +664,10 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 	return nil
 }
 
-func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.RoomID, result model.PickFinishedResult) error {
+func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.RoomID, result model.PickFinishedResult, oldIDs map[model.RecordID]bool) error {
 	room := result.Room
+	entries := slices.DeleteFunc(room.ActivityLog(), func(e model.ActivityLogEntry) bool { return oldIDs[e.ID] })
+	newActivityLog := utils.ConvertActivityLogToOpenAPI(entries)
 	bingoSummaries := convertBingoSummariesToOpenAPI(room.BingoSummaries())
 	reachSummaries := convertReachSummariesToOpenAPI(room.ReachSummaries())
 	newBingos := convertBingoUpdatesToOpenAPI(result.NewBingos)
@@ -652,6 +677,7 @@ func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.R
 	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayPickFinishedEvent{
 		Type: openapi.DisplayPickFinishedEventTypePickFinished,
 		Body: openapi.DisplayPickFinishedBody{
+			NewActivityLog:   newActivityLog,
 			PickedBall:       openapi.PickedBall(result.PickedBall),
 			PickState:        openapi.PickState(room.PickState),
 			ParticipantCount: room.ParticipantCount(),
@@ -669,6 +695,7 @@ func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.R
 		if err := s.queueParticipantEvent(ctx, roomID, update.UserID, openapi.ParticipantPickFinishedEvent{
 			Type: openapi.ParticipantPickFinishedEventTypePickFinished,
 			Body: openapi.ParticipantPickFinishedBody{
+				NewActivityLog: newActivityLog,
 				PickedBall:     openapi.PickedBall(result.PickedBall),
 				PickState:      openapi.PickState(room.PickState),
 				Card:           convertCardToOpenAPI(room, update.Card),
@@ -756,4 +783,23 @@ func (s *RoomService) ShowQRCode(ctx context.Context, roomID model.RoomID, user 
 
 func (s *RoomService) HideQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
 	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.hideQRCode(ctx, roomID, user) })
+}
+
+func (s *RoomService) DeleteRoom(ctx context.Context, id model.RoomID, user model.UserID) error {
+	return s.mutate(ctx, id, func(ctx context.Context) error {
+		room, err := s.roomRepository.FindByIDForUpdate(ctx, id)
+		if err != nil {
+			return err
+		}
+		if !room.IsAdmin(user) {
+			return model.ErrRoomForbidden
+		}
+		if err := s.roomRepository.Delete(ctx, id); err != nil {
+			return err
+		}
+		if err := s.queueRoomEvent(ctx, id, openapi.DisplayRoomDeletedEvent{Type: openapi.DisplayRoomDeletedEventTypeRoomDeleted, Body: openapi.RoomDeletedBody{}}); err != nil {
+			return err
+		}
+		return s.queueRoomEvent(ctx, id, openapi.ParticipantRoomDeletedEvent{Type: openapi.ParticipantRoomDeletedEventTypeRoomDeleted, Body: openapi.RoomDeletedBody{}})
+	})
 }

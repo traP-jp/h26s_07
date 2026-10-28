@@ -2,7 +2,9 @@ package handler
 
 import (
 	"errors"
+	"github.com/traP-jp/h26_07/backend/internal/utils"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -125,6 +127,7 @@ func convertReachSummariesToOpenAPI(reachSummaries []model.ReachSummary) []opena
 
 func convertRoom(room *model.Room) openapi.Room {
 	return openapi.Room{
+		ActivityLog:    utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
 		RoomID:         openapi.RoomID(room.RoomID.String()),
 		Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 		State:          openapi.RoomState(room.State),
@@ -199,6 +202,7 @@ func convertRoomSummary(rooms []model.RoomSummary) []openapi.Room {
 	for _, room := range rooms {
 		result = append(result,
 			openapi.Room{
+				ActivityLog:    utils.ConvertActivityLogToOpenAPI(room.ActivityLogEntries),
 				RoomID:         openapi.RoomID(room.RoomID.String()),
 				Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 				State:          openapi.RoomState(room.State),
@@ -221,7 +225,15 @@ func (h *RoomHandler) ListRooms(c *echo.Context) error {
 	if !ok {
 		return c.NoContent(http.StatusUnauthorized)
 	}
-	roomSummary, err := h.roomService.ListRooms(c.Request().Context())
+	includeFinished := false
+	if raw := c.QueryParam("includeFinished"); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, openapi.Error{Message: "invalid includeFinished"})
+		}
+		includeFinished = value
+	}
+	roomSummary, err := h.roomService.ListRooms(c.Request().Context(), includeFinished)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "Internal Server Error"})
 	}
@@ -536,6 +548,28 @@ func (h *RoomHandler) PostPickFinish(c *echo.Context) error {
 			return c.JSON(http.StatusConflict, openapi.Error{Message: "pick is not finishable"})
 		}
 
+		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *RoomHandler) DeleteRoom(c *echo.Context) error {
+	user, ok := authmiddleware.GetAuthenticatedUser(c)
+	if !ok {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+	id, ok := parseRoomIDParam(c)
+	if !ok {
+		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "Invalid roomId"})
+	}
+	err := h.roomService.DeleteRoom(c.Request().Context(), id, model.UserID(user.Name))
+	if isRoomNotFoundError(err) {
+		return c.JSON(http.StatusNotFound, openapi.Error{Message: "room not found"})
+	}
+	if errors.Is(err, model.ErrRoomForbidden) {
+		return c.JSON(http.StatusForbidden, openapi.Error{Message: "admin required"})
+	}
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, openapi.Error{Message: "internal server error"})
 	}
 	return c.NoContent(http.StatusNoContent)
