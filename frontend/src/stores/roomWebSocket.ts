@@ -59,6 +59,9 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const status = ref<RoomWebSocketConnectionStatus>('idle')
   const reconnectAttempt = ref(0)
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+  let generation = 0
+  let recoveringGeneration: number | undefined
+  const initializationCount = ref(0)
   let enabled = false
   let lastMessageAt = 0
   const staleAfter = 120_000
@@ -137,6 +140,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         ]
         break
       case 'Initialized': {
+        initializationCount.value += 1
         const body = event.body as InitializedBody
 
         activityLog.value = body.activityLog
@@ -262,6 +266,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       resetRoomState()
       reconnectAttempt.value = 0
     }
+    const connectionGeneration = generation
     enabled = true
     installListeners()
 
@@ -283,7 +288,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     socket.value = nextSocket
 
     nextSocket.addEventListener('open', () => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
       status.value = 'open'
@@ -292,7 +297,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     })
 
     nextSocket.addEventListener('message', (messageEvent: MessageEvent<string>) => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
 
@@ -307,7 +312,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     })
 
     nextSocket.addEventListener('error', () => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
       status.value = 'error'
@@ -317,7 +322,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     })
 
     nextSocket.addEventListener('close', () => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
       status.value = 'closed'
@@ -330,24 +335,33 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     if (!enabled || reconnectTimer) return
     const delay = Math.min(10_000, 500 * 2 ** Math.min(reconnectAttempt.value, 5))
     reconnectAttempt.value += 1
-    reconnectTimer = setTimeout(reconnectNow, delay * (0.75 + Math.random() * 0.25))
+    const scheduledGeneration = generation
+    reconnectTimer = setTimeout(
+      () => {
+        if (generation === scheduledGeneration) void reconnectNow()
+      },
+      delay * (0.75 + Math.random() * 0.25),
+    )
   }
 
   async function reconnectNow() {
     if (!enabled || !roomId.value || !mode.value) return
+    clearTimeout(reconnectTimer)
     reconnectTimer = undefined
+    const recoveryGeneration = generation
+    if (recoveringGeneration === recoveryGeneration) return
+    recoveringGeneration = recoveryGeneration
     const attempt = reconnectAttempt.value
     const options = { roomId: roomId.value, mode: mode.value }
-    const previousSocket = socket.value
     try {
       const { response } = await apiClient.GET('/api/rooms/{roomId}', {
         params: { path: { roomId: options.roomId } },
       })
       if (
+        generation !== recoveryGeneration ||
         !enabled ||
         roomId.value !== options.roomId ||
-        mode.value !== options.mode ||
-        socket.value !== previousSocket
+        mode.value !== options.mode
       )
         return
       if (response.status === 404) {
@@ -358,10 +372,10 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       // Retry transient network failures using the normal backoff.
     }
     if (
+      generation !== recoveryGeneration ||
       !enabled ||
       roomId.value !== options.roomId ||
-      mode.value !== options.mode ||
-      socket.value !== previousSocket
+      mode.value !== options.mode
     )
       return
     // Replace even an apparently OPEN socket when its application state may be stale.
@@ -383,6 +397,8 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function disconnect() {
+    generation += 1
+    recoveringGeneration = undefined
     enabled = false
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
@@ -399,6 +415,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   onScopeDispose(disconnect)
 
   return {
+    initializationCount,
     activityLog,
     participants,
     roomDeleted,
