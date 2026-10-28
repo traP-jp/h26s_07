@@ -1,7 +1,10 @@
 import { computed, onScopeDispose, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
+import { apiClient } from '@/api/apiClient'
 
 import type {
+  ActivityLogEntry,
+  User,
   BingoSummary,
   BingoUpdate,
   Card,
@@ -68,6 +71,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const latestNewReaches = ref<ReachUpdate[]>([])
   const latestMessage = ref<Message | null>(null)
 
+  const activityLog = ref<ActivityLogEntry[]>([])
+  const participants = ref<User[]>([])
+  const roomDeleted = ref(false)
+  const chatMessages = ref<Message[]>([])
+
   const roomState = ref<RoomState | null>(null)
   const settings = ref<GameSettings | null>(null)
   const pickState = ref<PickState | null>(null)
@@ -90,6 +98,10 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function resetRoomState() {
+    activityLog.value = []
+    participants.value = []
+    roomDeleted.value = false
+    chatMessages.value = []
     latestEvent.value = null
     latestBall.value = null
     latestCardChanges.value = null
@@ -110,10 +122,25 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   function applyEvent(event: RoomWebSocketEvent) {
     latestEvent.value = event
 
+    if ('participantCount' in event.body && typeof event.body.participantCount === 'number') {
+      participantCount.value = event.body.participantCount
+    }
     switch (event.type) {
+      case 'RoomDeleted':
+        markRoomDeleted()
+        break
+      case 'ParticipantJoined':
+        participants.value = [
+          ...new Map(
+            [...participants.value, event.body.participant].map((user) => [user.userId, user]),
+          ).values(),
+        ]
+        break
       case 'Initialized': {
         const body = event.body as InitializedBody
 
+        activityLog.value = body.activityLog
+        participants.value = body.participants
         roomState.value = body.state
         settings.value = body.settings
         pickState.value = body.pickState
@@ -154,6 +181,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       case 'PickFinished': {
         const body = event.body as PickFinishedBody
 
+        activityLog.value = [
+          ...new Map(
+            [...activityLog.value, ...body.newActivityLog].map((entry) => [entry.id, entry]),
+          ).values(),
+        ]
         latestBall.value = body.pickedBall
         latestNewBingos.value = body.newBingos
         latestNewReaches.value = body.newReaches
@@ -193,6 +225,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         break
       case 'MessageCreated':
         latestMessage.value = event.body.message
+        mergeChatMessages([event.body.message])
         break
       case 'AllPicked':
         pickedBalls.value = event.body.pickedBalls
@@ -204,7 +237,21 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     }
   }
 
+  function mergeChatMessages(messages: Message[]) {
+    chatMessages.value = [
+      ...new Map(
+        [...chatMessages.value, ...messages].map((message) => [message.messageId, message]),
+      ).values(),
+    ]
+  }
+
+  function markRoomDeleted() {
+    roomDeleted.value = true
+    disconnect()
+  }
+
   function connect(options: ConnectOptions) {
+    if (roomDeleted.value && roomId.value === options.roomId) return
     if (isActiveConnection(options)) {
       return
     }
@@ -286,10 +333,37 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     reconnectTimer = setTimeout(reconnectNow, delay * (0.75 + Math.random() * 0.25))
   }
 
-  function reconnectNow() {
+  async function reconnectNow() {
     if (!enabled || !roomId.value || !mode.value) return
+    reconnectTimer = undefined
     const attempt = reconnectAttempt.value
     const options = { roomId: roomId.value, mode: mode.value }
+    const previousSocket = socket.value
+    try {
+      const { response } = await apiClient.GET('/api/rooms/{roomId}', {
+        params: { path: { roomId: options.roomId } },
+      })
+      if (
+        !enabled ||
+        roomId.value !== options.roomId ||
+        mode.value !== options.mode ||
+        socket.value !== previousSocket
+      )
+        return
+      if (response.status === 404) {
+        markRoomDeleted()
+        return
+      }
+    } catch {
+      // Retry transient network failures using the normal backoff.
+    }
+    if (
+      !enabled ||
+      roomId.value !== options.roomId ||
+      mode.value !== options.mode ||
+      socket.value !== previousSocket
+    )
+      return
     // Replace even an apparently OPEN socket when its application state may be stale.
     disconnect()
     reconnectAttempt.value = attempt
@@ -325,6 +399,12 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   onScopeDispose(disconnect)
 
   return {
+    activityLog,
+    participants,
+    roomDeleted,
+    chatMessages,
+    mergeChatMessages,
+    markRoomDeleted,
     reconnectAttempt,
     socket,
     roomId,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RoomDeletedNotice from '@/components/common/RoomDeletedNotice.vue'
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { apiClient } from '@/api/apiClient'
 import { useRoomsStore } from '@/stores/rooms'
@@ -47,9 +48,10 @@ watch(
 
 async function getLatestInfo() {
   try {
-    const { data, error } = await apiClient.GET('/api/rooms/{roomId}', {
+    const { data, error, response } = await apiClient.GET('/api/rooms/{roomId}', {
       params: { path: { roomId } },
     })
+    if (response.status === 404) connection.markRoomDeleted()
     if (error || !data) throw new Error(error?.message ?? 'ルーム情報を取得できませんでした。')
     applyState(data.state, data.pickState, data.qrCodeVisible)
     return data
@@ -235,7 +237,7 @@ onBeforeUnmount(() => {
   </UModal>
 
   <UModal
-    v-model:open="finishedModal"
+    :open="finishedModal && !connection.roomDeleted"
     :dismissible="false"
     title="このゲームは終了しました。"
     :ui="{ footer: 'justify-end' }"
@@ -247,6 +249,7 @@ onBeforeUnmount(() => {
   </UModal>
 
   <UContainer class="pt-6 touch-manipulation overscroll-none">
+    <RoomDeletedNotice />
     <ConnectionBadge />
     <UAlert
       v-if="errorMessage"
@@ -259,6 +262,7 @@ onBeforeUnmount(() => {
     <div v-if="loading">読み込み中...</div>
     <template v-else>
       <h2 class="text-3xl font-bold mb-6">ルーム{{ props.roomCode }}の操作</h2>
+      <p class="mb-4">参加者: {{ connection.participantCount ?? 0 }} 人</p>
 
       <p class="mb-2 text-xs text-muted">
         Space / Enter / ← → / PageUp・Down: 抽選開始・終了　Esc / Backspace: キャンセル　Q: QR切替

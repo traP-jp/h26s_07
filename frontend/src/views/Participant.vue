@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RoomDeletedNotice from '@/components/common/RoomDeletedNotice.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
@@ -152,6 +153,7 @@ function stopBingoFireworks(dispose = false) {
 
 <template>
   <div class="participant-room">
+    <RoomDeletedNotice />
     <ConnectionBadge />
     <UAlert v-if="errorMessage" :description="errorMessage" color="error" />
     <div class="participant-room__card">
