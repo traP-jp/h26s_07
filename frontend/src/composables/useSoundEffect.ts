@@ -57,12 +57,24 @@ export function useSoundEffect(name: SoundEffectName, options: UseSoundEffectOpt
   let audio: HTMLAudioElement | null = null
 
   function play() {
-    if (!audio || !audioUnlocked.value) return
+    if (!audio) return
+    // A looping sound that is already playing keeps going instead of restarting.
+    if (audio.loop && !audio.paused) return
 
     audio.currentTime = 0
-    void audio.play().catch(() => {
-      audioUnlocked.value = false
-    })
+    // Try even before an unlock gesture: kiosk browsers that allow autoplay
+    // should not need a click. Only an autoplay refusal re-shows the button;
+    // AbortError from a quick stop() must not.
+    void audio
+      .play()
+      .then(() => {
+        audioUnlocked.value = true
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'NotAllowedError') {
+          audioUnlocked.value = false
+        }
+      })
   }
 
   function stop() {
