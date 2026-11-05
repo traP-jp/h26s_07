@@ -88,3 +88,18 @@ func BingoLineIndexes(room *model.Room, userID model.UserID) []model.LineIndex {
 func LineCells(line model.LineIndex) ([5]model.CellIndex, bool) {
 	return model.LineCells(line)
 }
+
+func ConvertActivityLogToOpenAPI(entries []model.ActivityLogEntry) []openapi.ActivityLogEntry {
+	result := make([]openapi.ActivityLogEntry, 0, len(entries))
+	for _, e := range entries {
+		result = append(result, openapi.ActivityLogEntry{ID: uuid.UUID(e.ID).String(), Kind: openapi.ActivityLogEntryKind(e.Kind), User: openapi.User{UserID: string(e.UserID)}, CreatedAt: e.CreatedAt, BingoRank: e.BingoRank, LineCount: e.LineCount})
+	}
+	return result
+}
+func ParticipantUsers(room *model.Room) []openapi.User {
+	result := make([]openapi.User, 0, len(room.Participants))
+	for _, p := range room.Participants {
+		result = append(result, openapi.User{UserID: string(p.UserID)})
+	}
+	return result
+}

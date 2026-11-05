@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import RoomDeletedNotice from '@/components/common/RoomDeletedNotice.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
 import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
@@ -16,10 +18,9 @@ const roomId = ref<RoomId | null>(null)
 const roomWebSocketStore = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 const currentUserStore = useCurrentUserStore()
-const { roomsByCode } = storeToRefs(roomsStore)
-const { mode, roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
+const { roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
 
-const { card, latestCardChanges, latestEvent } = storeToRefs(roomWebSocketStore)
+const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
 
 const displayCard = ref<Card | null>(null)
 const fireworksOverlay = ref<HTMLElement | null>(null)
@@ -29,37 +30,39 @@ let fireworksStopTimer: ReturnType<typeof setTimeout> | undefined
 const errorMessage = ref('')
 const currentUserId = ref<UserId>()
 
+let disposed = false
 onMounted(async () => {
-  if (!roomCode) return
+  try {
+    if (!roomCode) return
 
-  currentUserId.value = await currentUserStore.getUserId()
+    currentUserId.value = await currentUserStore.getUserId()
 
-  await roomsStore.init()
-  const room = roomsByCode.value.get(roomCode)
-  roomId.value = room?.roomId ?? null
+    const room = await roomsStore.getRoomByCode(roomCode)
+    roomId.value = room?.roomId ?? null
 
-  if (!roomId.value) return
+    if (!roomId.value) return
 
-  if (connectedRoomId.value === roomId.value && mode.value === 'participant') {
-    return
-  }
+    const isParticipant =
+      room?.participants.some((participant) => participant.user.userId === currentUserId.value) ??
+      false
 
-  const isParticipant =
-    room?.participants.some((participant) => participant.user.userId === currentUserId.value) ??
-    false
+    if (!isParticipant) {
+      if (room?.state !== 'waiting') {
+        errorMessage.value = 'このルームには参加できません。'
+        return
+      }
 
-  if (!isParticipant) {
-    if (room?.state !== 'waiting') {
-      errorMessage.value = 'このルームには参加できません。'
-      return
+      await roomsStore.joinRoom(roomId.value)
     }
 
-    await roomsStore.joinRoom(roomId.value)
+    if (disposed) return
+    roomWebSocketStore.connect({ roomId: roomId.value, mode: 'participant' })
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
   }
-
-  roomWebSocketStore.connect({ roomId: roomId.value, mode: 'participant' })
 })
 onBeforeUnmount(() => {
+  disposed = true
   stopBingoFireworks(true)
 
   if (roomId.value && connectedRoomId.value === roomId.value) {
@@ -67,21 +70,13 @@ onBeforeUnmount(() => {
   }
 })
 
-watch(latestEvent, async (event) => {
-  if (!event) return
-
-  switch (event.type) {
-    case 'Initialized':
-    case 'GameStarted':
-    case 'PickFinished':
-    case 'GameFinished':
-      displayCard.value = card.value
-      break
-
-    default:
-      break
-  }
-})
+watch(
+  card,
+  (value) => {
+    displayCard.value = value
+  },
+  { immediate: true },
+)
 
 watch(
   () => latestCardChanges.value?.newBingoLines,
@@ -158,6 +153,9 @@ function stopBingoFireworks(dispose = false) {
 
 <template>
   <div class="participant-room">
+    <RoomDeletedNotice />
+    <ConnectionBadge />
+    <UAlert v-if="errorMessage" :description="errorMessage" color="error" />
     <div class="participant-room__card">
       <div v-if="isGameWaiting" class="participant-room__waiting">
         <p class="participant-room__waiting-title">ゲームはまだ始まっていません</p>
@@ -176,6 +174,7 @@ function stopBingoFireworks(dispose = false) {
       class="participant-room__chat"
       :room-code="roomCode"
       textarea
+      :connect="false"
       variant="participant"
     />
 

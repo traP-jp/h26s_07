@@ -1,197 +1,110 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { apiClient } from '@/api/apiClient'
+import RoomDeletedNotice from '@/components/common/RoomDeletedNotice.vue'
+import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
+import { useControllerRoomControls } from '@/composables/useControllerRoomControls'
+import { useControllerShortcuts } from '@/composables/useControllerShortcuts'
 import { useRoomsStore } from '@/stores/rooms'
+import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 const roomsStore = useRoomsStore()
-
-const loading = ref(false)
-const errorMessage = ref('')
-
-const props = defineProps<{
-  roomCode: string
-}>()
-
-let roomId = ''
-
-const isDisabled = ref(false)
-
-onMounted(async () => {
-  loading.value = true
-
-  roomId = (await roomsStore.getRoomIdByCode(props.roomCode)) as string
-
-  if (!roomId) {
-    loading.value = false
-    errorMessage.value = 'コードに対応するルームが見つかりませんでした。'
-    return
-  }
-
-  await getLatestInfo()
-  loading.value = false
-})
-
-const gameStarted = ref(true)
-const pickStarted = ref(false)
-const pickExhausted = ref(true)
-const qrCodeShowed = ref(false)
-const startModal = ref(false)
-const finishModal = ref(false)
-const finishedModal = ref(false)
-
-const getLatestInfo = async () => {
-  const { data, error } = await apiClient.GET('/api/rooms/{roomId}', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-
-  if (error) {
-    errorMessage.value = error.message
-  } else {
-    if (data.state === 'finished') {
-      finishedModal.value = true
-    }
-    gameStarted.value = data.state !== 'waiting'
-    pickStarted.value = data.pickState === 'picking'
-    pickExhausted.value = data.pickState === 'exhausted'
-    qrCodeShowed.value = data.qrCodeVisible
-  }
-}
+const connection = useRoomWebSocketStore()
+const props = defineProps<{ roomCode: string }>()
+const loading = ref(true)
+const roomId = ref('')
+const {
+  clickFinishModal,
+  clickHideQr,
+  clickPickCancel,
+  clickPickFinish,
+  clickPickStart,
+  clickShowQr,
+  clickStartModal,
+  errorMessage,
+  finishModal,
+  finishedModal,
+  gameStarted,
+  getLatestInfo,
+  isDisabled,
+  pickExhausted,
+  pickStarted,
+  qrCodeShowed,
+  ready,
+  startModal,
+  dispose,
+  isDisposed,
+} = useControllerRoomControls(roomId, connection)
 
 const clickGameStart = () => {
-  isDisabled.value = true
   startModal.value = true
 }
-
 const clickGameFinish = () => {
-  isDisabled.value = true
   finishModal.value = true
 }
-
 const cancelGameStart = () => {
   startModal.value = false
-  isDisabled.value = false
 }
-
 const cancelGameFinish = () => {
   finishModal.value = false
-  isDisabled.value = false
 }
 
-const clickStartModal = async () => {
-  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/start', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-  if (error) {
-    errorMessage.value = error.message
-  }
-  await getLatestInfo()
-  startModal.value = false
-  isDisabled.value = false
-}
+const shortcuts = useControllerShortcuts({
+  isDisabled,
+  loading,
+  ready,
+  startModal,
+  finishModal,
+  finishedModal,
+  gameStarted,
+  pickStarted,
+  pickExhausted,
+  qrCodeShowed,
+  clickShowQr,
+  clickHideQr,
+  clickPickStart,
+  clickPickFinish,
+  clickPickCancel,
+})
 
-const clickFinishModal = async () => {
-  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/finish', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-  if (error) {
-    errorMessage.value = error.message
+const savedStyles: Array<{
+  element: HTMLElement
+  overflow: string
+  overscrollBehavior: string
+  touchAction: string
+}> = []
+onMounted(async () => {
+  for (const element of [document.documentElement, document.body]) {
+    savedStyles.push({
+      element,
+      overflow: element.style.overflow,
+      overscrollBehavior: element.style.overscrollBehavior,
+      touchAction: element.style.touchAction,
+    })
+    Object.assign(element.style, {
+      overflow: 'hidden',
+      overscrollBehavior: 'none',
+      touchAction: 'manipulation',
+    })
   }
-  await getLatestInfo()
-  finishModal.value = false
-  isDisabled.value = false
-}
-
-const clickPickStart = async () => {
-  isDisabled.value = true
-  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/start', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-  if (error) {
-    errorMessage.value = error.message
+  shortcuts.attach()
+  try {
+    roomId.value = (await roomsStore.getRoomIdByCode(props.roomCode)) ?? ''
+    if (isDisposed()) return
+    if (!roomId.value) throw new Error('コードに対応するルームが見つかりませんでした。')
+    connection.connect({ roomId: roomId.value, mode: 'display' })
+    await getLatestInfo()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '通信に失敗しました。'
+  } finally {
+    loading.value = false
   }
-  await getLatestInfo()
-  isDisabled.value = false
-}
-
-const clickPickFinish = async () => {
-  isDisabled.value = true
-  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/finish', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-  if (error) {
-    errorMessage.value = error.message
-  }
-  await getLatestInfo()
-  isDisabled.value = false
-}
-
-const clickPickCancel = async () => {
-  isDisabled.value = true
-  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/pick/cancel', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-  if (error) {
-    errorMessage.value = error.message
-  }
-  await getLatestInfo()
-  isDisabled.value = false
-}
-
-const clickShowQr = async () => {
-  isDisabled.value = true
-  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/qrcode/show', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-  if (error) {
-    errorMessage.value = error.message
-  }
-  await getLatestInfo()
-  isDisabled.value = false
-}
-
-const clickHideQr = async () => {
-  isDisabled.value = true
-  const { error } = await apiClient.POST('/api/rooms/{roomId}/control/qrcode/hide', {
-    params: {
-      path: {
-        roomId,
-      },
-    },
-  })
-  if (error) {
-    errorMessage.value = error.message
-  }
-  await getLatestInfo()
-  isDisabled.value = false
-}
+})
+onBeforeUnmount(() => {
+  dispose()
+  shortcuts.detach()
+  for (const { element, ...style } of savedStyles) Object.assign(element.style, style)
+  if (connection.roomId === roomId.value && connection.mode === 'display') connection.disconnect()
+})
 </script>
 
 <template>
@@ -234,7 +147,7 @@ const clickHideQr = async () => {
   </UModal>
 
   <UModal
-    v-model:open="finishedModal"
+    :open="finishedModal && !connection.roomDeleted"
     :dismissible="false"
     title="このゲームは終了しました。"
     :ui="{ footer: 'justify-end' }"
@@ -245,21 +158,32 @@ const clickHideQr = async () => {
     </template>
   </UModal>
 
-  <UContainer class="pt-6">
+  <UContainer class="pt-6 touch-manipulation overscroll-none">
+    <RoomDeletedNotice />
+    <ConnectionBadge />
+    <UAlert
+      v-if="errorMessage"
+      :description="errorMessage"
+      color="error"
+      close
+      @update:open="errorMessage = ''"
+      class="mb-2"
+    />
     <div v-if="loading">読み込み中...</div>
-    <div v-else-if="errorMessage">
-      {{ errorMessage }}　ゲームの操作を続けるには再読み込みしてください。
-    </div>
     <template v-else>
       <h2 class="text-3xl font-bold mb-6">ルーム{{ props.roomCode }}の操作</h2>
+      <p class="mb-4">参加者: {{ connection.participantCount ?? 0 }} 人</p>
 
-      <div class="grid h-[70dvh] grid-rows-5 overflow-hidden gap-4">
+      <p class="mb-2 text-xs text-muted">
+        Space / Enter / ← → / PageUp・Down: 抽選開始・終了　Esc / Backspace: キャンセル　Q: QR切替
+      </p>
+      <div class="grid h-[65dvh] grid-rows-5 overflow-hidden gap-4">
         <template v-if="!gameStarted">
           <UButton
             variant="solid"
             class="row-span-4 min-h-0 h-full w-full overflow-hidden rounded-2xl text-6xl font-extrabold leading-none grid place-items-center"
             @click="clickGameStart()"
-            :disabled="isDisabled"
+            :disabled="isDisabled || !ready || finishedModal"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <UIcon name="i-lucide-power" class="size-32" />
@@ -279,7 +203,7 @@ const clickHideQr = async () => {
               class="row-span-3 min-h-0 h-full w-full overflow-hidden rounded-2xl text-6xl font-extrabold leading-none grid place-items-center"
               @click="clickPickStart()"
               v-if="!pickExhausted"
-              :disabled="isDisabled"
+              :disabled="isDisabled || !ready || finishedModal"
             >
               <span class="flex flex-col items-center justify-center gap-4">
                 <UIcon name="i-lucide-circle-play" class="size-32" />
@@ -312,7 +236,7 @@ const clickHideQr = async () => {
               variant="solid"
               class="row-span-2 min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
               @click="clickPickFinish()"
-              :disabled="isDisabled"
+              :disabled="isDisabled || !ready || finishedModal"
             >
               <span class="flex flex-col items-center justify-center gap-4">
                 <UIcon name="i-lucide-circle-pause" class="size-24" />
@@ -328,7 +252,7 @@ const clickHideQr = async () => {
               variant="outline"
               class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
               @click="clickPickCancel()"
-              :disabled="isDisabled"
+              :disabled="isDisabled || !ready || finishedModal"
             >
               <span class="flex flex-col items-center justify-center gap-4">
                 <div>
@@ -344,7 +268,7 @@ const clickHideQr = async () => {
             variant="outline"
             class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
             @click="clickGameFinish()"
-            :disabled="isDisabled"
+            :disabled="isDisabled || !ready || finishedModal"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <div>
@@ -361,7 +285,7 @@ const clickHideQr = async () => {
             variant="soft"
             class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
             @click="clickHideQr()"
-            :disabled="isDisabled"
+            :disabled="isDisabled || !ready || finishedModal"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <div>
@@ -382,7 +306,7 @@ const clickHideQr = async () => {
             variant="soft"
             class="min-h-0 h-full w-full overflow-hidden rounded-2xl text-[32px] font-extrabold leading-none grid place-items-center"
             @click="clickShowQr()"
-            :disabled="isDisabled"
+            :disabled="isDisabled || !ready || finishedModal"
           >
             <span class="flex flex-col items-center justify-center gap-4">
               <div>

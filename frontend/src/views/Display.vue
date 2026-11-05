@@ -1,5 +1,10 @@
 <template>
   <div class="page">
+    <RoomDeletedNotice />
+    <ConnectionBadge />
+    <UButton v-if="!audioUnlocked" class="fixed top-2 left-2 z-50" size="sm" @click="unlockAudio"
+      >音を有効にする</UButton
+    >
     <div ref="displayPageElement" class="display-page">
       <Iridescence
         class="display-page__background"
@@ -21,6 +26,10 @@
           <div v-if="isGameWaiting" class="display-page__waiting-panel">
             <p class="display-page__waiting-title">ゲームはまだ始まっていません</p>
             <p class="display-page__waiting-text">参加者の準備ができるまでお待ちください</p>
+            <p>参加者: {{ roomWebSocketStore.participantCount ?? 0 }} 人</p>
+            <p class="max-h-24 overflow-auto">
+              {{ roomWebSocketStore.participants.map((user) => user.userId).join('、') }}
+            </p>
           </div>
           <BallStateGrid v-else :picked-balls="pickedBalls" :latest-ball="latestBall" />
           <RoomStatsBar />
@@ -58,10 +67,12 @@
 </template>
 
 <script setup lang="ts">
+import RoomDeletedNotice from '@/components/common/RoomDeletedNotice.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import type { RoomId } from '@/api/schema'
+import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import Iridescence from '@/components/backgrounds/Iridescence.vue'
 import NumberBall from '@/components/common/NumberBall.vue'
 import BallStateGrid from '@/components/display/BallStateGrid.vue'
@@ -83,7 +94,7 @@ const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
 const roomId = ref<RoomId | null>(null)
-const { displayBallPalette, displayBallText } = usePickRollingEffect()
+const { displayBallPalette, displayBallText, audioUnlocked, unlockAudio } = usePickRollingEffect()
 const { bottomText, cutinKey, handleCutinComplete, showCutin, topText } = useDisplayEffects()
 useNumberBallFavicon()
 
@@ -102,12 +113,14 @@ async function toggleFullscreen() {
   await displayPageElement.value?.requestFullscreen()
 }
 
+let disposed = false
 onMounted(async () => {
   document.addEventListener('fullscreenchange', syncFullscreenState)
 
   if (!props.roomCode) return
 
   const room = await roomsStore.getRoomByCode(props.roomCode)
+  if (disposed) return
   roomId.value = room?.roomId ?? null
 
   if (!roomId.value) return
@@ -120,11 +133,13 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   document.removeEventListener('fullscreenchange', syncFullscreenState)
 
   if (
     roomId.value &&
-    roomWebSocketStore.isActiveConnection({ roomId: roomId.value, mode: 'display' })
+    roomWebSocketStore.roomId === roomId.value &&
+    roomWebSocketStore.mode === 'display'
   ) {
     roomWebSocketStore.disconnect()
   }

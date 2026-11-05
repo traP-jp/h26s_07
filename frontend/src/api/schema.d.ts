@@ -30,7 +30,7 @@ export interface paths {
         };
         /**
          * ルーム一覧を取得
-         * @description finished を含む全ルームを返す。
+         * @description finished rooms are excluded unless includeFinished is true.
          */
         get: operations["listRooms"];
         put?: never;
@@ -59,7 +59,8 @@ export interface paths {
         get: operations["getRoom"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete a room and all its children */
+        delete: operations["deleteRoom"];
         options?: never;
         head?: never;
         patch?: never;
@@ -76,7 +77,7 @@ export interface paths {
         put?: never;
         /**
          * ルームに参加
-         * @description waiting 中のルームに参加する。同じユーザーが同じルームに再参加した場合は冪等に成功し、重複 participant は作らない。
+         * @description waiting 中のルームに参加する。既に参加済みのユーザーはルームの状態にかかわらず冪等に成功し、重複 participant は作らない。
          */
         post: operations["joinRoom"];
         delete?: never;
@@ -120,7 +121,7 @@ export interface paths {
         put?: never;
         /**
          * ゲームを開始
-         * @description 開始時点の参加者全員にカードを一括生成する。
+         * @description 開始時点の参加者全員にカードを一括生成する。既に playing の場合は変更せず成功する。
          */
         post: operations["startGame"];
         delete?: never;
@@ -140,7 +141,7 @@ export interface paths {
         put?: never;
         /**
          * ゲームを終了
-         * @description admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
+         * @description 既に finished の場合は変更せず成功する。admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
          */
         post: operations["finishGame"];
         delete?: never;
@@ -160,7 +161,7 @@ export interface paths {
         put?: never;
         /**
          * 抽選を開始
-         * @description 抽選中状態にする。結果はまだ決めない。抽選可能な球がない場合は成功しない。
+         * @description 抽選中状態にする。結果はまだ決めない。既に picking の場合も成功し、PickStarted を再送する。抽選可能な球がない場合は成功しない。
          */
         post: operations["startPick"];
         delete?: never;
@@ -180,7 +181,7 @@ export interface paths {
         put?: never;
         /**
          * 抽選をキャンセル
-         * @description 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。
+         * @description 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。既に idle の場合は変更せず成功する。
          */
         post: operations["cancelPick"];
         delete?: never;
@@ -313,7 +314,7 @@ export interface components {
         /** @enum {string} */
         WebSocketMode: "participant" | "display";
         /** @enum {string} */
-        WebSocketEventType: "Initialized" | "GameStarted" | "PickStarted" | "PickCanceled" | "PickFinished" | "GameFinished" | "ShowQRCode" | "HideQRCode" | "MessageCreated" | "AllPicked" | "GameSettingsUpdated";
+        WebSocketEventType: "ParticipantJoined" | "RoomDeleted" | "Initialized" | "GameStarted" | "PickStarted" | "PickCanceled" | "PickFinished" | "GameFinished" | "ShowQRCode" | "HideQRCode" | "MessageCreated" | "AllPicked" | "GameSettingsUpdated";
         /** @enum {string} */
         CardCellState: "bingo" | "reach" | "open" | "closed";
         Error: {
@@ -339,6 +340,7 @@ export interface components {
             joinedAt: components["schemas"]["DateTime"];
         };
         Room: {
+            activityLog: components["schemas"]["ActivityLogEntry"][];
             roomId: components["schemas"]["RoomId"];
             roomCode: components["schemas"]["RoomCode"];
             state: components["schemas"]["RoomState"];
@@ -415,6 +417,9 @@ export interface components {
         };
         EmptyObject: Record<string, never>;
         ParticipantInitializedBody: {
+            participantCount: number;
+            participants: components["schemas"]["User"][];
+            activityLog: components["schemas"]["ActivityLogEntry"][];
             state: components["schemas"]["RoomState"];
             settings: components["schemas"]["GameSettings"];
             pickState: components["schemas"]["PickState"];
@@ -424,6 +429,8 @@ export interface components {
             card?: components["schemas"]["Card"];
         };
         DisplayInitializedBody: {
+            participants: components["schemas"]["User"][];
+            activityLog: components["schemas"]["ActivityLogEntry"][];
             state: components["schemas"]["RoomState"];
             settings: components["schemas"]["GameSettings"];
             pickState: components["schemas"]["PickState"];
@@ -442,6 +449,7 @@ export interface components {
         PickStartedBody: components["schemas"]["EmptyObject"];
         PickCanceledBody: components["schemas"]["EmptyObject"];
         ParticipantPickFinishedBody: {
+            newActivityLog: components["schemas"]["ActivityLogEntry"][];
             pickedBall: components["schemas"]["PickedBall"];
             pickState: components["schemas"]["PickState"];
             card: components["schemas"]["Card"];
@@ -453,6 +461,7 @@ export interface components {
             newReaches: components["schemas"]["ReachUpdate"][];
         };
         DisplayPickFinishedBody: {
+            newActivityLog: components["schemas"]["ActivityLogEntry"][];
             pickedBall: components["schemas"]["PickedBall"];
             pickState: components["schemas"]["PickState"];
             participantCount: number;
@@ -495,9 +504,9 @@ export interface components {
             settings: components["schemas"]["GameSettings"];
         };
         /** @description participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。 */
-        ParticipantWebSocketEvent: components["schemas"]["ParticipantInitializedEvent"] | components["schemas"]["ParticipantGameStartedEvent"] | components["schemas"]["ParticipantPickStartedEvent"] | components["schemas"]["ParticipantPickCanceledEvent"] | components["schemas"]["ParticipantPickFinishedEvent"] | components["schemas"]["ParticipantGameFinishedEvent"] | components["schemas"]["ParticipantMessageCreatedEvent"] | components["schemas"]["ParticipantAllPickedEvent"] | components["schemas"]["ParticipantGameSettingsUpdatedEvent"];
+        ParticipantWebSocketEvent: components["schemas"]["ParticipantParticipantJoinedEvent"] | components["schemas"]["ParticipantRoomDeletedEvent"] | components["schemas"]["ParticipantInitializedEvent"] | components["schemas"]["ParticipantGameStartedEvent"] | components["schemas"]["ParticipantPickStartedEvent"] | components["schemas"]["ParticipantPickCanceledEvent"] | components["schemas"]["ParticipantPickFinishedEvent"] | components["schemas"]["ParticipantGameFinishedEvent"] | components["schemas"]["ParticipantMessageCreatedEvent"] | components["schemas"]["ParticipantAllPickedEvent"] | components["schemas"]["ParticipantGameSettingsUpdatedEvent"];
         /** @description display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。 */
-        DisplayWebSocketEvent: components["schemas"]["DisplayInitializedEvent"] | components["schemas"]["DisplayGameStartedEvent"] | components["schemas"]["DisplayPickStartedEvent"] | components["schemas"]["DisplayPickCanceledEvent"] | components["schemas"]["DisplayPickFinishedEvent"] | components["schemas"]["DisplayGameFinishedEvent"] | components["schemas"]["DisplayShowQRCodeEvent"] | components["schemas"]["DisplayHideQRCodeEvent"] | components["schemas"]["DisplayMessageCreatedEvent"] | components["schemas"]["DisplayAllPickedEvent"] | components["schemas"]["DisplayGameSettingsUpdatedEvent"];
+        DisplayWebSocketEvent: components["schemas"]["DisplayParticipantJoinedEvent"] | components["schemas"]["DisplayRoomDeletedEvent"] | components["schemas"]["DisplayInitializedEvent"] | components["schemas"]["DisplayGameStartedEvent"] | components["schemas"]["DisplayPickStartedEvent"] | components["schemas"]["DisplayPickCanceledEvent"] | components["schemas"]["DisplayPickFinishedEvent"] | components["schemas"]["DisplayGameFinishedEvent"] | components["schemas"]["DisplayShowQRCodeEvent"] | components["schemas"]["DisplayHideQRCodeEvent"] | components["schemas"]["DisplayMessageCreatedEvent"] | components["schemas"]["DisplayAllPickedEvent"] | components["schemas"]["DisplayGameSettingsUpdatedEvent"];
         ParticipantInitializedEvent: components["schemas"]["WebSocketEventBase"] & {
             /** @enum {string} */
             type: "Initialized";
@@ -603,6 +612,43 @@ export interface components {
             body: {
                 [key: string]: unknown;
             };
+        };
+        /** @description One entry per stored record (first reach per user, every bingo line). Ordered by createdAt then record id. Bingo rank is the 1-based order of users' first bingo, retained on subsequent lines. pickedBall is omitted when records do not preserve the triggering pick; lineCount is cumulative bingo lines for the user in log order. */
+        ActivityLogEntry: {
+            id: components["schemas"]["UUID"];
+            /** @enum {string} */
+            kind: "reach" | "bingo";
+            user: components["schemas"]["User"];
+            pickedBall?: components["schemas"]["PickedBall"];
+            createdAt: components["schemas"]["DateTime"];
+            bingoRank?: number;
+            lineCount?: number;
+        };
+        ParticipantJoinedBody: {
+            participant: components["schemas"]["User"];
+            participantCount: number;
+            joinedAt: components["schemas"]["DateTime"];
+        };
+        RoomDeletedBody: components["schemas"]["EmptyObject"];
+        DisplayParticipantJoinedEvent: components["schemas"]["WebSocketEventBase"] & {
+            /** @enum {string} */
+            type: "ParticipantJoined";
+            body: components["schemas"]["ParticipantJoinedBody"];
+        };
+        DisplayRoomDeletedEvent: components["schemas"]["WebSocketEventBase"] & {
+            /** @enum {string} */
+            type: "RoomDeleted";
+            body: components["schemas"]["RoomDeletedBody"];
+        };
+        ParticipantParticipantJoinedEvent: components["schemas"]["WebSocketEventBase"] & {
+            /** @enum {string} */
+            type: "ParticipantJoined";
+            body: components["schemas"]["ParticipantJoinedBody"];
+        };
+        ParticipantRoomDeletedEvent: components["schemas"]["WebSocketEventBase"] & {
+            /** @enum {string} */
+            type: "RoomDeleted";
+            body: components["schemas"]["RoomDeletedBody"];
         };
     };
     responses: {
@@ -729,6 +775,13 @@ export type DisplayMessageCreatedEvent = components['schemas']['DisplayMessageCr
 export type DisplayAllPickedEvent = components['schemas']['DisplayAllPickedEvent'];
 export type DisplayGameSettingsUpdatedEvent = components['schemas']['DisplayGameSettingsUpdatedEvent'];
 export type WebSocketEventBase = components['schemas']['WebSocketEventBase'];
+export type ActivityLogEntry = components['schemas']['ActivityLogEntry'];
+export type ParticipantJoinedBody = components['schemas']['ParticipantJoinedBody'];
+export type RoomDeletedBody = components['schemas']['RoomDeletedBody'];
+export type DisplayParticipantJoinedEvent = components['schemas']['DisplayParticipantJoinedEvent'];
+export type DisplayRoomDeletedEvent = components['schemas']['DisplayRoomDeletedEvent'];
+export type ParticipantParticipantJoinedEvent = components['schemas']['ParticipantParticipantJoinedEvent'];
+export type ParticipantRoomDeletedEvent = components['schemas']['ParticipantRoomDeletedEvent'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseAdminRequired = components['responses']['AdminRequired'];
@@ -761,14 +814,17 @@ export interface operations {
     };
     listRooms: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Include finished rooms (default false). */
+                includeFinished?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description ルーム一覧。finished を含む。 */
+            /** @description Room list, excluding finished rooms by default. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -838,6 +894,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Error"];
                 };
+            };
+            404: components["responses"]["RoomNotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ルーム ID。 */
+                roomId: components["parameters"]["RoomId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted; RoomDeleted is broadcast before sockets close normally. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Admin required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             404: components["responses"]["RoomNotFound"];
             500: components["responses"]["InternalServerError"];
@@ -999,7 +1086,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description ルームが waiting ではない、または開始できない状態。 */
+            /** @description ルームが finished、または参加者がいないため開始できない状態。 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1033,7 +1120,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description ルームが waiting、または既に finished。 */
+            /** @description ルームが waiting。 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1067,7 +1154,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description playing + idle ではない、または抽選可能な球がない。 */
+            /** @description playing ではない、または抽選可能な球がない。 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1101,7 +1188,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description 現在抽選中ではない、またはゲーム状態が不正。 */
+            /** @description 抽選状態またはゲーム状態が不正。 */
             409: {
                 headers: {
                     [name: string]: unknown;

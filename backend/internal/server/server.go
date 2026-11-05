@@ -67,6 +67,7 @@ func registerRoutes(e *echo.Echo, cfg config.Config, db *gorm.DB) {
 		roomWebSocketHandler := handler.NewRoomWebSocketHandler(roomService, webSocketHub, cfg.CORSAllowOrigins)
 		api.POST("/rooms", roomHandler.PostRoom)
 		api.GET("/rooms/:roomId", roomHandler.GetRoom)
+		api.DELETE("/rooms/:roomId", roomHandler.DeleteRoom)
 		api.GET("/rooms", roomHandler.ListRooms)
 		api.GET("/rooms/:roomId/ws", roomWebSocketHandler.Connect)
 		api.POST("/rooms/:roomId/participants", roomHandler.PostParticipant)

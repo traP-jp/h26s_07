@@ -16,12 +16,12 @@ type RequestBody = {
   content: string
 }
 const post = async () => {
-  if (newMessage.value.length == 0) return
+  if ([...newMessage.value].length == 0) return
 
   const data: RequestBody = {
     content: newMessage.value,
   }
-  if (newMessage.value.length > 500) {
+  if ([...newMessage.value].length > 500) {
     throw new Error('Error 400 : Message Invalid')
   }
   try {
@@ -44,6 +44,7 @@ const post = async () => {
   <div class="wrapper" :class="{ 'wrapper--light': room.variant === 'light' }">
     <div class="newMessage">
       <input
+        class="w-full"
         v-model="newMessage"
         type="text"
         placeholder="1 文字以上 500 文字以下で入力"
@@ -86,7 +87,7 @@ const post = async () => {
 path {
   fill: rgb(12, 185, 80);
 }
-#newMessage {
+.newMessage input {
   box-sizing: border-box;
   height: 32px;
   color: #cfcfcf;
@@ -98,7 +99,7 @@ path {
   font-size: 1em;
   line-height: 1.5;
 }
-#newMessage:focus {
+.newMessage input:focus {
   outline: 1px solid rgb(12, 185, 80);
 }
 
@@ -107,13 +108,13 @@ path {
   background: #ffffff;
 }
 
-.wrapper--light #newMessage {
+.wrapper--light .newMessage input {
   border: 1px solid rgb(35 63 105 / 0.16);
   background-color: #f8fafc;
   color: #1f3556;
 }
 
-.wrapper--light #newMessage::placeholder {
+.wrapper--light .newMessage input::placeholder {
   color: #8a9ab0;
 }
 </style>

@@ -2,15 +2,44 @@
 import { ref, computed, onMounted } from 'vue'
 import type { Room, UserId } from '@/api/schema'
 
-import { apiClient } from '@/api/apiClient'
+import { useRoomsStore } from '@/stores/rooms'
 import { useCurrentUserStore } from '@/stores/currentUser'
 
+const roomsStore = useRoomsStore()
 const currentUserStore = useCurrentUserStore()
 
 const loading = ref(true)
 const errorMessage = ref('')
-const rooms = ref(new Array<Room>())
+const showFinished = ref(false)
+const visibleRooms = computed(() =>
+  rooms.value.filter((room) => showFinished.value || room.state !== 'finished'),
+)
+const rooms = computed(() => roomsStore.rooms)
 const currentUserId = ref<UserId>()
+
+const deleteModalOpen = ref(false)
+const deletingRoom = ref<Room | null>(null)
+const deleting = ref(false)
+const deleteError = ref('')
+function openDeleteModal(room: Room) {
+  deletingRoom.value = room
+  deleteError.value = ''
+  deleteModalOpen.value = true
+}
+async function confirmDeleteRoom() {
+  if (!deletingRoom.value) return
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await roomsStore.deleteRoom(deletingRoom.value.roomId)
+    deleteModalOpen.value = false
+    deletingRoom.value = null
+  } catch (error) {
+    deleteError.value = error instanceof Error ? error.message : 'ルームの削除に失敗しました。'
+  } finally {
+    deleting.value = false
+  }
+}
 
 const joinModalOpen = ref(false)
 const selectedRoom = ref<Room | null>(null)
@@ -20,30 +49,29 @@ onMounted(async () => {
 
   currentUserId.value = await currentUserStore.getUserId()
 
-  const { data, error } = await apiClient.GET('/api/rooms')
-  if (error) {
-    errorMessage.value = error.message
-  } else {
-    rooms.value = data
+  try {
+    await roomsStore.init(true)
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'ルーム情報の取得に失敗しました。'
   }
 
   loading.value = false
 })
 
 const joinedRooms = computed(() => {
-  return rooms.value.filter((room) =>
+  return visibleRooms.value.filter((room) =>
     room.participants.some((participant) => participant.user.userId === currentUserId.value),
   )
 })
 
 const adminRooms = computed(() => {
-  return rooms.value.filter((room) =>
+  return visibleRooms.value.filter((room) =>
     room.settings.admins.some((admin) => admin.userId === currentUserId.value),
   )
 })
 
 const waitingRooms = computed(() => {
-  return rooms.value.filter(
+  return visibleRooms.value.filter(
     (room) =>
       room.state == 'waiting' &&
       !room.participants.some((participant) => participant.user.userId === currentUserId.value),
@@ -82,6 +110,7 @@ function confirmJoinRoom() {
     </div>
 
     <template v-else>
+      <UCheckbox v-model="showFinished" label="終了したルームも表示" class="mb-4" />
       <h2 class="text-3xl font-bold mb-4">
         <UIcon name="i-lucide-zap" class="text-yellow-400 inline" />
         あなたが参加しているルーム
@@ -100,14 +129,22 @@ function confirmJoinRoom() {
       <h2 class="text-3xl font-bold mb-4">あなたが管理しているルーム</h2>
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
-        <template v-for="room in adminRooms" :key="room.roomCode">
+        <div v-for="room in adminRooms" :key="room.roomCode" class="space-y-2">
           <Card
             :title="room.settings.name"
             :description="room.settings.description"
             :room-code="room.roomCode"
             is-Admin
-          ></Card>
-        </template>
+          >
+          </Card>
+          <UButton
+            color="error"
+            variant="soft"
+            icon="i-lucide-trash-2"
+            @click="openDeleteModal(room)"
+            >ルームを削除</UButton
+          >
+        </div>
       </div>
 
       <h2 class="text-3xl font-bold mb-4">参加者を募集しているルーム</h2>
@@ -125,6 +162,27 @@ function confirmJoinRoom() {
       </div>
     </template>
 
+    <UModal
+      v-model:open="deleteModalOpen"
+      title="ルームを削除しますか？この操作は取り消せません"
+      :description="deletingRoom?.settings.name"
+      :dismissible="!deleting"
+      :close="!deleting"
+    >
+      <template #body
+        ><p v-if="deleteError" class="text-error">{{ deleteError }}</p></template
+      >
+      <template #footer>
+        <UButton
+          color="neutral"
+          variant="outline"
+          :disabled="deleting"
+          @click="deleteModalOpen = false"
+          >キャンセル</UButton
+        >
+        <UButton color="error" :loading="deleting" @click="confirmDeleteRoom">削除</UButton>
+      </template>
+    </UModal>
     <UModal v-model:open="joinModalOpen">
       <template #content>
         <UCard>

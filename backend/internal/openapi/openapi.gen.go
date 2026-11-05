@@ -14,24 +14,42 @@ const (
 	ForwardedUserScopes forwardedUserContextKey = "forwardedUser.Scopes"
 )
 
+// Defines values for ActivityLogEntryKind.
+const (
+	ActivityLogEntryKindBingo ActivityLogEntryKind = "bingo"
+	ActivityLogEntryKindReach ActivityLogEntryKind = "reach"
+)
+
+// Valid indicates whether the value is a known member of the ActivityLogEntryKind enum.
+func (e ActivityLogEntryKind) Valid() bool {
+	switch e {
+	case ActivityLogEntryKindBingo:
+		return true
+	case ActivityLogEntryKindReach:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CardCellState.
 const (
-	Bingo  CardCellState = "bingo"
-	Closed CardCellState = "closed"
-	Open   CardCellState = "open"
-	Reach  CardCellState = "reach"
+	CardCellStateBingo  CardCellState = "bingo"
+	CardCellStateClosed CardCellState = "closed"
+	CardCellStateOpen   CardCellState = "open"
+	CardCellStateReach  CardCellState = "reach"
 )
 
 // Valid indicates whether the value is a known member of the CardCellState enum.
 func (e CardCellState) Valid() bool {
 	switch e {
-	case Bingo:
+	case CardCellStateBingo:
 		return true
-	case Closed:
+	case CardCellStateClosed:
 		return true
-	case Open:
+	case CardCellStateOpen:
 		return true
-	case Reach:
+	case CardCellStateReach:
 		return true
 	default:
 		return false
@@ -173,6 +191,21 @@ func (e DisplayMessageCreatedEventType) Valid() bool {
 	}
 }
 
+// Defines values for DisplayParticipantJoinedEventType.
+const (
+	DisplayParticipantJoinedEventTypeParticipantJoined DisplayParticipantJoinedEventType = "ParticipantJoined"
+)
+
+// Valid indicates whether the value is a known member of the DisplayParticipantJoinedEventType enum.
+func (e DisplayParticipantJoinedEventType) Valid() bool {
+	switch e {
+	case DisplayParticipantJoinedEventTypeParticipantJoined:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DisplayPickCanceledEventType.
 const (
 	DisplayPickCanceledEventTypePickCanceled DisplayPickCanceledEventType = "PickCanceled"
@@ -212,6 +245,21 @@ const (
 func (e DisplayPickStartedEventType) Valid() bool {
 	switch e {
 	case DisplayPickStartedEventTypePickStarted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DisplayRoomDeletedEventType.
+const (
+	DisplayRoomDeletedEventTypeRoomDeleted DisplayRoomDeletedEventType = "RoomDeleted"
+)
+
+// Valid indicates whether the value is a known member of the DisplayRoomDeletedEventType enum.
+func (e DisplayRoomDeletedEventType) Valid() bool {
+	switch e {
+	case DisplayRoomDeletedEventTypeRoomDeleted:
 		return true
 	default:
 		return false
@@ -353,6 +401,21 @@ func (e ParticipantMessageCreatedEventType) Valid() bool {
 	}
 }
 
+// Defines values for ParticipantParticipantJoinedEventType.
+const (
+	ParticipantParticipantJoinedEventTypeParticipantJoined ParticipantParticipantJoinedEventType = "ParticipantJoined"
+)
+
+// Valid indicates whether the value is a known member of the ParticipantParticipantJoinedEventType enum.
+func (e ParticipantParticipantJoinedEventType) Valid() bool {
+	switch e {
+	case ParticipantParticipantJoinedEventTypeParticipantJoined:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ParticipantPickCanceledEventType.
 const (
 	ParticipantPickCanceledEventTypePickCanceled ParticipantPickCanceledEventType = "PickCanceled"
@@ -392,6 +455,21 @@ const (
 func (e ParticipantPickStartedEventType) Valid() bool {
 	switch e {
 	case ParticipantPickStartedEventTypePickStarted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ParticipantRoomDeletedEventType.
+const (
+	ParticipantRoomDeletedEventTypeRoomDeleted ParticipantRoomDeletedEventType = "RoomDeleted"
+)
+
+// Valid indicates whether the value is a known member of the ParticipantRoomDeletedEventType enum.
+func (e ParticipantRoomDeletedEventType) Valid() bool {
+	switch e {
+	case ParticipantRoomDeletedEventTypeRoomDeleted:
 		return true
 	default:
 		return false
@@ -449,9 +527,11 @@ const (
 	WebSocketEventTypeHideQRCode          WebSocketEventType = "HideQRCode"
 	WebSocketEventTypeInitialized         WebSocketEventType = "Initialized"
 	WebSocketEventTypeMessageCreated      WebSocketEventType = "MessageCreated"
+	WebSocketEventTypeParticipantJoined   WebSocketEventType = "ParticipantJoined"
 	WebSocketEventTypePickCanceled        WebSocketEventType = "PickCanceled"
 	WebSocketEventTypePickFinished        WebSocketEventType = "PickFinished"
 	WebSocketEventTypePickStarted         WebSocketEventType = "PickStarted"
+	WebSocketEventTypeRoomDeleted         WebSocketEventType = "RoomDeleted"
 	WebSocketEventTypeShowQRCode          WebSocketEventType = "ShowQRCode"
 )
 
@@ -472,11 +552,15 @@ func (e WebSocketEventType) Valid() bool {
 		return true
 	case WebSocketEventTypeMessageCreated:
 		return true
+	case WebSocketEventTypeParticipantJoined:
+		return true
 	case WebSocketEventTypePickCanceled:
 		return true
 	case WebSocketEventTypePickFinished:
 		return true
 	case WebSocketEventTypePickStarted:
+		return true
+	case WebSocketEventTypeRoomDeleted:
 		return true
 	case WebSocketEventTypeShowQRCode:
 		return true
@@ -502,6 +586,26 @@ func (e WebSocketMode) Valid() bool {
 		return false
 	}
 }
+
+// ActivityLogEntry One entry per stored record (first reach per user, every bingo line). Ordered by createdAt then record id. Bingo rank is the 1-based order of users' first bingo, retained on subsequent lines. pickedBall is omitted when records do not preserve the triggering pick; lineCount is cumulative bingo lines for the user in log order.
+type ActivityLogEntry struct {
+	BingoRank *int `json:"bingoRank,omitempty"`
+
+	// CreatedAt ISO 8601 datetime string。
+	CreatedAt DateTime `json:"createdAt"`
+
+	// ID UUID string。
+	ID        UUID                 `json:"id"`
+	Kind      ActivityLogEntryKind `json:"kind"`
+	LineCount *int                 `json:"lineCount,omitempty"`
+
+	// PickedBall 確定済みの通常数字球。1..75。
+	PickedBall *PickedBall `json:"pickedBall,omitempty"`
+	User       User        `json:"user"`
+}
+
+// ActivityLogEntryKind defines model for ActivityLogEntry.Kind.
+type ActivityLogEntryKind string
 
 // AllPickedBody defines model for AllPickedBody.
 type AllPickedBody struct {
@@ -646,14 +750,16 @@ type DisplayHideQRCodeEventType string
 
 // DisplayInitializedBody defines model for DisplayInitializedBody.
 type DisplayInitializedBody struct {
-	BingoSummaries   []BingoSummary `json:"bingoSummaries"`
-	ParticipantCount int            `json:"participantCount"`
-	PickState        PickState      `json:"pickState"`
-	PickedBalls      []PickedBall   `json:"pickedBalls"`
-	QrCodeVisible    bool           `json:"qrCodeVisible"`
-	ReachSummaries   []ReachSummary `json:"reachSummaries"`
-	Settings         GameSettings   `json:"settings"`
-	State            RoomState      `json:"state"`
+	ActivityLog      []ActivityLogEntry `json:"activityLog"`
+	BingoSummaries   []BingoSummary     `json:"bingoSummaries"`
+	ParticipantCount int                `json:"participantCount"`
+	Participants     []User             `json:"participants"`
+	PickState        PickState          `json:"pickState"`
+	PickedBalls      []PickedBall       `json:"pickedBalls"`
+	QrCodeVisible    bool               `json:"qrCodeVisible"`
+	ReachSummaries   []ReachSummary     `json:"reachSummaries"`
+	Settings         GameSettings       `json:"settings"`
+	State            RoomState          `json:"state"`
 }
 
 // DisplayInitializedEvent defines model for DisplayInitializedEvent.
@@ -674,6 +780,15 @@ type DisplayMessageCreatedEvent struct {
 // DisplayMessageCreatedEventType defines model for DisplayMessageCreatedEvent.Type.
 type DisplayMessageCreatedEventType string
 
+// DisplayParticipantJoinedEvent defines model for DisplayParticipantJoinedEvent.
+type DisplayParticipantJoinedEvent struct {
+	Body ParticipantJoinedBody             `json:"body"`
+	Type DisplayParticipantJoinedEventType `json:"type"`
+}
+
+// DisplayParticipantJoinedEventType defines model for DisplayParticipantJoinedEvent.Type.
+type DisplayParticipantJoinedEventType string
+
 // DisplayPickCanceledEvent defines model for DisplayPickCanceledEvent.
 type DisplayPickCanceledEvent struct {
 	Body PickCanceledBody             `json:"body"`
@@ -685,11 +800,12 @@ type DisplayPickCanceledEventType string
 
 // DisplayPickFinishedBody defines model for DisplayPickFinishedBody.
 type DisplayPickFinishedBody struct {
-	BingoSummaries   []BingoSummary `json:"bingoSummaries"`
-	NewBingos        []BingoUpdate  `json:"newBingos"`
-	NewReaches       []ReachUpdate  `json:"newReaches"`
-	ParticipantCount int            `json:"participantCount"`
-	PickState        PickState      `json:"pickState"`
+	BingoSummaries   []BingoSummary     `json:"bingoSummaries"`
+	NewActivityLog   []ActivityLogEntry `json:"newActivityLog"`
+	NewBingos        []BingoUpdate      `json:"newBingos"`
+	NewReaches       []ReachUpdate      `json:"newReaches"`
+	ParticipantCount int                `json:"participantCount"`
+	PickState        PickState          `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
 	PickedBall     PickedBall     `json:"pickedBall"`
@@ -714,6 +830,15 @@ type DisplayPickStartedEvent struct {
 
 // DisplayPickStartedEventType defines model for DisplayPickStartedEvent.Type.
 type DisplayPickStartedEventType string
+
+// DisplayRoomDeletedEvent defines model for DisplayRoomDeletedEvent.
+type DisplayRoomDeletedEvent struct {
+	Body RoomDeletedBody             `json:"body"`
+	Type DisplayRoomDeletedEventType `json:"type"`
+}
+
+// DisplayRoomDeletedEventType defines model for DisplayRoomDeletedEvent.Type.
+type DisplayRoomDeletedEventType string
 
 // DisplayShowQRCodeEvent defines model for DisplayShowQRCodeEvent.
 type DisplayShowQRCodeEvent struct {
@@ -840,15 +965,18 @@ type ParticipantGameStartedEventType string
 
 // ParticipantInitializedBody defines model for ParticipantInitializedBody.
 type ParticipantInitializedBody struct {
-	BingoSummaries []BingoSummary `json:"bingoSummaries"`
+	ActivityLog    []ActivityLogEntry `json:"activityLog"`
+	BingoSummaries []BingoSummary     `json:"bingoSummaries"`
 
 	// Card participant にだけ送るカード snapshot。
-	Card           *Card          `json:"card,omitempty"`
-	PickState      PickState      `json:"pickState"`
-	PickedBalls    []PickedBall   `json:"pickedBalls"`
-	ReachSummaries []ReachSummary `json:"reachSummaries"`
-	Settings       GameSettings   `json:"settings"`
-	State          RoomState      `json:"state"`
+	Card             *Card          `json:"card,omitempty"`
+	ParticipantCount int            `json:"participantCount"`
+	Participants     []User         `json:"participants"`
+	PickState        PickState      `json:"pickState"`
+	PickedBalls      []PickedBall   `json:"pickedBalls"`
+	ReachSummaries   []ReachSummary `json:"reachSummaries"`
+	Settings         GameSettings   `json:"settings"`
+	State            RoomState      `json:"state"`
 }
 
 // ParticipantInitializedEvent defines model for ParticipantInitializedEvent.
@@ -860,6 +988,14 @@ type ParticipantInitializedEvent struct {
 // ParticipantInitializedEventType defines model for ParticipantInitializedEvent.Type.
 type ParticipantInitializedEventType string
 
+// ParticipantJoinedBody defines model for ParticipantJoinedBody.
+type ParticipantJoinedBody struct {
+	// JoinedAt ISO 8601 datetime string。
+	JoinedAt         DateTime `json:"joinedAt"`
+	Participant      User     `json:"participant"`
+	ParticipantCount int      `json:"participantCount"`
+}
+
 // ParticipantMessageCreatedEvent defines model for ParticipantMessageCreatedEvent.
 type ParticipantMessageCreatedEvent struct {
 	Body MessageCreatedBody                 `json:"body"`
@@ -868,6 +1004,15 @@ type ParticipantMessageCreatedEvent struct {
 
 // ParticipantMessageCreatedEventType defines model for ParticipantMessageCreatedEvent.Type.
 type ParticipantMessageCreatedEventType string
+
+// ParticipantParticipantJoinedEvent defines model for ParticipantParticipantJoinedEvent.
+type ParticipantParticipantJoinedEvent struct {
+	Body ParticipantJoinedBody                 `json:"body"`
+	Type ParticipantParticipantJoinedEventType `json:"type"`
+}
+
+// ParticipantParticipantJoinedEventType defines model for ParticipantParticipantJoinedEvent.Type.
+type ParticipantParticipantJoinedEventType string
 
 // ParticipantPickCanceledEvent defines model for ParticipantPickCanceledEvent.
 type ParticipantPickCanceledEvent struct {
@@ -886,10 +1031,11 @@ type ParticipantPickFinishedBody struct {
 	Card Card `json:"card"`
 
 	// CardChanges participant の PickFinished にだけ含める演出用差分。
-	CardChanges CardChanges   `json:"cardChanges"`
-	NewBingos   []BingoUpdate `json:"newBingos"`
-	NewReaches  []ReachUpdate `json:"newReaches"`
-	PickState   PickState     `json:"pickState"`
+	CardChanges    CardChanges        `json:"cardChanges"`
+	NewActivityLog []ActivityLogEntry `json:"newActivityLog"`
+	NewBingos      []BingoUpdate      `json:"newBingos"`
+	NewReaches     []ReachUpdate      `json:"newReaches"`
+	PickState      PickState          `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
 	PickedBall     PickedBall     `json:"pickedBall"`
@@ -914,6 +1060,15 @@ type ParticipantPickStartedEvent struct {
 
 // ParticipantPickStartedEventType defines model for ParticipantPickStartedEvent.Type.
 type ParticipantPickStartedEventType string
+
+// ParticipantRoomDeletedEvent defines model for ParticipantRoomDeletedEvent.
+type ParticipantRoomDeletedEvent struct {
+	Body RoomDeletedBody                 `json:"body"`
+	Type ParticipantRoomDeletedEventType `json:"type"`
+}
+
+// ParticipantRoomDeletedEventType defines model for ParticipantRoomDeletedEvent.Type.
+type ParticipantRoomDeletedEventType string
 
 // ParticipantSummary 参加者一覧や display 向けの概要。admin 権限、カード詳細、リーチ情報、ビンゴ情報は含めない。
 type ParticipantSummary struct {
@@ -953,7 +1108,8 @@ type ReachUpdate struct {
 
 // Room defines model for Room.
 type Room struct {
-	BingoSummaries []BingoSummary `json:"bingoSummaries"`
+	ActivityLog    []ActivityLogEntry `json:"activityLog"`
+	BingoSummaries []BingoSummary     `json:"bingoSummaries"`
 
 	// CreatedAt ISO 8601 datetime string。
 	CreatedAt      DateTime             `json:"createdAt"`
@@ -976,6 +1132,9 @@ type Room struct {
 
 // RoomCode 6 桁の数字文字列。
 type RoomCode = string
+
+// RoomDeletedBody defines model for RoomDeletedBody.
+type RoomDeletedBody = EmptyObject
 
 // RoomID UUID string。
 type RoomID = UUID
@@ -1034,6 +1193,12 @@ type Unauthorized = Error
 // forwardedUserContextKey is the context key for forwardedUser security scheme
 type forwardedUserContextKey string
 
+// ListRoomsParams defines parameters for ListRooms.
+type ListRoomsParams struct {
+	// IncludeFinished Include finished rooms (default false).
+	IncludeFinished *bool `form:"includeFinished,omitempty" json:"includeFinished,omitempty"`
+}
+
 // ConnectRoomWebSocketParams defines parameters for ConnectRoomWebSocket.
 type ConnectRoomWebSocketParams struct {
 	// Mode participant, display のいずれか。card が必要な参加者は participant mode、card を受け取らない表示・運営画面は display mode で接続する。
@@ -1048,6 +1213,58 @@ type CreateMessageJSONRequestBody = CreateMessageRequest
 
 // UpdateGameSettingsJSONRequestBody defines body for UpdateGameSettings for application/json ContentType.
 type UpdateGameSettingsJSONRequestBody = UpdateGameSettingsRequest
+
+// AsDisplayParticipantJoinedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayParticipantJoinedEvent
+func (t DisplayWebSocketEvent) AsDisplayParticipantJoinedEvent() (DisplayParticipantJoinedEvent, error) {
+	var body DisplayParticipantJoinedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayParticipantJoinedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayParticipantJoinedEvent
+func (t *DisplayWebSocketEvent) FromDisplayParticipantJoinedEvent(v DisplayParticipantJoinedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayParticipantJoinedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayParticipantJoinedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayParticipantJoinedEvent(v DisplayParticipantJoinedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDisplayRoomDeletedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayRoomDeletedEvent
+func (t DisplayWebSocketEvent) AsDisplayRoomDeletedEvent() (DisplayRoomDeletedEvent, error) {
+	var body DisplayRoomDeletedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayRoomDeletedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayRoomDeletedEvent
+func (t *DisplayWebSocketEvent) FromDisplayRoomDeletedEvent(v DisplayRoomDeletedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayRoomDeletedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayRoomDeletedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayRoomDeletedEvent(v DisplayRoomDeletedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
 
 // AsDisplayInitializedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayInitializedEvent
 func (t DisplayWebSocketEvent) AsDisplayInitializedEvent() (DisplayInitializedEvent, error) {
@@ -1342,6 +1559,58 @@ func (t DisplayWebSocketEvent) MarshalJSON() ([]byte, error) {
 
 func (t *DisplayWebSocketEvent) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsParticipantParticipantJoinedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantParticipantJoinedEvent
+func (t ParticipantWebSocketEvent) AsParticipantParticipantJoinedEvent() (ParticipantParticipantJoinedEvent, error) {
+	var body ParticipantParticipantJoinedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantParticipantJoinedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantParticipantJoinedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantParticipantJoinedEvent(v ParticipantParticipantJoinedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantParticipantJoinedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantParticipantJoinedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantParticipantJoinedEvent(v ParticipantParticipantJoinedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsParticipantRoomDeletedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantRoomDeletedEvent
+func (t ParticipantWebSocketEvent) AsParticipantRoomDeletedEvent() (ParticipantRoomDeletedEvent, error) {
+	var body ParticipantRoomDeletedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromParticipantRoomDeletedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantRoomDeletedEvent
+func (t *ParticipantWebSocketEvent) FromParticipantRoomDeletedEvent(v ParticipantRoomDeletedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeParticipantRoomDeletedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantRoomDeletedEvent
+func (t *ParticipantWebSocketEvent) MergeParticipantRoomDeletedEvent(v ParticipantRoomDeletedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
 	return err
 }
 

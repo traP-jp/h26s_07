@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import type { FormError, FormSubmitEvent } from '@nuxt/ui'
 import { useRouter } from 'vue-router'
+import { useRoomsStore } from '@/stores/rooms'
 import { apiClient } from '@/api/apiClient'
 import { useCurrentUserStore } from '@/stores/currentUser'
 
@@ -60,6 +61,7 @@ async function onSubmit(event: FormSubmitEvent<FormState>) {
     alert('新しいページの作成に失敗しました。')
     throw new Error('新しいページの作成に失敗しました。')
   } else {
+    await useRoomsStore().init(true)
     router.push(`/${data.roomCode}/settings`)
   }
 }

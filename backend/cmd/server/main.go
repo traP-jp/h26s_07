@@ -33,7 +33,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get database handle: %v", err)
 	}
-	defer sqlDB.Close()
+	defer func() {
+		if err := sqlDB.Close(); err != nil {
+			slog.Error("failed to close database", slog.Any("error", err))
+		}
+	}()
 	if err := sqlDB.Ping(); err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}

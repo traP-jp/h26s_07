@@ -2,6 +2,7 @@ import type { Room } from '@/api/schema'
 
 export const mockRooms: Room[] = [
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000011',
     roomCode: '111111',
     state: 'waiting',
@@ -32,6 +33,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-28T10:03:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000001',
     roomCode: '123456',
     state: 'waiting',
@@ -74,6 +76,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T10:00:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000002',
     roomCode: '234567',
     state: 'playing',
@@ -109,6 +112,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T11:10:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000003',
     roomCode: '345678',
     state: 'finished',
@@ -141,6 +145,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T12:30:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000004',
     roomCode: '456789',
     state: 'waiting',
@@ -167,6 +172,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T13:03:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000005',
     roomCode: '567890',
     state: 'playing',
@@ -222,6 +228,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T14:15:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000006',
     roomCode: '678901',
     state: 'finished',
@@ -286,6 +293,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T15:45:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000007',
     roomCode: '789012',
     state: 'waiting',
@@ -303,6 +311,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T16:00:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000008',
     roomCode: '890123',
     state: 'playing',
@@ -345,6 +354,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T17:20:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000009',
     roomCode: '901234',
     state: 'finished',
@@ -418,6 +428,7 @@ export const mockRooms: Room[] = [
     updatedAt: '2026-06-27T18:40:00.000Z',
   },
   {
+    activityLog: [],
     roomId: '00000000-0000-4000-8000-000000000010',
     roomCode: '012345',
     state: 'waiting',

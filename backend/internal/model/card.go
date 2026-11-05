@@ -12,6 +12,18 @@ const (
 	FreeCellIndex = 12
 )
 
+func (number CardNumber) Valid() bool {
+	if len(number) != 36 {
+		return false
+	}
+	for _, r := range number {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func NewCard(cardID CardID, cardNumber CardNumber, owner UserID, numbers [24]BallNumber) (Card, error) {
 	if !cardNumber.Valid() {
 		return Card{}, ErrInvalidCard
@@ -82,13 +94,9 @@ func MakeRandomCard(owner UserID) (Card, error) {
 		}
 		shuffleBalls(useNumbers)
 		if i == 2 {
-			for _, ball := range useNumbers[:4] {
-				numbers = append(numbers, ball)
-			}
+			numbers = append(numbers, useNumbers[:4]...)
 		} else {
-			for _, ball := range useNumbers[:5] {
-				numbers = append(numbers, ball)
-			}
+			numbers = append(numbers, useNumbers[:5]...)
 		}
 	}
 	cardID, err := uuid.NewV7()

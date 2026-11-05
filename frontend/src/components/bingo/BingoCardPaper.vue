@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Card, CardCell as CardCellType, CardChanges, Line } from '@/api/schema'
 import CardCell from '@/components/bingo/CardCell.vue'
+import { createLineEffectStyle, isInLine, lineKey } from '@/components/bingo/lineEffects'
 import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
@@ -70,28 +71,6 @@ const persistentLineEffects = computed<LineEffectItem[]>(() => {
   ]
 })
 
-function createLineEffectStyle(line: Line): Record<string, string> {
-  if (!line || line.length < 2) return {}
-
-  const start = cellCenter(line[0]!)
-  const end = cellCenter(line[line.length - 1]!)
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const length = Math.hypot(dx, dy)
-  const angle = Math.atan2(dy, dx)
-
-  return {
-    '--line-x': `${start.x}%`,
-    '--line-y': `${start.y}%`,
-    '--line-length': `${length}%`,
-    '--line-angle': `${angle}rad`,
-  }
-}
-
-function lineKey(line: Line) {
-  return line.join('-')
-}
-
 const celebrationParticles = Array.from({ length: 18 }, (_, index) => ({
   id: index,
   style: {
@@ -101,15 +80,10 @@ const celebrationParticles = Array.from({ length: 18 }, (_, index) => ({
   },
 }))
 
-const isInLine = (line: Line[] | undefined, cellIndex: number) => {
-  return line?.some((candidate) => candidate.includes(cellIndex)) ?? false
-}
-
 const isInActiveEffectLine = (cellIndex: number) => activeEffectLine.value.includes(cellIndex)
 
 const isReachMissingCell = (cell: CardCellType) => {
-  const effect = activeEffect.value
-  return effect?.mode === 'reach' && effect.line.includes(cell.index) && cell.cellState === 'closed'
+  return isInLine(props.card?.reachLines, cell.index) && cell.cellState === 'closed'
 }
 
 const activeLineOrder = (cellIndex: number) => {
@@ -118,6 +92,7 @@ const activeLineOrder = (cellIndex: number) => {
 }
 
 const gridCellClass = (cell: CardCellType) => ({
+  'grid-cell--opened': props.cardChanges?.openedCellIndices.includes(cell.index),
   'grid-cell--line-bingo': isInLine(props.card?.bingoLines, cell.index),
   'grid-cell--line-reach': isInLine(props.card?.reachLines, cell.index),
   'grid-cell--active-line': isInActiveEffectLine(cell.index),
@@ -131,16 +106,6 @@ const gridCellClass = (cell: CardCellType) => ({
 const gridCellStyle = (cell: CardCellType) => ({
   '--shine-delay': `${activeLineOrder(cell.index) * 110}ms`,
 })
-
-function cellCenter(index: number) {
-  const column = Math.floor(index / 5)
-  const row = index % 5
-
-  return {
-    x: ((column + 0.5) / 5) * 100,
-    y: ((row + 0.5) / 5) * 100,
-  }
-}
 
 watch(
   () => props.cardChanges,
@@ -171,7 +136,7 @@ watch(
 
       <div
         v-for="lineEffect in persistentLineEffects"
-        :key="`${lineEffect.id}-${effectSerial}`"
+        :key="lineEffect.id"
         class="line-effect"
         :class="`line-effect--${lineEffect.mode}`"
         :style="lineEffect.style"
@@ -444,6 +409,21 @@ watch(
   text-align: center;
 }
 
+.grid-cell--opened {
+  animation: cell-punch 620ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes cell-punch {
+  0% {
+    transform: perspective(400px) rotateX(-24deg) scale(0.94);
+  }
+  45% {
+    transform: perspective(400px) rotateX(8deg) scale(1.04);
+    box-shadow: inset 0 0 0 5px #4caf5066;
+  }
+  100% {
+    transform: none;
+  }
+}
 @keyframes reach-cell-glow {
   0% {
     opacity: 0;
@@ -609,6 +589,9 @@ watch(
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .grid-cell--opened,
+  .grid-cell--line-reach :deep(.ball),
+  .grid-cell--line-bingo :deep(.ball),
   .grid-cell--active-reach::before,
   .grid-cell--active-bingo::before,
   .grid-cell--reach-missing :deep(.ball),

@@ -4,16 +4,30 @@ import { defineStore } from 'pinia'
 import { apiClient } from '@/api/apiClient'
 import type { Room, RoomCode, RoomId } from '@/api/schema'
 
+function buildRoomsByCode(rooms: Room[]): Map<RoomCode, Room> {
+  const byCode = new Map<RoomCode, Room>()
+  for (const room of rooms) {
+    const previous = byCode.get(room.roomCode)
+    const roomIsPreferred =
+      !previous ||
+      (previous.state === 'finished' && room.state !== 'finished') ||
+      ((previous.state === 'finished') === (room.state === 'finished') &&
+        Date.parse(room.createdAt) > Date.parse(previous.createdAt))
+    if (roomIsPreferred) byCode.set(room.roomCode, room)
+  }
+  return byCode
+}
+
 export const useRoomsStore = defineStore('rooms', () => {
   const rooms = ref<Room[]>([])
   const initialized = ref(false)
 
-  const roomsByCode = computed(() => {
-    return new Map(rooms.value.map((room) => [room.roomCode, room]))
-  })
+  const roomsByCode = computed(() => buildRoomsByCode(rooms.value))
 
   async function fetchRooms(): Promise<void> {
-    const { data, error } = await apiClient.GET('/api/rooms')
+    const { data, error } = await apiClient.GET('/api/rooms', {
+      params: { query: { includeFinished: true } },
+    })
 
     if (error !== undefined || data === undefined) {
       throw new Error('Failed to fetch rooms')
@@ -23,8 +37,8 @@ export const useRoomsStore = defineStore('rooms', () => {
     initialized.value = true
   }
 
-  async function init(): Promise<void> {
-    if (initialized.value) {
+  async function init(force = false): Promise<void> {
+    if (initialized.value && !force) {
       return
     }
 
@@ -33,6 +47,7 @@ export const useRoomsStore = defineStore('rooms', () => {
 
   async function getRoomByCode(roomCode: RoomCode): Promise<Room | null> {
     await init()
+    if (!roomsByCode.value.has(roomCode)) await init(true)
     return roomsByCode.value.get(roomCode) ?? null
   }
 
@@ -57,7 +72,18 @@ export const useRoomsStore = defineStore('rooms', () => {
     await fetchRooms()
   }
 
+  async function deleteRoom(roomId: RoomId): Promise<void> {
+    const { error } = await apiClient.DELETE('/api/rooms/{roomId}', {
+      params: { path: { roomId } },
+    })
+    if (error !== undefined) throw new Error('ルームの削除に失敗しました。')
+    rooms.value = rooms.value.filter((room) => room.roomId !== roomId)
+    initialized.value = false
+    await fetchRooms()
+  }
+
   return {
+    deleteRoom,
     rooms,
     roomsByCode,
     fetchRooms,
