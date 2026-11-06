@@ -87,3 +87,19 @@ func TestSlowClientReceivesCloseStatus(t *testing.T) {
 	}
 	cancel()
 }
+
+func TestParticipantJoinedEventUsesMatchingMode(t *testing.T) {
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: "alice"}, ParticipantCount: 2, JoinedAt: time.Now()}
+	for _, tc := range []struct {
+		mode  openapi.WebSocketMode
+		event any
+	}{
+		{openapi.Display, openapi.DisplayParticipantJoinedEvent{Type: openapi.DisplayParticipantJoinedEventTypeParticipantJoined, Body: body}},
+		{openapi.Participant, openapi.ParticipantParticipantJoinedEvent{Type: openapi.ParticipantParticipantJoinedEventTypeParticipantJoined, Body: body}},
+	} {
+		payload, err := marshalWebSocketEvent(tc.mode, tc.event)
+		if err != nil || !strings.Contains(string(payload), `"participantCount":2`) || !strings.Contains(string(payload), `"userId":"alice"`) {
+			t.Fatalf("mode %s: payload %s, error %v", tc.mode, payload, err)
+		}
+	}
+}

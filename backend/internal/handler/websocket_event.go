@@ -49,6 +49,8 @@ func participantWebSocketEvent(event any) (openapi.ParticipantWebSocketEvent, bo
 	var result openapi.ParticipantWebSocketEvent
 	var err error
 	switch event := event.(type) {
+	case openapi.ParticipantParticipantJoinedEvent:
+		err = result.FromParticipantParticipantJoinedEvent(event)
 	case openapi.ParticipantInitializedEvent:
 		err = result.FromParticipantInitializedEvent(event)
 	case openapi.ParticipantGameStartedEvent:
@@ -84,6 +86,8 @@ func displayWebSocketEvent(event any) (openapi.DisplayWebSocketEvent, bool, erro
 	var result openapi.DisplayWebSocketEvent
 	var err error
 	switch event := event.(type) {
+	case openapi.DisplayParticipantJoinedEvent:
+		err = result.FromDisplayParticipantJoinedEvent(event)
 	case openapi.DisplayInitializedEvent:
 		err = result.FromDisplayInitializedEvent(event)
 	case openapi.DisplayGameStartedEvent:
@@ -115,6 +119,7 @@ func displayWebSocketEvent(event any) (openapi.DisplayWebSocketEvent, bool, erro
 func isParticipantWebSocketEvent(event any) bool {
 	switch event.(type) {
 	case openapi.ParticipantWebSocketEvent,
+		openapi.ParticipantParticipantJoinedEvent,
 		openapi.ParticipantInitializedEvent,
 		openapi.ParticipantGameStartedEvent,
 		openapi.ParticipantPickStartedEvent,
@@ -133,6 +138,7 @@ func isParticipantWebSocketEvent(event any) bool {
 func isDisplayWebSocketEvent(event any) bool {
 	switch event.(type) {
 	case openapi.DisplayWebSocketEvent,
+		openapi.DisplayParticipantJoinedEvent,
 		openapi.DisplayInitializedEvent,
 		openapi.DisplayGameStartedEvent,
 		openapi.DisplayPickStartedEvent,

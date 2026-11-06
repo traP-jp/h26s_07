@@ -116,10 +116,22 @@ func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID,
 	if err != nil {
 		return err
 	}
-	if err := room.Join(user, time.Now()); err != nil {
+	alreadyJoined := room.IsParticipant(user)
+	now := time.Now()
+	if err := room.Join(user, now); err != nil {
 		return err
 	}
-	return s.roomRepository.Save(ctx, room)
+	if alreadyJoined {
+		return nil
+	}
+	if err := s.roomRepository.Save(ctx, room); err != nil {
+		return err
+	}
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}, ParticipantCount: len(room.Participants), JoinedAt: now}
+	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayParticipantJoinedEvent{Type: openapi.DisplayParticipantJoinedEventTypeParticipantJoined, Body: body}); err != nil {
+		return err
+	}
+	return s.queueRoomEvent(ctx, roomID, openapi.ParticipantParticipantJoinedEvent{Type: openapi.ParticipantParticipantJoinedEventTypeParticipantJoined, Body: body})
 }
 
 func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {

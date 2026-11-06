@@ -2,6 +2,7 @@ import { computed, onScopeDispose, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 
 import type {
+  User,
   BingoSummary,
   BingoUpdate,
   Card,
@@ -69,6 +70,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const latestNewBingos = ref<BingoUpdate[]>([])
   const latestNewReaches = ref<ReachUpdate[]>([])
   const latestMessage = ref<Message | null>(null)
+  const participants = ref<User[]>([])
 
   const roomState = ref<RoomState | null>(null)
   const settings = ref<GameSettings | null>(null)
@@ -92,6 +94,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function resetRoomState() {
+    participants.value = []
     latestEvent.value = null
     latestBall.value = null
     latestCardChanges.value = null
@@ -113,9 +116,19 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     latestEvent.value = event
 
     switch (event.type) {
+      case 'ParticipantJoined':
+        participantCount.value = event.body.participantCount
+        participants.value = [
+          ...new Map(
+            [...participants.value, event.body.participant].map((user) => [user.userId, user]),
+          ).values(),
+        ]
+        break
       case 'Initialized': {
         const body = event.body as InitializedBody
 
+        participants.value = body.participants
+        participantCount.value = body.participantCount
         roomState.value = body.state
         settings.value = body.settings
         pickState.value = body.pickState
@@ -361,6 +374,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     latestNewBingos,
     latestNewReaches,
     latestMessage,
+    participants,
     roomState,
     settings,
     pickState,
