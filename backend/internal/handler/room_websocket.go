@@ -297,12 +297,13 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 	switch mode {
 	case openapi.Participant:
 		body := openapi.ParticipantInitializedBody{
-			State:          openapi.RoomState(room.State),
-			Settings:       convertRoomSettingsToOpenAPI(room.Settings),
-			PickState:      openapi.PickState(room.PickState),
-			PickedBalls:    utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
-			BingoSummaries: convertBingoSummariesToOpenAPI(room.BingoSummaries()),
-			ReachSummaries: convertReachSummariesToOpenAPI(room.ReachSummaries()),
+			ActivityLog:      utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
+			State:            openapi.RoomState(room.State),
+			Settings:         convertRoomSettingsToOpenAPI(room.Settings),
+			PickState:        openapi.PickState(room.PickState),
+			PickedBalls:      utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
+			BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
+			ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
 		}
 		if room.State != model.RoomStateWaiting {
 			if card, ok := utils.FindCard(room, userID); ok {
@@ -322,6 +323,7 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 			Type: openapi.DisplayInitializedEventTypeInitialized,
 			Body: openapi.DisplayInitializedBody{
 				Participants:     participants,
+				ActivityLog:      utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
 				State:            openapi.RoomState(room.State),
 				Settings:         convertRoomSettingsToOpenAPI(room.Settings),
 				PickState:        openapi.PickState(room.PickState),

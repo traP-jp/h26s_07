@@ -14,24 +14,42 @@ const (
 	ForwardedUserScopes forwardedUserContextKey = "forwardedUser.Scopes"
 )
 
+// Defines values for ActivityLogEntryKind.
+const (
+	ActivityLogEntryKindBingo ActivityLogEntryKind = "bingo"
+	ActivityLogEntryKindReach ActivityLogEntryKind = "reach"
+)
+
+// Valid indicates whether the value is a known member of the ActivityLogEntryKind enum.
+func (e ActivityLogEntryKind) Valid() bool {
+	switch e {
+	case ActivityLogEntryKindBingo:
+		return true
+	case ActivityLogEntryKindReach:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CardCellState.
 const (
-	Bingo  CardCellState = "bingo"
-	Closed CardCellState = "closed"
-	Open   CardCellState = "open"
-	Reach  CardCellState = "reach"
+	CardCellStateBingo  CardCellState = "bingo"
+	CardCellStateClosed CardCellState = "closed"
+	CardCellStateOpen   CardCellState = "open"
+	CardCellStateReach  CardCellState = "reach"
 )
 
 // Valid indicates whether the value is a known member of the CardCellState enum.
 func (e CardCellState) Valid() bool {
 	switch e {
-	case Bingo:
+	case CardCellStateBingo:
 		return true
-	case Closed:
+	case CardCellStateClosed:
 		return true
-	case Open:
+	case CardCellStateOpen:
 		return true
-	case Reach:
+	case CardCellStateReach:
 		return true
 	default:
 		return false
@@ -521,6 +539,23 @@ func (e WebSocketMode) Valid() bool {
 	}
 }
 
+// ActivityLogEntry First reach per user and every bingo line, ordered by time and record ID.
+type ActivityLogEntry struct {
+	BingoRank *int `json:"bingoRank,omitempty"`
+
+	// CreatedAt ISO 8601 datetime string。
+	CreatedAt DateTime `json:"createdAt"`
+
+	// ID UUID string。
+	ID        UUID                 `json:"id"`
+	Kind      ActivityLogEntryKind `json:"kind"`
+	LineCount *int                 `json:"lineCount,omitempty"`
+	User      User                 `json:"user"`
+}
+
+// ActivityLogEntryKind defines model for ActivityLogEntry.Kind.
+type ActivityLogEntryKind string
+
 // AllPickedBody defines model for AllPickedBody.
 type AllPickedBody struct {
 	PickedBalls []PickedBall `json:"pickedBalls"`
@@ -664,15 +699,16 @@ type DisplayHideQRCodeEventType string
 
 // DisplayInitializedBody defines model for DisplayInitializedBody.
 type DisplayInitializedBody struct {
-	BingoSummaries   []BingoSummary `json:"bingoSummaries"`
-	ParticipantCount int            `json:"participantCount"`
-	Participants     []User         `json:"participants"`
-	PickState        PickState      `json:"pickState"`
-	PickedBalls      []PickedBall   `json:"pickedBalls"`
-	QrCodeVisible    bool           `json:"qrCodeVisible"`
-	ReachSummaries   []ReachSummary `json:"reachSummaries"`
-	Settings         GameSettings   `json:"settings"`
-	State            RoomState      `json:"state"`
+	ActivityLog      []ActivityLogEntry `json:"activityLog"`
+	BingoSummaries   []BingoSummary     `json:"bingoSummaries"`
+	ParticipantCount int                `json:"participantCount"`
+	Participants     []User             `json:"participants"`
+	PickState        PickState          `json:"pickState"`
+	PickedBalls      []PickedBall       `json:"pickedBalls"`
+	QrCodeVisible    bool               `json:"qrCodeVisible"`
+	ReachSummaries   []ReachSummary     `json:"reachSummaries"`
+	Settings         GameSettings       `json:"settings"`
+	State            RoomState          `json:"state"`
 }
 
 // DisplayInitializedEvent defines model for DisplayInitializedEvent.
@@ -713,11 +749,12 @@ type DisplayPickCanceledEventType string
 
 // DisplayPickFinishedBody defines model for DisplayPickFinishedBody.
 type DisplayPickFinishedBody struct {
-	BingoSummaries   []BingoSummary `json:"bingoSummaries"`
-	NewBingos        []BingoUpdate  `json:"newBingos"`
-	NewReaches       []ReachUpdate  `json:"newReaches"`
-	ParticipantCount int            `json:"participantCount"`
-	PickState        PickState      `json:"pickState"`
+	BingoSummaries   []BingoSummary     `json:"bingoSummaries"`
+	NewActivityLog   []ActivityLogEntry `json:"newActivityLog"`
+	NewBingos        []BingoUpdate      `json:"newBingos"`
+	NewReaches       []ReachUpdate      `json:"newReaches"`
+	ParticipantCount int                `json:"participantCount"`
+	PickState        PickState          `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
 	PickedBall     PickedBall     `json:"pickedBall"`
@@ -868,7 +905,8 @@ type ParticipantGameStartedEventType string
 
 // ParticipantInitializedBody defines model for ParticipantInitializedBody.
 type ParticipantInitializedBody struct {
-	BingoSummaries []BingoSummary `json:"bingoSummaries"`
+	ActivityLog    []ActivityLogEntry `json:"activityLog"`
+	BingoSummaries []BingoSummary     `json:"bingoSummaries"`
 
 	// Card participant にだけ送るカード snapshot。
 	Card           *Card          `json:"card,omitempty"`
@@ -920,10 +958,11 @@ type ParticipantPickFinishedBody struct {
 	Card Card `json:"card"`
 
 	// CardChanges participant の PickFinished にだけ含める演出用差分。
-	CardChanges CardChanges   `json:"cardChanges"`
-	NewBingos   []BingoUpdate `json:"newBingos"`
-	NewReaches  []ReachUpdate `json:"newReaches"`
-	PickState   PickState     `json:"pickState"`
+	CardChanges    CardChanges        `json:"cardChanges"`
+	NewActivityLog []ActivityLogEntry `json:"newActivityLog"`
+	NewBingos      []BingoUpdate      `json:"newBingos"`
+	NewReaches     []ReachUpdate      `json:"newReaches"`
+	PickState      PickState          `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
 	PickedBall     PickedBall     `json:"pickedBall"`
@@ -987,7 +1026,8 @@ type ReachUpdate struct {
 
 // Room defines model for Room.
 type Room struct {
-	BingoSummaries []BingoSummary `json:"bingoSummaries"`
+	ActivityLog    []ActivityLogEntry `json:"activityLog"`
+	BingoSummaries []BingoSummary     `json:"bingoSummaries"`
 
 	// CreatedAt ISO 8601 datetime string。
 	CreatedAt      DateTime             `json:"createdAt"`

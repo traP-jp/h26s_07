@@ -446,6 +446,19 @@ func (r *GormRoomRepository) buildRoomSummaries(ctx context.Context, roomRows []
 	if err := loadRoomSummaryReachSummaries(db, roomIDs, summaryByID); err != nil {
 		return nil, err
 	}
+	recordRooms := make(map[string]*model.Room, len(roomIDs))
+	for _, id := range roomIDs {
+		recordRooms[id] = &model.Room{}
+	}
+	if err := loadBingoRecords(db, roomIDs, recordRooms); err != nil {
+		return nil, err
+	}
+	if err := loadReachRecords(db, roomIDs, recordRooms); err != nil {
+		return nil, err
+	}
+	for _, id := range roomIDs {
+		summaryByID[id].ActivityLogEntries = recordRooms[id].ActivityLog()
+	}
 
 	return summaries, nil
 }

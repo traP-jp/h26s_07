@@ -11,6 +11,7 @@ import (
 	"github.com/traP-jp/h26_07/backend/internal/openapi"
 	"github.com/traP-jp/h26_07/backend/internal/repository"
 	"github.com/traP-jp/h26_07/backend/internal/service"
+	"github.com/traP-jp/h26_07/backend/internal/utils"
 )
 
 type RoomHandler struct {
@@ -125,6 +126,7 @@ func convertReachSummariesToOpenAPI(reachSummaries []model.ReachSummary) []opena
 
 func convertRoom(room *model.Room) openapi.Room {
 	return openapi.Room{
+		ActivityLog:    utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
 		RoomID:         openapi.RoomID(room.RoomID.String()),
 		Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 		State:          openapi.RoomState(room.State),
@@ -199,6 +201,7 @@ func convertRoomSummary(rooms []model.RoomSummary) []openapi.Room {
 	for _, room := range rooms {
 		result = append(result,
 			openapi.Room{
+				ActivityLog:    utils.ConvertActivityLogToOpenAPI(room.ActivityLogEntries),
 				RoomID:         openapi.RoomID(room.RoomID.String()),
 				Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 				State:          openapi.RoomState(room.State),

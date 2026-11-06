@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import type {
   User,
+  ActivityLogEntry,
   BingoSummary,
   BingoUpdate,
   Card,
@@ -71,6 +72,9 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const latestNewReaches = ref<ReachUpdate[]>([])
   const latestMessage = ref<Message | null>(null)
   const participants = ref<User[]>([])
+  const activityLog = ref<ActivityLogEntry[]>([])
+  const chatMessages = ref<Message[]>([])
+  const initializationCount = ref(0)
 
   const roomState = ref<RoomState | null>(null)
   const settings = ref<GameSettings | null>(null)
@@ -95,6 +99,8 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
 
   function resetRoomState() {
     participants.value = []
+    activityLog.value = []
+    chatMessages.value = []
     latestEvent.value = null
     latestBall.value = null
     latestCardChanges.value = null
@@ -123,6 +129,8 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       case 'Initialized': {
         const body = event.body as InitializedBody
 
+        initializationCount.value += 1
+        activityLog.value = body.activityLog
         roomState.value = body.state
         settings.value = body.settings
         pickState.value = body.pickState
@@ -164,6 +172,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       case 'PickFinished': {
         const body = event.body as PickFinishedBody
 
+        activityLog.value = [
+          ...new Map(
+            [...activityLog.value, ...body.newActivityLog].map((entry) => [entry.id, entry]),
+          ).values(),
+        ]
         latestBall.value = body.pickedBall
         latestNewBingos.value = body.newBingos
         latestNewReaches.value = body.newReaches
@@ -203,6 +216,14 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         break
       case 'MessageCreated':
         latestMessage.value = event.body.message
+        chatMessages.value = [
+          ...new Map(
+            [...chatMessages.value, event.body.message].map((message) => [
+              message.messageId,
+              message,
+            ]),
+          ).values(),
+        ]
         break
       case 'AllPicked':
         pickedBalls.value = event.body.pickedBalls
@@ -357,6 +378,9 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   onScopeDispose(disconnect)
 
   return {
+    activityLog,
+    chatMessages,
+    initializationCount,
     reconnectAttempt,
     socket,
     roomId,
