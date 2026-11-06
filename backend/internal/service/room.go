@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,8 @@ type RoomService struct {
 	transactionRunner repository.TransactionRunner
 	roomRepository    repository.RoomRepository
 	events            RoomEventSender
+	locks             roomLocks
+	createMu          sync.Mutex
 }
 
 type RoomSettingsUpdate struct {
@@ -56,6 +59,8 @@ func randomDrawableNumber(numbers []model.BallNumber) (model.BallNumber, error) 
 }
 
 func (s *RoomService) CreateRoom(ctx context.Context, settings model.RoomSettings, creator model.UserID) (*model.Room, error) {
+	s.createMu.Lock()
+	defer s.createMu.Unlock()
 	if !settings.HasAdmin(creator) {
 		settings.Admins = append(settings.Admins, creator)
 	}
@@ -70,6 +75,19 @@ func (s *RoomService) CreateRoom(ctx context.Context, settings model.RoomSetting
 	generatedCode, err := random6Digits()
 	if err != nil {
 		return nil, err
+	}
+	for {
+		exists, err := s.roomRepository.ActiveCodeExists(ctx, model.RoomCode(generatedCode))
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			break
+		}
+		generatedCode, err = random6Digits()
+		if err != nil {
+			return nil, err
+		}
 	}
 	room := model.NewRoom(
 		model.RoomID(uuid),
@@ -93,8 +111,8 @@ func (s *RoomService) ListRooms(ctx context.Context) ([]model.RoomSummary, error
 	return s.roomRepository.List(ctx)
 }
 
-func (s *RoomService) PostParticipants(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		return err
 	}
@@ -104,8 +122,8 @@ func (s *RoomService) PostParticipants(ctx context.Context, roomID model.RoomID,
 	return s.roomRepository.Save(ctx, room)
 }
 
-func (s *RoomService) PostMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +139,7 @@ func (s *RoomService) PostMessage(ctx context.Context, roomID model.RoomID, user
 	if err != nil {
 		return nil, err
 	}
-	err = s.events.SendRoom(ctx, roomID, openapi.ParticipantMessageCreatedEvent{
+	err = s.queueRoomEvent(ctx, roomID, openapi.ParticipantMessageCreatedEvent{
 		Type: openapi.ParticipantMessageCreatedEventTypeMessageCreated,
 		Body: openapi.MessageCreatedBody{Message: openapi.Message{
 			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
@@ -133,7 +151,7 @@ func (s *RoomService) PostMessage(ctx context.Context, roomID model.RoomID, user
 	if err != nil {
 		return nil, err
 	}
-	err = s.events.SendRoom(ctx, roomID, openapi.DisplayMessageCreatedEvent{
+	err = s.queueRoomEvent(ctx, roomID, openapi.DisplayMessageCreatedEvent{
 		Type: openapi.DisplayMessageCreatedEventTypeMessageCreated,
 		Body: openapi.MessageCreatedBody{Message: openapi.Message{
 			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
@@ -314,8 +332,8 @@ func bingoLineIndexes(room *model.Room, userID model.UserID) []model.LineIndex {
 	return lines
 }
 
-func (s *RoomService) PutSettings(ctx context.Context, roomID model.RoomID, user model.UserID, input RoomSettingsUpdate) (model.RoomSettings, error) {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) putSettings(ctx context.Context, roomID model.RoomID, user model.UserID, input RoomSettingsUpdate) (model.RoomSettings, error) {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		return model.RoomSettings{}, err
 	}
@@ -334,7 +352,7 @@ func (s *RoomService) PutSettings(ctx context.Context, roomID model.RoomID, user
 	if err := s.roomRepository.Save(ctx, room); err != nil {
 		return model.RoomSettings{}, err
 	}
-	err = s.events.SendRoom(ctx, roomID, openapi.DisplayGameSettingsUpdatedEvent{
+	err = s.queueRoomEvent(ctx, roomID, openapi.DisplayGameSettingsUpdatedEvent{
 		Type: openapi.DisplayGameSettingsUpdatedEventTypeGameSettingsUpdated,
 		Body: openapi.DisplayGameSettingsUpdatedBody{
 			Settings: convertRoomSettingsToOpenAPI(room.Settings),
@@ -343,7 +361,7 @@ func (s *RoomService) PutSettings(ctx context.Context, roomID model.RoomID, user
 	if err != nil {
 		return model.RoomSettings{}, err
 	}
-	err = s.events.SendRoom(ctx, roomID, openapi.ParticipantGameSettingsUpdatedEvent{
+	err = s.queueRoomEvent(ctx, roomID, openapi.ParticipantGameSettingsUpdatedEvent{
 		Type: openapi.ParticipantGameSettingsUpdatedEventTypeGameSettingsUpdated,
 		Body: openapi.ParticipantGameSettingsUpdatedBody{
 			Settings: convertRoomSettingsToOpenAPI(room.Settings),
@@ -355,11 +373,18 @@ func (s *RoomService) PutSettings(ctx context.Context, roomID model.RoomID, user
 	return room.Settings, nil
 }
 
-func (s *RoomService) StartGame(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) startGame(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		return err
 	}
+	if !room.IsAdmin(user) {
+		return model.ErrRoomForbidden
+	}
+	if room.State == model.RoomStatePlaying {
+		return nil
+	}
+
 	cards := make([]model.Card, 0, len(room.Participants))
 	for _, participant := range room.Participants {
 		card, err := model.MakeRandomCard(participant.UserID)
@@ -375,14 +400,14 @@ func (s *RoomService) StartGame(ctx context.Context, roomID model.RoomID, user m
 	if err := s.roomRepository.Save(ctx, room); err != nil {
 		return err
 	}
-	if err := s.events.SendRoom(ctx, roomID, openapi.DisplayGameStartedEvent{
+	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayGameStartedEvent{
 		Type: openapi.DisplayGameStartedEventTypeGameStarted,
 		Body: openapi.DisplayGameStartedBody{ParticipantCount: len(room.Participants)},
 	}); err != nil {
 		return err
 	}
 	for _, update := range result.ParticipantCards {
-		if err := s.events.SendParticipant(ctx, roomID, update.UserID, openapi.ParticipantGameStartedEvent{
+		if err := s.queueParticipantEvent(ctx, roomID, update.UserID, openapi.ParticipantGameStartedEvent{
 			Type: openapi.ParticipantGameStartedEventTypeGameStarted,
 			Body: openapi.ParticipantGameStartedBody{
 				Card: utils.ConvertCardToOpenAPI(room, update.Card),
@@ -394,11 +419,18 @@ func (s *RoomService) StartGame(ctx context.Context, roomID model.RoomID, user m
 	return nil
 }
 
-func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) finishGame(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		return err
 	}
+	if !room.IsAdmin(user) {
+		return model.ErrRoomForbidden
+	}
+	if room.State == model.RoomStateFinished {
+		return nil
+	}
+
 	result, err := room.FinishGame(user, time.Now())
 	if err != nil {
 		return err
@@ -406,10 +438,14 @@ func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user 
 	if err := s.roomRepository.Save(ctx, room); err != nil {
 		return err
 	}
+	if result.PickCanceled {
+		s.queueRoomEvent(ctx, roomID, openapi.DisplayPickCanceledEvent{Type: openapi.DisplayPickCanceledEventTypePickCanceled, Body: openapi.PickCanceledBody{}})
+		s.queueRoomEvent(ctx, roomID, openapi.ParticipantPickCanceledEvent{Type: openapi.ParticipantPickCanceledEventTypePickCanceled, Body: openapi.PickCanceledBody{}})
+	}
 	reachSummaries := convertReachSummariesToOpenAPI(room.ReachSummaries())
 	bingoSummaries := convertBingoSummariesToOpenAPI(room.BingoSummaries())
 	for _, update := range result.ParticipantUpdates {
-		if err := s.events.SendParticipant(ctx, roomID, update.UserID, openapi.ParticipantGameFinishedEvent{
+		if err := s.queueParticipantEvent(ctx, roomID, update.UserID, openapi.ParticipantGameFinishedEvent{
 			Type: openapi.ParticipantGameFinishedEventTypeGameFinished,
 			Body: openapi.ParticipantGameFinishedBody{
 				BingoSummaries: bingoSummaries,
@@ -422,7 +458,7 @@ func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user 
 			return err
 		}
 	}
-	err = s.events.SendRoom(ctx, roomID, openapi.DisplayGameFinishedEvent{
+	err = s.queueRoomEvent(ctx, roomID, openapi.DisplayGameFinishedEvent{
 		Type: openapi.DisplayGameFinishedEventTypeGameFinished,
 		Body: openapi.DisplayGameFinishedBody{
 			ParticipantCount: len(room.Participants),
@@ -438,8 +474,8 @@ func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user 
 	return nil
 }
 
-func (s *RoomService) ShowQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) showQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		if err == repository.ErrRoomNotFound {
 			return model.ErrRoomNotFound
@@ -453,7 +489,7 @@ func (s *RoomService) ShowQRCode(ctx context.Context, roomID model.RoomID, user 
 	if err != nil {
 		return err
 	}
-	err = s.events.SendRoom(ctx, roomID, openapi.DisplayShowQRCodeEvent{
+	err = s.queueRoomEvent(ctx, roomID, openapi.DisplayShowQRCodeEvent{
 		Type: openapi.ShowQRCode,
 		Body: openapi.ShowQRCodeBody{},
 	})
@@ -463,8 +499,8 @@ func (s *RoomService) ShowQRCode(ctx context.Context, roomID model.RoomID, user 
 	return nil
 }
 
-func (s *RoomService) HideQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) hideQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		if err == repository.ErrRoomNotFound {
 			return model.ErrRoomNotFound
@@ -478,7 +514,7 @@ func (s *RoomService) HideQRCode(ctx context.Context, roomID model.RoomID, user 
 	if err != nil {
 		return err
 	}
-	err = s.events.SendRoom(ctx, roomID, openapi.DisplayHideQRCodeEvent{
+	err = s.queueRoomEvent(ctx, roomID, openapi.DisplayHideQRCodeEvent{
 		Type: openapi.DisplayHideQRCodeEventTypeHideQRCode,
 		Body: openapi.HideQRCodeBody{},
 	})
@@ -488,8 +524,8 @@ func (s *RoomService) HideQRCode(ctx context.Context, roomID model.RoomID, user 
 	return nil
 }
 
-func (s *RoomService) StartPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) startPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		return err
 	}
@@ -507,14 +543,14 @@ func (s *RoomService) StartPick(ctx context.Context, roomID model.RoomID, actor 
 		return err
 	}
 
-	if err := s.events.SendRoom(ctx, roomID, openapi.DisplayPickStartedEvent{
+	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayPickStartedEvent{
 		Type: openapi.DisplayPickStartedEventTypePickStarted,
 		Body: openapi.PickStartedBody{},
 	}); err != nil {
 		return err
 	}
 
-	if err := s.events.SendRoom(ctx, roomID, openapi.ParticipantPickStartedEvent{
+	if err := s.queueRoomEvent(ctx, roomID, openapi.ParticipantPickStartedEvent{
 		Type: openapi.ParticipantPickStartedEventTypePickStarted,
 		Body: openapi.PickStartedBody{},
 	}); err != nil {
@@ -524,10 +560,16 @@ func (s *RoomService) StartPick(ctx context.Context, roomID model.RoomID, actor 
 	return nil
 }
 
-func (s *RoomService) CancelPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
-	room, err := s.roomRepository.FindByID(ctx, roomID)
+func (s *RoomService) cancelPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
 	if err != nil {
 		return err
+	}
+	if !room.IsAdmin(actor) {
+		return model.ErrRoomForbidden
+	}
+	if room.PickState == model.RoomPickStateIdle {
+		return nil
 	}
 
 	if err := room.CancelPick(actor, time.Now()); err != nil {
@@ -538,14 +580,14 @@ func (s *RoomService) CancelPick(ctx context.Context, roomID model.RoomID, actor
 		return err
 	}
 
-	if err := s.events.SendRoom(ctx, roomID, openapi.DisplayPickCanceledEvent{
+	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayPickCanceledEvent{
 		Type: openapi.DisplayPickCanceledEventTypePickCanceled,
 		Body: openapi.PickCanceledBody{},
 	}); err != nil {
 		return err
 	}
 
-	if err := s.events.SendRoom(ctx, roomID, openapi.ParticipantPickCanceledEvent{
+	if err := s.queueRoomEvent(ctx, roomID, openapi.ParticipantPickCanceledEvent{
 		Type: openapi.ParticipantPickCanceledEventTypePickCanceled,
 		Body: openapi.PickCanceledBody{},
 	}); err != nil {
@@ -555,32 +597,36 @@ func (s *RoomService) CancelPick(ctx context.Context, roomID model.RoomID, actor
 	return nil
 }
 
-func (s *RoomService) FinishPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
-	var result model.PickFinishedResult
-	if err := s.transactionRunner.WithinTransaction(ctx, func(ctx context.Context) error {
-		room, err := s.roomRepository.FindByID(ctx, roomID)
-		if err != nil {
-			return err
-		}
+func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
+	room, err := s.roomRepository.FindByIDForUpdate(ctx, roomID)
+	if err != nil {
+		return err
+	}
 
-		picked, err := randomDrawableNumber(room.DrawableNumbers())
-		if err != nil {
-			return err
-		}
-		now := time.Now()
-		result, err = room.FinishPick(actor, picked, func() (model.RecordID, error) {
-			recordID, err := uuid.NewV7()
-			if err != nil {
-				return model.RecordID{}, err
-			}
-			return model.RecordID(recordID), nil
-		}, now)
-		if err != nil {
-			return err
-		}
+	if !room.IsAdmin(actor) {
+		return model.ErrRoomForbidden
+	}
+	if !room.CanFinishPick(actor) {
+		return model.ErrRoomPickNotFinishable
+	}
 
-		return s.roomRepository.Save(ctx, result.Room)
-	}); err != nil {
+	picked, err := randomDrawableNumber(room.DrawableNumbers())
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	result, err := room.FinishPick(actor, picked, func() (model.RecordID, error) {
+		recordID, err := uuid.NewV7()
+		if err != nil {
+			return model.RecordID{}, err
+		}
+		return model.RecordID(recordID), nil
+	}, now)
+	if err != nil {
+		return err
+	}
+
+	if err := s.roomRepository.Save(ctx, result.Room); err != nil {
 		return err
 	}
 
@@ -603,7 +649,7 @@ func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.R
 	newReaches := convertReachUpdatesToOpenAPI(result.NewReaches)
 	pickedBalls := convertPickedBallsToOpenAPI(room.PickedBalls)
 
-	if err := s.events.SendRoom(ctx, roomID, openapi.DisplayPickFinishedEvent{
+	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayPickFinishedEvent{
 		Type: openapi.DisplayPickFinishedEventTypePickFinished,
 		Body: openapi.DisplayPickFinishedBody{
 			PickedBall:       openapi.PickedBall(result.PickedBall),
@@ -620,7 +666,7 @@ func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.R
 	}
 
 	for _, update := range result.ParticipantUpdates {
-		if err := s.events.SendParticipant(ctx, roomID, update.UserID, openapi.ParticipantPickFinishedEvent{
+		if err := s.queueParticipantEvent(ctx, roomID, update.UserID, openapi.ParticipantPickFinishedEvent{
 			Type: openapi.ParticipantPickFinishedEventTypePickFinished,
 			Body: openapi.ParticipantPickFinishedBody{
 				PickedBall:     openapi.PickedBall(result.PickedBall),
@@ -645,14 +691,69 @@ func (s *RoomService) sendAllPickedEvents(ctx context.Context, roomID model.Room
 	body := openapi.AllPickedBody{
 		PickedBalls: convertPickedBallsToOpenAPI(pickedBalls),
 	}
-	if err := s.events.SendRoom(ctx, roomID, openapi.DisplayAllPickedEvent{
+	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayAllPickedEvent{
 		Type: openapi.DisplayAllPickedEventTypeAllPicked,
 		Body: body,
 	}); err != nil {
 		return err
 	}
-	return s.events.SendRoom(ctx, roomID, openapi.ParticipantAllPickedEvent{
+	return s.queueRoomEvent(ctx, roomID, openapi.ParticipantAllPickedEvent{
 		Type: openapi.ParticipantAllPickedEventTypeAllPicked,
 		Body: body,
 	})
+}
+
+func (s *RoomService) PostParticipants(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.postParticipants(ctx, roomID, user) })
+}
+
+func (s *RoomService) PostMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {
+	var result *model.Message
+	err := s.mutate(ctx, roomID, func(ctx context.Context) error {
+		var err error
+		result, err = s.postMessage(ctx, roomID, user, content)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, err
+}
+
+func (s *RoomService) PutSettings(ctx context.Context, roomID model.RoomID, user model.UserID, input RoomSettingsUpdate) (model.RoomSettings, error) {
+	var result model.RoomSettings
+	err := s.mutate(ctx, roomID, func(ctx context.Context) error {
+		var err error
+		result, err = s.putSettings(ctx, roomID, user, input)
+		return err
+	})
+	return result, err
+}
+
+func (s *RoomService) StartGame(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.startGame(ctx, roomID, user) })
+}
+
+func (s *RoomService) FinishGame(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.finishGame(ctx, roomID, user) })
+}
+
+func (s *RoomService) StartPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.startPick(ctx, roomID, actor) })
+}
+
+func (s *RoomService) CancelPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.cancelPick(ctx, roomID, actor) })
+}
+
+func (s *RoomService) FinishPick(ctx context.Context, roomID model.RoomID, actor model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.finishPick(ctx, roomID, actor) })
+}
+
+func (s *RoomService) ShowQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.showQRCode(ctx, roomID, user) })
+}
+
+func (s *RoomService) HideQRCode(ctx context.Context, roomID model.RoomID, user model.UserID) error {
+	return s.mutate(ctx, roomID, func(ctx context.Context) error { return s.hideQRCode(ctx, roomID, user) })
 }

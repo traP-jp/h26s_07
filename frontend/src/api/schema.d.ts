@@ -76,7 +76,7 @@ export interface paths {
         put?: never;
         /**
          * ルームに参加
-         * @description waiting 中のルームに参加する。同じユーザーが同じルームに再参加した場合は冪等に成功し、重複 participant は作らない。
+         * @description waiting 中のルームに参加する。既に参加済みのユーザーはルームの状態にかかわらず冪等に成功し、重複 participant は作らない。
          */
         post: operations["joinRoom"];
         delete?: never;
@@ -120,7 +120,7 @@ export interface paths {
         put?: never;
         /**
          * ゲームを開始
-         * @description 開始時点の参加者全員にカードを一括生成する。
+         * @description 開始時点の参加者全員にカードを一括生成する。既に playing の場合は変更せず成功する。
          */
         post: operations["startGame"];
         delete?: never;
@@ -140,7 +140,7 @@ export interface paths {
         put?: never;
         /**
          * ゲームを終了
-         * @description admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
+         * @description 既に finished の場合は変更せず成功する。admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
          */
         post: operations["finishGame"];
         delete?: never;
@@ -160,7 +160,7 @@ export interface paths {
         put?: never;
         /**
          * 抽選を開始
-         * @description 抽選中状態にする。結果はまだ決めない。抽選可能な球がない場合は成功しない。
+         * @description 抽選中状態にする。結果はまだ決めない。既に picking の場合も成功し、PickStarted を再送する。抽選可能な球がない場合は成功しない。
          */
         post: operations["startPick"];
         delete?: never;
@@ -180,7 +180,7 @@ export interface paths {
         put?: never;
         /**
          * 抽選をキャンセル
-         * @description 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。
+         * @description 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。既に idle の場合は変更せず成功する。
          */
         post: operations["cancelPick"];
         delete?: never;
@@ -999,7 +999,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description ルームが waiting ではない、または開始できない状態。 */
+            /** @description ルームが finished、または参加者がいないため開始できない状態。 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1033,7 +1033,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description ルームが waiting、または既に finished。 */
+            /** @description ルームが waiting。 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1067,7 +1067,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description playing + idle ではない、または抽選可能な球がない。 */
+            /** @description playing ではない、または抽選可能な球がない。 */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1101,7 +1101,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["AdminRequired"];
             404: components["responses"]["RoomNotFound"];
-            /** @description 現在抽選中ではない、またはゲーム状態が不正。 */
+            /** @description 抽選状態またはゲーム状態が不正。 */
             409: {
                 headers: {
                     [name: string]: unknown;

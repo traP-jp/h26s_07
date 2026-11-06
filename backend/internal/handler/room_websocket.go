@@ -47,6 +47,12 @@ func (h *RoomWebSocketHandler) Connect(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, openapi.Error{Message: "invalid websocket mode"})
 	}
 
+	unlock := h.roomService.LockRoom(roomID)
+	defer func() {
+		if unlock != nil {
+			unlock()
+		}
+	}()
 	room, err := h.roomService.GetRoom(c.Request().Context(), roomID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoomNotFound) {
@@ -87,13 +93,15 @@ func (h *RoomWebSocketHandler) Connect(c *echo.Context) error {
 		mode:   mode,
 		conn:   conn,
 		ctx:    ctx,
-		send:   make(chan []byte, 16),
+		send:   make(chan []byte, 64),
 	}
 	if !client.enqueue(initialPayload) {
 		client.close()
 		return nil
 	}
 	h.hub.register(client)
+	unlock()
+	unlock = nil
 	go client.writeLoop()
 
 	<-ctx.Done()
@@ -169,19 +177,22 @@ func (h *WebSocketHub) sendRoom(roomID model.RoomID, event any) error {
 	}
 	h.mu.RUnlock()
 
+	var sendErr error
 	for _, client := range clients {
 		payload, ok, err := marshalWebSocketEventForMode(client.mode, event)
 		if err != nil {
-			return err
+			sendErr = errors.Join(sendErr, err)
+			continue
 		}
 		if !ok {
 			continue
 		}
 		if !client.enqueue(payload) {
-			client.close()
+			client.closeWithStatus(websocket.StatusTryAgainLater, "client is too slow")
+			sendErr = errors.Join(sendErr, errors.New("websocket client send buffer is full"))
 		}
 	}
-	return nil
+	return sendErr
 }
 
 func (h *WebSocketHub) sendParticipant(roomID model.RoomID, userID model.UserID, event any) error {
@@ -200,12 +211,14 @@ func (h *WebSocketHub) sendParticipant(roomID model.RoomID, userID model.UserID,
 	}
 	h.mu.RUnlock()
 
+	var sendErr error
 	for _, client := range clients {
 		if !client.enqueue(payload) {
-			client.close()
+			client.closeWithStatus(websocket.StatusTryAgainLater, "client is too slow")
+			sendErr = errors.Join(sendErr, errors.New("websocket client send buffer is full"))
 		}
 	}
-	return nil
+	return sendErr
 }
 
 type webSocketClient struct {
@@ -238,26 +251,45 @@ func (c *webSocketClient) enqueue(payload []byte) bool {
 }
 
 func (c *webSocketClient) writeLoop() {
-	for payload := range c.send {
-		ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
-		err := c.conn.Write(ctx, websocket.MessageText, payload)
-		cancel()
-		if err != nil {
-			break
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+	defer c.close()
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case payload, ok := <-c.send:
+			if !ok {
+				return
+			}
+			ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
+			err := c.conn.Write(ctx, websocket.MessageText, payload)
+			cancel()
+			if err != nil {
+				return
+			}
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
+			err := c.conn.Ping(ctx)
+			cancel()
+			if err != nil {
+				return
+			}
 		}
 	}
-	c.close()
 }
-
 func (c *webSocketClient) close() {
+	c.closeWithStatus(websocket.StatusNormalClosure, "connection closed")
+}
+func (c *webSocketClient) closeWithStatus(code websocket.StatusCode, reason string) {
 	c.closeOnce.Do(func() {
 		c.mu.Lock()
 		c.closed = true
 		close(c.send)
 		c.mu.Unlock()
-
 		c.hub.unregister(c)
-		_ = c.conn.CloseNow()
+		// Closing handshakes must not block broadcasts to other clients.
+		go func() { _ = c.conn.Close(code, reason) }()
 	})
 }
 

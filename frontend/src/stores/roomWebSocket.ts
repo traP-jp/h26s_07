@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 
 import type {
@@ -54,6 +54,13 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const roomId = ref<RoomId | null>(null)
   const mode = ref<WebSocketMode | null>(null)
   const status = ref<RoomWebSocketConnectionStatus>('idle')
+  const reconnectAttempt = ref(0)
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+  let generation = 0
+  let sawOffline = false
+  let enabled = false
+  let lastMessageAt = 0
+  const staleAfter = 120_000
   const errorMessage = ref<string | null>(null)
 
   const latestEvent = ref<RoomWebSocketEvent | null>(null)
@@ -112,6 +119,10 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         roomState.value = body.state
         settings.value = body.settings
         pickState.value = body.pickState
+        latestBall.value = body.pickedBalls.at(-1) ?? null
+        latestCardChanges.value = null
+        latestNewBingos.value = []
+        latestNewReaches.value = []
         pickedBalls.value = body.pickedBalls
         bingoSummaries.value = body.bingoSummaries
         reachSummaries.value = body.reachSummaries
@@ -200,8 +211,15 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       return
     }
 
+    const changed = roomId.value !== options.roomId || mode.value !== options.mode
     disconnect()
-    resetRoomState()
+    if (changed) {
+      resetRoomState()
+      reconnectAttempt.value = 0
+    }
+    enabled = true
+    const connectionGeneration = generation
+    installListeners()
 
     const wsUrl = createRoomWebSocketUrl(options.roomId, options.mode)
 
@@ -210,21 +228,31 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     status.value = 'connecting'
     errorMessage.value = null
 
-    const nextSocket = new WebSocket(wsUrl)
+    let nextSocket: WebSocket
+    try {
+      nextSocket = new WebSocket(wsUrl)
+    } catch {
+      status.value = 'error'
+      scheduleReconnect()
+      return
+    }
     socket.value = nextSocket
 
     nextSocket.addEventListener('open', () => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
       status.value = 'open'
+      reconnectAttempt.value = 0
+      lastMessageAt = Date.now()
     })
 
     nextSocket.addEventListener('message', (messageEvent: MessageEvent<string>) => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
 
+      lastMessageAt = Date.now()
       try {
         const event = JSON.parse(messageEvent.data) as RoomWebSocketEvent
         applyEvent(event)
@@ -235,23 +263,81 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     })
 
     nextSocket.addEventListener('error', () => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
       status.value = 'error'
       errorMessage.value = 'WebSocket connection failed'
+      nextSocket.close()
+      scheduleReconnect()
     })
 
     nextSocket.addEventListener('close', () => {
-      if (socket.value !== nextSocket) {
+      if (generation !== connectionGeneration || socket.value !== nextSocket) {
         return
       }
       status.value = 'closed'
       socket.value = null
+      scheduleReconnect()
     })
   }
 
+  function scheduleReconnect() {
+    if (!enabled || reconnectTimer) return
+    const delay = Math.min(10_000, 500 * 2 ** Math.min(reconnectAttempt.value, 5))
+    reconnectAttempt.value += 1
+    const scheduledGeneration = generation
+    reconnectTimer = setTimeout(
+      () => {
+        reconnectTimer = undefined
+        if (generation === scheduledGeneration) reconnectNow()
+      },
+      delay * (0.75 + Math.random() * 0.25),
+    )
+  }
+
+  function reconnectNow() {
+    if (!enabled || !roomId.value || !mode.value) return
+    clearTimeout(reconnectTimer)
+    reconnectTimer = undefined
+    const attempt = reconnectAttempt.value
+    const options = { roomId: roomId.value, mode: mode.value }
+    // Replace even an apparently OPEN socket when its application state may be stale.
+    disconnect()
+    reconnectAttempt.value = attempt
+    connect(options)
+  }
+
+  function resumeConnection() {
+    if (document.visibilityState === 'hidden' || !enabled || !navigator.onLine) return
+    if (
+      sawOffline ||
+      socket.value?.readyState !== WebSocket.OPEN ||
+      Date.now() - lastMessageAt > staleAfter
+    ) {
+      sawOffline = false
+      reconnectNow()
+    }
+  }
+
+  function installListeners() {
+    window.addEventListener('offline', markOffline)
+    window.addEventListener('online', resumeConnection)
+    document.addEventListener('visibilitychange', resumeConnection)
+  }
+
+  function markOffline() {
+    sawOffline = true
+  }
+
   function disconnect() {
+    generation += 1
+    enabled = false
+    clearTimeout(reconnectTimer)
+    reconnectTimer = undefined
+    window.removeEventListener('offline', markOffline)
+    window.removeEventListener('online', resumeConnection)
+    document.removeEventListener('visibilitychange', resumeConnection)
     const currentSocket = socket.value
     if (currentSocket) {
       socket.value = null
@@ -260,7 +346,10 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     status.value = 'closed'
   }
 
+  onScopeDispose(disconnect)
+
   return {
+    reconnectAttempt,
     socket,
     roomId,
     mode,
