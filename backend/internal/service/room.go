@@ -129,7 +129,7 @@ func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID,
 	}
 	// 参加一覧を使う表示画面にだけ参加者追加を通知する。
 	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}, ParticipantCount: len(room.Participants)}
-	return s.queueRoomEvent(ctx, roomID, openapi.DisplayParticipantJoinedEvent{Type: openapi.DisplayParticipantJoinedEventTypeParticipantJoined, Body: body})
+	return s.queueRoomEvent(ctx, roomID, openapi.DisplayParticipantJoinedEvent{Type: openapi.ParticipantJoined, Body: body})
 }
 
 func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {
