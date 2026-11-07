@@ -1026,8 +1026,7 @@ type ReachUpdate struct {
 
 // Room defines model for Room.
 type Room struct {
-	ActivityLog    []ActivityLogEntry `json:"activityLog"`
-	BingoSummaries []BingoSummary     `json:"bingoSummaries"`
+	BingoSummaries []BingoSummary `json:"bingoSummaries"`
 
 	// CreatedAt ISO 8601 datetime string。
 	CreatedAt      DateTime             `json:"createdAt"`

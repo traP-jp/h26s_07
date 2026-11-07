@@ -339,7 +339,6 @@ export interface components {
             joinedAt: components["schemas"]["DateTime"];
         };
         Room: {
-            activityLog: components["schemas"]["ActivityLogEntry"][];
             roomId: components["schemas"]["RoomId"];
             roomCode: components["schemas"]["RoomCode"];
             state: components["schemas"]["RoomState"];
