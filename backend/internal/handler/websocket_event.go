@@ -84,6 +84,8 @@ func displayWebSocketEvent(event any) (openapi.DisplayWebSocketEvent, bool, erro
 	var result openapi.DisplayWebSocketEvent
 	var err error
 	switch event := event.(type) {
+	case openapi.DisplayParticipantJoinedEvent:
+		err = result.FromDisplayParticipantJoinedEvent(event)
 	case openapi.DisplayInitializedEvent:
 		err = result.FromDisplayInitializedEvent(event)
 	case openapi.DisplayGameStartedEvent:
@@ -133,6 +135,7 @@ func isParticipantWebSocketEvent(event any) bool {
 func isDisplayWebSocketEvent(event any) bool {
 	switch event.(type) {
 	case openapi.DisplayWebSocketEvent,
+		openapi.DisplayParticipantJoinedEvent,
 		openapi.DisplayInitializedEvent,
 		openapi.DisplayGameStartedEvent,
 		openapi.DisplayPickStartedEvent,

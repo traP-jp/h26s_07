@@ -48,7 +48,26 @@ func testService(t *testing.T) (*RoomService, *repository.GormRoomRepository, *t
 	if err := service.PostParticipants(context.Background(), room.RoomID, "alice"); err != nil {
 		t.Fatal(err)
 	}
+	events.events = nil
 	return service, repo, events, room.RoomID
+}
+
+func TestJoinBroadcastsParticipantCountOnce(t *testing.T) {
+	s, _, events, id := testService(t)
+	ctx := context.Background()
+	mustSucceed(t, s.PostParticipants(ctx, id, "bob"))
+	if len(events.events) != 1 {
+		t.Fatalf("got %d events, want 1", len(events.events))
+	}
+	display, ok := events.events[0].(openapi.DisplayParticipantJoinedEvent)
+	if !ok || display.Body.Participant.UserID != "bob" || display.Body.ParticipantCount != 2 {
+		t.Fatalf("unexpected display event: %#v", events.events[0])
+	}
+	events.events = nil
+	mustSucceed(t, s.PostParticipants(ctx, id, "bob"))
+	if len(events.events) != 0 {
+		t.Fatal("repeat join broadcast an event")
+	}
 }
 func mustSucceed(t *testing.T, err error) {
 	t.Helper()

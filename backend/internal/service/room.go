@@ -116,10 +116,20 @@ func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID,
 	if err != nil {
 		return err
 	}
-	if err := room.Join(user, time.Now()); err != nil {
+	alreadyJoined := room.IsParticipant(user)
+	now := time.Now()
+	if err := room.Join(user, now); err != nil {
 		return err
 	}
-	return s.roomRepository.Save(ctx, room)
+	if alreadyJoined {
+		return nil
+	}
+	if err := s.roomRepository.Save(ctx, room); err != nil {
+		return err
+	}
+	// 参加一覧を使う表示画面にだけ参加者追加を通知する。
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}, ParticipantCount: len(room.Participants)}
+	return s.queueRoomEvent(ctx, roomID, openapi.DisplayParticipantJoinedEvent{Type: openapi.ParticipantJoined, Body: body})
 }
 
 func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user model.UserID, content string) (*model.Message, error) {

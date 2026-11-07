@@ -87,3 +87,15 @@ func TestSlowClientReceivesCloseStatus(t *testing.T) {
 	}
 	cancel()
 }
+
+func TestParticipantJoinedEventIsDisplayOnly(t *testing.T) {
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: "alice"}, ParticipantCount: 2}
+	event := openapi.DisplayParticipantJoinedEvent{Type: openapi.ParticipantJoined, Body: body}
+	payload, err := marshalWebSocketEvent(openapi.Display, event)
+	if err != nil || !strings.Contains(string(payload), `"participantCount":2`) || !strings.Contains(string(payload), `"userId":"alice"`) {
+		t.Fatalf("payload %s, error %v", payload, err)
+	}
+	if _, ok, err := marshalWebSocketEventForMode(openapi.Participant, event); err != nil || ok {
+		t.Fatalf("participant mode accepted display event: ok=%v, error=%v", ok, err)
+	}
+}
