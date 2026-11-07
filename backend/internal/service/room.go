@@ -624,6 +624,13 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 	if err != nil {
 		return err
 	}
+	oldIDs := map[model.RecordID]bool{}
+	for _, record := range room.BingoRecords {
+		oldIDs[record.RecordID] = true
+	}
+	for _, record := range room.ReachRecords {
+		oldIDs[record.RecordID] = true
+	}
 	now := time.Now()
 	result, err := room.FinishPick(actor, picked, func() (model.RecordID, error) {
 		recordID, err := uuid.NewV7()
@@ -640,7 +647,7 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 		return err
 	}
 
-	if err := s.sendPickFinishedEvents(ctx, roomID, result); err != nil {
+	if err := s.sendPickFinishedEvents(ctx, roomID, result, oldIDs); err != nil {
 		return err
 	}
 	if result.AllPicked {
@@ -651,8 +658,10 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 	return nil
 }
 
-func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.RoomID, result model.PickFinishedResult) error {
+func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.RoomID, result model.PickFinishedResult, oldIDs map[model.RecordID]bool) error {
 	room := result.Room
+	entries := slices.DeleteFunc(room.ActivityLog(), func(entry model.ActivityLogEntry) bool { return oldIDs[entry.ID] })
+	newActivityLog := utils.ConvertActivityLogToOpenAPI(entries)
 	bingoSummaries := convertBingoSummariesToOpenAPI(room.BingoSummaries())
 	reachSummaries := convertReachSummariesToOpenAPI(room.ReachSummaries())
 	newBingos := convertBingoUpdatesToOpenAPI(result.NewBingos)
@@ -662,6 +671,7 @@ func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.R
 	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayPickFinishedEvent{
 		Type: openapi.DisplayPickFinishedEventTypePickFinished,
 		Body: openapi.DisplayPickFinishedBody{
+			NewActivityLog:   newActivityLog,
 			PickedBall:       openapi.PickedBall(result.PickedBall),
 			PickState:        openapi.PickState(room.PickState),
 			ParticipantCount: room.ParticipantCount(),
@@ -679,6 +689,7 @@ func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.R
 		if err := s.queueParticipantEvent(ctx, roomID, update.UserID, openapi.ParticipantPickFinishedEvent{
 			Type: openapi.ParticipantPickFinishedEventTypePickFinished,
 			Body: openapi.ParticipantPickFinishedBody{
+				NewActivityLog: newActivityLog,
 				PickedBall:     openapi.PickedBall(result.PickedBall),
 				PickState:      openapi.PickState(room.PickState),
 				Card:           convertCardToOpenAPI(room, update.Card),

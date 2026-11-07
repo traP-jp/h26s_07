@@ -446,7 +446,6 @@ func (r *GormRoomRepository) buildRoomSummaries(ctx context.Context, roomRows []
 	if err := loadRoomSummaryReachSummaries(db, roomIDs, summaryByID); err != nil {
 		return nil, err
 	}
-
 	return summaries, nil
 }
 

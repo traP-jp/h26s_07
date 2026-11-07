@@ -1,3 +1,4 @@
+import type { ActivityLogEntry } from '@/api/schema'
 import { sendEvent, type MockSocketConnection } from './core'
 import {
   demoChatMessages,
@@ -10,6 +11,15 @@ import {
 } from './fixtures/index'
 
 const scheduledDemoChatRoomIds = new Set<string>()
+const activityLogsByRoom = new Map<string, ActivityLogEntry[]>()
+
+function appendActivityLog(roomId: string, entries: ActivityLogEntry[]): void {
+  activityLogsByRoom.set(roomId, [
+    ...new Map(
+      [...(activityLogsByRoom.get(roomId) ?? []), ...entries].map((entry) => [entry.id, entry]),
+    ).values(),
+  ])
+}
 
 function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent {
   const room = roomByPathParam(connection.roomId)
@@ -19,6 +29,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
     return {
       type: 'Initialized',
       body: {
+        activityLog: activityLogsByRoom.get(connection.roomId) ?? [],
         state: room.state,
         settings: room.settings,
         pickState: room.pickState,
@@ -33,6 +44,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
     type: 'Initialized',
     body: {
       participants: room.participants.map((participant) => participant.user),
+      activityLog: activityLogsByRoom.get(connection.roomId) ?? [],
       state: room.state,
       settings: room.settings,
       pickState: room.pickState,
@@ -51,7 +63,12 @@ function scheduleScript(
 ): void {
   for (const item of script) {
     window.setTimeout(() => {
-      sendEvent(eventForMode(item.event, connection.mode))
+      const event = eventForMode(item.event, connection.mode)
+      if (event.type === 'PickFinished') {
+        const body = event.body as { newActivityLog: ActivityLogEntry[] }
+        appendActivityLog(connection.roomId, body.newActivityLog)
+      }
+      sendEvent(event)
     }, item.delayMs)
   }
 }

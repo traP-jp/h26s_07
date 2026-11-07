@@ -415,6 +415,7 @@ export interface components {
         };
         EmptyObject: Record<string, never>;
         ParticipantInitializedBody: {
+            activityLog: components["schemas"]["ActivityLogEntry"][];
             state: components["schemas"]["RoomState"];
             settings: components["schemas"]["GameSettings"];
             pickState: components["schemas"]["PickState"];
@@ -425,6 +426,7 @@ export interface components {
         };
         DisplayInitializedBody: {
             participants: components["schemas"]["User"][];
+            activityLog: components["schemas"]["ActivityLogEntry"][];
             state: components["schemas"]["RoomState"];
             settings: components["schemas"]["GameSettings"];
             pickState: components["schemas"]["PickState"];
@@ -443,6 +445,7 @@ export interface components {
         PickStartedBody: components["schemas"]["EmptyObject"];
         PickCanceledBody: components["schemas"]["EmptyObject"];
         ParticipantPickFinishedBody: {
+            newActivityLog: components["schemas"]["ActivityLogEntry"][];
             pickedBall: components["schemas"]["PickedBall"];
             pickState: components["schemas"]["PickState"];
             card: components["schemas"]["Card"];
@@ -454,6 +457,7 @@ export interface components {
             newReaches: components["schemas"]["ReachUpdate"][];
         };
         DisplayPickFinishedBody: {
+            newActivityLog: components["schemas"]["ActivityLogEntry"][];
             pickedBall: components["schemas"]["PickedBall"];
             pickState: components["schemas"]["PickState"];
             participantCount: number;
@@ -614,6 +618,16 @@ export interface components {
             type: "ParticipantJoined";
             body: components["schemas"]["ParticipantJoinedBody"];
         };
+        /** @description First reach per user and every bingo line, ordered by time and record ID. */
+        ActivityLogEntry: {
+            id: components["schemas"]["UUID"];
+            /** @enum {string} */
+            kind: "reach" | "bingo";
+            user: components["schemas"]["User"];
+            createdAt: components["schemas"]["DateTime"];
+            bingoRank?: number;
+            lineCount?: number;
+        };
     };
     responses: {
         /** @description リクエスト body が不正。 */
@@ -741,6 +755,7 @@ export type DisplayGameSettingsUpdatedEvent = components['schemas']['DisplayGame
 export type WebSocketEventBase = components['schemas']['WebSocketEventBase'];
 export type ParticipantJoinedBody = components['schemas']['ParticipantJoinedBody'];
 export type DisplayParticipantJoinedEvent = components['schemas']['DisplayParticipantJoinedEvent'];
+export type ActivityLogEntry = components['schemas']['ActivityLogEntry'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseAdminRequired = components['responses']['AdminRequired'];

@@ -297,6 +297,7 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 	switch mode {
 	case openapi.Participant:
 		body := openapi.ParticipantInitializedBody{
+			ActivityLog:    utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
 			State:          openapi.RoomState(room.State),
 			Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 			PickState:      openapi.PickState(room.PickState),
@@ -322,6 +323,7 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 			Type: openapi.DisplayInitializedEventTypeInitialized,
 			Body: openapi.DisplayInitializedBody{
 				Participants:     participants,
+				ActivityLog:      utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
 				State:            openapi.RoomState(room.State),
 				Settings:         convertRoomSettingsToOpenAPI(room.Settings),
 				PickState:        openapi.PickState(room.PickState),
