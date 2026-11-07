@@ -11,6 +11,15 @@ import {
 } from './fixtures/index'
 
 const scheduledDemoChatRoomIds = new Set<string>()
+const activityLogsByRoom = new Map<string, ActivityLogEntry[]>()
+
+function appendActivityLog(roomId: string, entries: ActivityLogEntry[]): void {
+  activityLogsByRoom.set(roomId, [
+    ...new Map(
+      [...(activityLogsByRoom.get(roomId) ?? []), ...entries].map((entry) => [entry.id, entry]),
+    ).values(),
+  ])
+}
 
 function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent {
   const room = roomByPathParam(connection.roomId)
@@ -20,7 +29,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
     return {
       type: 'Initialized',
       body: {
-        activityLog: room.activityLog,
+        activityLog: activityLogsByRoom.get(connection.roomId) ?? [],
         state: room.state,
         settings: room.settings,
         pickState: room.pickState,
@@ -35,7 +44,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
     type: 'Initialized',
     body: {
       participants: room.participants.map((participant) => participant.user),
-      activityLog: room.activityLog,
+      activityLog: activityLogsByRoom.get(connection.roomId) ?? [],
       state: room.state,
       settings: room.settings,
       pickState: room.pickState,
@@ -56,13 +65,8 @@ function scheduleScript(
     window.setTimeout(() => {
       const event = eventForMode(item.event, connection.mode)
       if (event.type === 'PickFinished') {
-        const room = roomByPathParam(connection.roomId)
         const body = event.body as { newActivityLog: ActivityLogEntry[] }
-        room.activityLog = [
-          ...new Map(
-            [...room.activityLog, ...body.newActivityLog].map((entry) => [entry.id, entry]),
-          ).values(),
-        ]
+        appendActivityLog(connection.roomId, body.newActivityLog)
       }
       sendEvent(event)
     }, item.delayMs)

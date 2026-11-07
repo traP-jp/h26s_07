@@ -655,10 +655,6 @@ components:
       type: object
       additionalProperties: false
       properties:
-        activityLog:
-          type: array
-          items:
-            $ref: "#/components/schemas/ActivityLogEntry"
         roomId:
           $ref: "#/components/schemas/RoomId"
         roomCode:
@@ -688,7 +684,6 @@ components:
         updatedAt:
           $ref: "#/components/schemas/DateTime"
       required:
-        - activityLog
         - roomId
         - roomCode
         - state

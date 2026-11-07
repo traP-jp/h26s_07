@@ -118,15 +118,19 @@ const closeParticipantChat = () => {
 }
 
 const loadMessages = async (roomId: Uuid) => {
-  const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
-    params: { path: { roomId } },
-  })
+  try {
+    const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
+      params: { path: { roomId } },
+    })
 
-  if (response.response.status === 403) return
+    if (response.response.status === 403) return
 
-  if (response.data && activeRoomId.value === roomId) {
-    historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
-    void scrollToBottom()
+    if (response.data && activeRoomId.value === roomId) {
+      historyMessages.value.push(...response.data)
+      void scrollToBottom()
+    }
+  } catch {
+    // 履歴取得に失敗しても、WebSocket の新着メッセージは表示する。
   }
 }
 
@@ -148,9 +152,14 @@ onMounted(async () => {
 })
 
 watch(
-  () => store.initializationCount,
-  () => {
-    if (activeRoomId.value && store.roomId === activeRoomId.value) {
+  () => store.latestEvent,
+  (event) => {
+    // 再接続後に、切断中の投稿をチャット履歴から補う。
+    if (
+      event?.type === 'Initialized' &&
+      activeRoomId.value &&
+      store.roomId === activeRoomId.value
+    ) {
       void loadMessages(activeRoomId.value)
     }
   },

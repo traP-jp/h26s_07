@@ -1,14 +1,15 @@
 package model
 
 import (
+	"cmp"
 	"github.com/google/uuid"
 	"slices"
 	"strings"
 	"time"
 )
 
-// ActivityLogEntry retains every first-reach record and every bingo-line record.
-// Triggering balls cannot be recovered: the aggregate stores no pick timestamps.
+// ActivityLogEntry は初回リーチと各ビンゴ成立を履歴として表す。
+// 判定に使った球の時刻は保存していないため、履歴には含めない。
 type ActivityLogEntry struct {
 	ID        RecordID
 	Kind      string
@@ -23,8 +24,18 @@ func (room *Room) ActivityLog() []ActivityLogEntry {
 	for _, r := range room.ReachRecords {
 		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: "reach", UserID: r.UserID, CreatedAt: r.CreatedAt})
 	}
-	for _, r := range room.BingoRecords {
-		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: "bingo", UserID: r.UserID, CreatedAt: r.CreatedAt})
+	bingoRecords := slices.Clone(room.BingoRecords)
+	// 同じ抽選で時刻が同じ記録の順位は、保存済みの順序で決める。
+	slices.SortFunc(bingoRecords, func(a, b BingoRecord) int { return cmp.Compare(a.Order, b.Order) })
+	ranks := map[UserID]int{}
+	counts := map[UserID]int{}
+	for _, r := range bingoRecords {
+		if _, exists := ranks[r.UserID]; !exists {
+			ranks[r.UserID] = len(ranks) + 1
+		}
+		counts[r.UserID]++
+		rank, count := ranks[r.UserID], counts[r.UserID]
+		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: "bingo", UserID: r.UserID, CreatedAt: r.CreatedAt, BingoRank: &rank, LineCount: &count})
 	}
 	slices.SortFunc(entries, func(a, b ActivityLogEntry) int {
 		if c := a.CreatedAt.Compare(b.CreatedAt); c != 0 {
@@ -32,20 +43,5 @@ func (room *Room) ActivityLog() []ActivityLogEntry {
 		}
 		return strings.Compare(uuid.UUID(a.ID).String(), uuid.UUID(b.ID).String())
 	})
-	ranks := map[UserID]int{}
-	counts := map[UserID]int{}
-	for i := range entries {
-		e := &entries[i]
-		if e.Kind != "bingo" {
-			continue
-		}
-		if ranks[e.UserID] == 0 {
-			ranks[e.UserID] = len(ranks) + 1
-		}
-		counts[e.UserID]++
-		rank, count := ranks[e.UserID], counts[e.UserID]
-		e.BingoRank = &rank
-		e.LineCount = &count
-	}
 	return entries
 }
