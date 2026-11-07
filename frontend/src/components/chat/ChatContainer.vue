@@ -126,7 +126,8 @@ const loadMessages = async (roomId: Uuid) => {
     if (response.response.status === 403) return
 
     if (response.data && activeRoomId.value === roomId) {
-      historyMessages.value.push(...response.data)
+      // 履歴APIは全件返すため、再取得しても同じIDは重ねない。
+      historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
       void scrollToBottom()
     }
   } catch {
@@ -154,7 +155,7 @@ onMounted(async () => {
 watch(
   () => store.latestEvent,
   (event) => {
-    // 再接続後に、切断中の投稿をチャット履歴から補う。
+    // 初期化後にも履歴を取り直し、初回取得との間の投稿や切断中の投稿を補う。
     if (
       event?.type === 'Initialized' &&
       activeRoomId.value &&

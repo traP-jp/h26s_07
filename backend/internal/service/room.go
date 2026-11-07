@@ -625,8 +625,11 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 		return err
 	}
 	oldIDs := map[model.RecordID]bool{}
-	for _, entry := range room.ActivityLog() {
-		oldIDs[entry.ID] = true
+	for _, record := range room.BingoRecords {
+		oldIDs[record.RecordID] = true
+	}
+	for _, record := range room.ReachRecords {
+		oldIDs[record.RecordID] = true
 	}
 	now := time.Now()
 	result, err := room.FinishPick(actor, picked, func() (model.RecordID, error) {
