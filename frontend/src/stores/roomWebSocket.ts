@@ -118,17 +118,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     switch (event.type) {
       case 'ParticipantJoined':
         participantCount.value = event.body.participantCount
-        participants.value = [
-          ...new Map(
-            [...participants.value, event.body.participant].map((user) => [user.userId, user]),
-          ).values(),
-        ]
+        participants.value.push(event.body.participant)
         break
       case 'Initialized': {
         const body = event.body as InitializedBody
 
-        participants.value = body.participants
-        participantCount.value = body.participantCount
         roomState.value = body.state
         settings.value = body.settings
         pickState.value = body.pickState
@@ -143,6 +137,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
           card.value = (body as ParticipantInitializedBody).card ?? null
         } else {
           const displayBody = body as DisplayInitializedBody
+          participants.value = displayBody.participants
           participantCount.value = displayBody.participantCount
           qrCodeVisible.value = displayBody.qrCodeVisible
         }

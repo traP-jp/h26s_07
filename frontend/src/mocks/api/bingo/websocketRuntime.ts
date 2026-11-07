@@ -19,8 +19,6 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
     return {
       type: 'Initialized',
       body: {
-        participants: room.participants.map((participant) => participant.user),
-        participantCount: room.participants.length,
         state: room.state,
         settings: room.settings,
         pickState: room.pickState,

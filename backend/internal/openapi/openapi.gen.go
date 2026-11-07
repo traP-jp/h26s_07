@@ -175,13 +175,13 @@ func (e DisplayMessageCreatedEventType) Valid() bool {
 
 // Defines values for DisplayParticipantJoinedEventType.
 const (
-	DisplayParticipantJoinedEventTypeParticipantJoined DisplayParticipantJoinedEventType = "ParticipantJoined"
+	ParticipantJoined DisplayParticipantJoinedEventType = "ParticipantJoined"
 )
 
 // Valid indicates whether the value is a known member of the DisplayParticipantJoinedEventType enum.
 func (e DisplayParticipantJoinedEventType) Valid() bool {
 	switch e {
-	case DisplayParticipantJoinedEventTypeParticipantJoined:
+	case ParticipantJoined:
 		return true
 	default:
 		return false
@@ -362,21 +362,6 @@ const (
 func (e ParticipantMessageCreatedEventType) Valid() bool {
 	switch e {
 	case ParticipantMessageCreatedEventTypeMessageCreated:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ParticipantParticipantJoinedEventType.
-const (
-	ParticipantParticipantJoinedEventTypeParticipantJoined ParticipantParticipantJoinedEventType = "ParticipantJoined"
-)
-
-// Valid indicates whether the value is a known member of the ParticipantParticipantJoinedEventType enum.
-func (e ParticipantParticipantJoinedEventType) Valid() bool {
-	switch e {
-	case ParticipantParticipantJoinedEventTypeParticipantJoined:
 		return true
 	default:
 		return false
@@ -886,14 +871,12 @@ type ParticipantInitializedBody struct {
 	BingoSummaries []BingoSummary `json:"bingoSummaries"`
 
 	// Card participant にだけ送るカード snapshot。
-	Card             *Card          `json:"card,omitempty"`
-	ParticipantCount int            `json:"participantCount"`
-	Participants     []User         `json:"participants"`
-	PickState        PickState      `json:"pickState"`
-	PickedBalls      []PickedBall   `json:"pickedBalls"`
-	ReachSummaries   []ReachSummary `json:"reachSummaries"`
-	Settings         GameSettings   `json:"settings"`
-	State            RoomState      `json:"state"`
+	Card           *Card          `json:"card,omitempty"`
+	PickState      PickState      `json:"pickState"`
+	PickedBalls    []PickedBall   `json:"pickedBalls"`
+	ReachSummaries []ReachSummary `json:"reachSummaries"`
+	Settings       GameSettings   `json:"settings"`
+	State          RoomState      `json:"state"`
 }
 
 // ParticipantInitializedEvent defines model for ParticipantInitializedEvent.
@@ -907,10 +890,8 @@ type ParticipantInitializedEventType string
 
 // ParticipantJoinedBody defines model for ParticipantJoinedBody.
 type ParticipantJoinedBody struct {
-	// JoinedAt ISO 8601 datetime string。
-	JoinedAt         DateTime `json:"joinedAt"`
-	Participant      User     `json:"participant"`
-	ParticipantCount int      `json:"participantCount"`
+	Participant      User `json:"participant"`
+	ParticipantCount int  `json:"participantCount"`
 }
 
 // ParticipantMessageCreatedEvent defines model for ParticipantMessageCreatedEvent.
@@ -921,15 +902,6 @@ type ParticipantMessageCreatedEvent struct {
 
 // ParticipantMessageCreatedEventType defines model for ParticipantMessageCreatedEvent.Type.
 type ParticipantMessageCreatedEventType string
-
-// ParticipantParticipantJoinedEvent defines model for ParticipantParticipantJoinedEvent.
-type ParticipantParticipantJoinedEvent struct {
-	Body ParticipantJoinedBody                 `json:"body"`
-	Type ParticipantParticipantJoinedEventType `json:"type"`
-}
-
-// ParticipantParticipantJoinedEventType defines model for ParticipantParticipantJoinedEvent.Type.
-type ParticipantParticipantJoinedEventType string
 
 // ParticipantPickCanceledEvent defines model for ParticipantPickCanceledEvent.
 type ParticipantPickCanceledEvent struct {
@@ -1430,32 +1402,6 @@ func (t DisplayWebSocketEvent) MarshalJSON() ([]byte, error) {
 
 func (t *DisplayWebSocketEvent) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsParticipantParticipantJoinedEvent returns the union data inside the ParticipantWebSocketEvent as a ParticipantParticipantJoinedEvent
-func (t ParticipantWebSocketEvent) AsParticipantParticipantJoinedEvent() (ParticipantParticipantJoinedEvent, error) {
-	var body ParticipantParticipantJoinedEvent
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromParticipantParticipantJoinedEvent overwrites any union data inside the ParticipantWebSocketEvent as the provided ParticipantParticipantJoinedEvent
-func (t *ParticipantWebSocketEvent) FromParticipantParticipantJoinedEvent(v ParticipantParticipantJoinedEvent) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeParticipantParticipantJoinedEvent performs a merge with any union data inside the ParticipantWebSocketEvent, using the provided ParticipantParticipantJoinedEvent
-func (t *ParticipantWebSocketEvent) MergeParticipantParticipantJoinedEvent(v ParticipantParticipantJoinedEvent) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
 	return err
 }
 

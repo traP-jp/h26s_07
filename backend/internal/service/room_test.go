@@ -56,15 +56,12 @@ func TestJoinBroadcastsParticipantCountOnce(t *testing.T) {
 	s, _, events, id := testService(t)
 	ctx := context.Background()
 	mustSucceed(t, s.PostParticipants(ctx, id, "bob"))
-	if len(events.events) != 2 {
-		t.Fatalf("got %d events, want 2", len(events.events))
+	if len(events.events) != 1 {
+		t.Fatalf("got %d events, want 1", len(events.events))
 	}
 	display, ok := events.events[0].(openapi.DisplayParticipantJoinedEvent)
 	if !ok || display.Body.Participant.UserID != "bob" || display.Body.ParticipantCount != 2 {
 		t.Fatalf("unexpected display event: %#v", events.events[0])
-	}
-	if _, ok := events.events[1].(openapi.ParticipantParticipantJoinedEvent); !ok {
-		t.Fatalf("unexpected participant event: %#v", events.events[1])
 	}
 	events.events = nil
 	mustSucceed(t, s.PostParticipants(ctx, id, "bob"))

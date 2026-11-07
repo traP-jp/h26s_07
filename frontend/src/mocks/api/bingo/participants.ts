@@ -10,10 +10,13 @@ export const participantHandlers = [
     if (!room.participants.some((item) => item.user.userId === participant.userId)) {
       const joinedAt = new Date().toISOString()
       room.participants.push({ user: participant, joinedAt })
-      sendEvent({
-        type: 'ParticipantJoined',
-        body: { participant, participantCount: room.participants.length, joinedAt },
-      })
+      sendEvent(
+        {
+          type: 'ParticipantJoined',
+          body: { participant, participantCount: room.participants.length },
+        },
+        'display',
+      )
     }
     return response(204).empty()
   }),

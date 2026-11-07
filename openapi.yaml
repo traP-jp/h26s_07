@@ -913,13 +913,6 @@ components:
       type: object
       additionalProperties: false
       properties:
-        participantCount:
-          type: integer
-          minimum: 0
-        participants:
-          type: array
-          items:
-            $ref: "#/components/schemas/User"
         state:
           $ref: "#/components/schemas/RoomState"
         settings:
@@ -941,8 +934,6 @@ components:
         card:
           $ref: "#/components/schemas/Card"
       required:
-        - participantCount
-        - participants
         - state
         - settings
         - pickState
@@ -1207,7 +1198,6 @@ components:
     ParticipantWebSocketEvent:
       description: participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。
       oneOf:
-        - $ref: "#/components/schemas/ParticipantParticipantJoinedEvent"
         - $ref: "#/components/schemas/ParticipantInitializedEvent"
         - $ref: "#/components/schemas/ParticipantGameStartedEvent"
         - $ref: "#/components/schemas/ParticipantPickStartedEvent"
@@ -1556,23 +1546,9 @@ components:
         participantCount:
           type: integer
           minimum: 0
-        joinedAt:
-          $ref: "#/components/schemas/DateTime"
-      required: [participant, participantCount, joinedAt]
+      required: [participant, participantCount]
 
     DisplayParticipantJoinedEvent:
-      allOf:
-        - $ref: "#/components/schemas/WebSocketEventBase"
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [ParticipantJoined]
-            body:
-              $ref: "#/components/schemas/ParticipantJoinedBody"
-          required: [type, body]
-
-    ParticipantParticipantJoinedEvent:
       allOf:
         - $ref: "#/components/schemas/WebSocketEventBase"
         - type: object

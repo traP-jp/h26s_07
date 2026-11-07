@@ -415,8 +415,6 @@ export interface components {
         };
         EmptyObject: Record<string, never>;
         ParticipantInitializedBody: {
-            participantCount: number;
-            participants: components["schemas"]["User"][];
             state: components["schemas"]["RoomState"];
             settings: components["schemas"]["GameSettings"];
             pickState: components["schemas"]["PickState"];
@@ -498,7 +496,7 @@ export interface components {
             settings: components["schemas"]["GameSettings"];
         };
         /** @description participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。 */
-        ParticipantWebSocketEvent: components["schemas"]["ParticipantParticipantJoinedEvent"] | components["schemas"]["ParticipantInitializedEvent"] | components["schemas"]["ParticipantGameStartedEvent"] | components["schemas"]["ParticipantPickStartedEvent"] | components["schemas"]["ParticipantPickCanceledEvent"] | components["schemas"]["ParticipantPickFinishedEvent"] | components["schemas"]["ParticipantGameFinishedEvent"] | components["schemas"]["ParticipantMessageCreatedEvent"] | components["schemas"]["ParticipantAllPickedEvent"] | components["schemas"]["ParticipantGameSettingsUpdatedEvent"];
+        ParticipantWebSocketEvent: components["schemas"]["ParticipantInitializedEvent"] | components["schemas"]["ParticipantGameStartedEvent"] | components["schemas"]["ParticipantPickStartedEvent"] | components["schemas"]["ParticipantPickCanceledEvent"] | components["schemas"]["ParticipantPickFinishedEvent"] | components["schemas"]["ParticipantGameFinishedEvent"] | components["schemas"]["ParticipantMessageCreatedEvent"] | components["schemas"]["ParticipantAllPickedEvent"] | components["schemas"]["ParticipantGameSettingsUpdatedEvent"];
         /** @description display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。 */
         DisplayWebSocketEvent: components["schemas"]["DisplayParticipantJoinedEvent"] | components["schemas"]["DisplayInitializedEvent"] | components["schemas"]["DisplayGameStartedEvent"] | components["schemas"]["DisplayPickStartedEvent"] | components["schemas"]["DisplayPickCanceledEvent"] | components["schemas"]["DisplayPickFinishedEvent"] | components["schemas"]["DisplayGameFinishedEvent"] | components["schemas"]["DisplayShowQRCodeEvent"] | components["schemas"]["DisplayHideQRCodeEvent"] | components["schemas"]["DisplayMessageCreatedEvent"] | components["schemas"]["DisplayAllPickedEvent"] | components["schemas"]["DisplayGameSettingsUpdatedEvent"];
         ParticipantInitializedEvent: components["schemas"]["WebSocketEventBase"] & {
@@ -610,14 +608,8 @@ export interface components {
         ParticipantJoinedBody: {
             participant: components["schemas"]["User"];
             participantCount: number;
-            joinedAt: components["schemas"]["DateTime"];
         };
         DisplayParticipantJoinedEvent: components["schemas"]["WebSocketEventBase"] & {
-            /** @enum {string} */
-            type: "ParticipantJoined";
-            body: components["schemas"]["ParticipantJoinedBody"];
-        };
-        ParticipantParticipantJoinedEvent: components["schemas"]["WebSocketEventBase"] & {
             /** @enum {string} */
             type: "ParticipantJoined";
             body: components["schemas"]["ParticipantJoinedBody"];
@@ -749,7 +741,6 @@ export type DisplayGameSettingsUpdatedEvent = components['schemas']['DisplayGame
 export type WebSocketEventBase = components['schemas']['WebSocketEventBase'];
 export type ParticipantJoinedBody = components['schemas']['ParticipantJoinedBody'];
 export type DisplayParticipantJoinedEvent = components['schemas']['DisplayParticipantJoinedEvent'];
-export type ParticipantParticipantJoinedEvent = components['schemas']['ParticipantParticipantJoinedEvent'];
 export type ResponseBadRequest = components['responses']['BadRequest'];
 export type ResponseUnauthorized = components['responses']['Unauthorized'];
 export type ResponseAdminRequired = components['responses']['AdminRequired'];

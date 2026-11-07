@@ -294,21 +294,15 @@ func (c *webSocketClient) closeWithStatus(code websocket.StatusCode, reason stri
 }
 
 func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID model.UserID) (any, bool, error) {
-	participants := make([]openapi.User, 0, len(room.Participants))
-	for _, participant := range room.Participants {
-		participants = append(participants, openapi.User{UserID: string(participant.UserID)})
-	}
 	switch mode {
 	case openapi.Participant:
 		body := openapi.ParticipantInitializedBody{
-			ParticipantCount: len(room.Participants),
-			Participants:     participants,
-			State:            openapi.RoomState(room.State),
-			Settings:         convertRoomSettingsToOpenAPI(room.Settings),
-			PickState:        openapi.PickState(room.PickState),
-			PickedBalls:      utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
-			BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
-			ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
+			State:          openapi.RoomState(room.State),
+			Settings:       convertRoomSettingsToOpenAPI(room.Settings),
+			PickState:      openapi.PickState(room.PickState),
+			PickedBalls:    utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
+			BingoSummaries: convertBingoSummariesToOpenAPI(room.BingoSummaries()),
+			ReachSummaries: convertReachSummariesToOpenAPI(room.ReachSummaries()),
 		}
 		if room.State != model.RoomStateWaiting {
 			if card, ok := utils.FindCard(room, userID); ok {
@@ -320,6 +314,10 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 			Body: body,
 		}, true, nil
 	case openapi.Display:
+		participants := make([]openapi.User, 0, len(room.Participants))
+		for _, participant := range room.Participants {
+			participants = append(participants, openapi.User{UserID: string(participant.UserID)})
+		}
 		return openapi.DisplayInitializedEvent{
 			Type: openapi.DisplayInitializedEventTypeInitialized,
 			Body: openapi.DisplayInitializedBody{
