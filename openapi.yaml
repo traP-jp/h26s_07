@@ -899,6 +899,8 @@ components:
       properties:
         content:
           type: string
+          minLength: 1
+          maxLength: 500
       required:
         - content
 
@@ -1606,4 +1608,5 @@ components:
         lineCount:
           type: integer
           minimum: 1
+          maximum: 12
       required: [id, kind, user, createdAt]
