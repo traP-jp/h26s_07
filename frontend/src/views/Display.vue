@@ -66,6 +66,7 @@
         :room-code="props.roomCode"
         :open="isActiveRoom && (qrCodeVisible ?? false)"
       />
+      <ConnectionBadge />
 
       <GameStartCutin
         v-if="isActiveRoom && showCutin"
@@ -85,6 +86,7 @@ import { storeToRefs } from 'pinia'
 
 import type { RoomId } from '@/api/schema'
 import Iridescence from '@/components/backgrounds/Iridescence.vue'
+import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import NumberBall from '@/components/common/NumberBall.vue'
 import BallStateGrid from '@/components/display/BallStateGrid.vue'
 import DisplayParticipantQrCode from '@/components/display/DisplayParticipantQrCode.vue'
