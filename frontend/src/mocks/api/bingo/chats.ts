@@ -11,9 +11,17 @@ export const chatHandlers = [
 
   http.post('/api/rooms/{roomId}/chats', async ({ params, request, response }) => {
     const body = await readJson<CreateMessageRequest>(request)
+    if (
+      typeof body?.content !== 'string' ||
+      body.content.length === 0 ||
+      Array.from(body.content).length > 500
+    ) {
+      return response(400).json({ message: 'message invalid' })
+    }
+
     const message: Message = {
       messageId: crypto.randomUUID(),
-      content: body?.content ?? 'モックメッセージ',
+      content: body.content,
       author: currentUser(request),
       createdAt: new Date().toISOString(),
     }
