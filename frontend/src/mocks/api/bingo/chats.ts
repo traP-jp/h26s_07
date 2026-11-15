@@ -14,6 +14,7 @@ const normalizeRoomId = (value: string): string | undefined => {
     if (candidate.slice(0, 9).toLowerCase() !== 'urn:uuid:') return undefined
     candidate = candidate.slice('urn:uuid:'.length)
   } else if (candidate.length === 38) {
+    if (candidate[0] !== '{' || candidate[37] !== '}') return undefined
     candidate = candidate.slice(1, 37)
   }
 
