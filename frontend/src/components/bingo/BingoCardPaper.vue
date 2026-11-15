@@ -47,9 +47,13 @@ const cellStateLabel = (cell: CardCellType) => {
 // A reconnect can restore the last card snapshot. Only a changed draw key should replay motion.
 const activeDrawKey = ref<number | null>(null)
 watch(
-  () => props.drawKey,
-  (drawKey, previousDrawKey) => {
-    if (drawKey != null && drawKey !== previousDrawKey) activeDrawKey.value = drawKey
+  () => [props.drawKey, props.cardChanges] as const,
+  ([drawKey, cardChanges], [previousDrawKey]) => {
+    if (cardChanges == null) {
+      activeDrawKey.value = null
+    } else if (drawKey != null && drawKey !== previousDrawKey) {
+      activeDrawKey.value = drawKey
+    }
   },
 )
 
@@ -68,7 +72,9 @@ const activeEffectKey = computed(() =>
     : 'none',
 )
 const eventAnnouncement = computed(() => {
-  if (props.drawKey == null || !props.cardChanges) return ''
+  if (props.drawKey == null || activeDrawKey.value !== props.drawKey || !props.cardChanges) {
+    return ''
+  }
   if (
     props.cardChanges.openedCellIndices.length === 0 &&
     props.cardChanges.newReachLines.length === 0 &&
