@@ -913,6 +913,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        activityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         state:
           $ref: "#/components/schemas/RoomState"
         settings:
@@ -934,6 +938,7 @@ components:
         card:
           $ref: "#/components/schemas/Card"
       required:
+        - activityLog
         - state
         - settings
         - pickState
@@ -949,6 +954,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/User"
+        activityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         state:
           $ref: "#/components/schemas/RoomState"
         settings:
@@ -974,6 +983,7 @@ components:
             $ref: "#/components/schemas/ReachSummary"
       required:
         - participants
+        - activityLog
         - state
         - settings
         - pickState
@@ -1012,6 +1022,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        newActivityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         pickedBall:
           $ref: "#/components/schemas/PickedBall"
         pickState:
@@ -1041,6 +1055,7 @@ components:
           items:
             $ref: "#/components/schemas/ReachUpdate"
       required:
+        - newActivityLog
         - pickedBall
         - pickState
         - card
@@ -1055,6 +1070,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        newActivityLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogEntry"
         pickedBall:
           $ref: "#/components/schemas/PickedBall"
         pickState:
@@ -1083,6 +1102,7 @@ components:
           items:
             $ref: "#/components/schemas/PickedBall"
       required:
+        - newActivityLog
         - pickedBall
         - pickState
         - participantCount
@@ -1559,3 +1579,25 @@ components:
             body:
               $ref: "#/components/schemas/ParticipantJoinedBody"
           required: [type, body]
+
+    ActivityLogEntry:
+      type: object
+      additionalProperties: false
+      description: First reach per user and every bingo line, ordered by time and record ID.
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        kind:
+          type: string
+          enum: [reach, bingo]
+        user:
+          $ref: "#/components/schemas/User"
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+        bingoRank:
+          type: integer
+          minimum: 1
+        lineCount:
+          type: integer
+          minimum: 1
+      required: [id, kind, user, createdAt]
