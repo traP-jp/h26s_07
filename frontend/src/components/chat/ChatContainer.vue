@@ -561,14 +561,6 @@ watch(participantChatOpen, (open) => {
   min-height: 44px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .chat-container,
-  .participant-chat__mobile-peek-row {
-    scroll-behavior: auto;
-    transition-duration: 0.01ms;
-  }
-}
-
 .participant-chat__mobile-handle {
   width: 42px;
   height: 5px;
@@ -584,6 +576,14 @@ watch(participantChatOpen, (open) => {
   align-items: center;
   gap: 10px;
   transition: opacity 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-container,
+  .participant-chat__mobile-peek-row {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+  }
 }
 
 .participant-chat__mobile-peek--closing .participant-chat__mobile-peek-row {
