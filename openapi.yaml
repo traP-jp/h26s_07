@@ -173,6 +173,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Message"
+        "400":
+          description: roomId が UUID として不正。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

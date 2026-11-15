@@ -933,6 +933,15 @@ export interface operations {
                     "application/json": components["schemas"]["Message"][];
                 };
             };
+            /** @description roomId が UUID として不正。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             /** @description このルームのチャットを閲覧する権限がない。 */
             403: {
