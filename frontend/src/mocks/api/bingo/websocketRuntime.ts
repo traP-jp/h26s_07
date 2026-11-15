@@ -14,8 +14,7 @@ import { mockCards } from './fixtures/websocket'
 
 const scheduledDemoChatRoomIds = new Set<string>()
 const activityLogsByRoom = new Map<string, ActivityLogEntry[]>()
-const participantCardIds = new Map<string, string>()
-const participantCardNumbers = new Map<string, string>()
+const participantCards = new Map<string, Card>()
 const activityLogIdsByConnection = new WeakMap<MockSocketConnection, Set<string>>()
 const scriptProgressByConnection = new Map<string, number>()
 const latestPickByConnection = new Map<string, MockWebSocketEvent>()
@@ -52,20 +51,38 @@ function appendActivityLog(roomId: string, entries: ActivityLogEntry[]): void {
   activityLogsByRoom.set(roomId, orderedActivityLog([...uniqueEntries.values()]))
 }
 
-function participantCard(connection: MockSocketConnection, template: Card): Card {
+function participantCard(
+  connection: MockSocketConnection,
+  template: Card,
+  pickedBalls: number[],
+): Card {
   const key = `${connection.roomId}:${connection.userId}`
-  let cardId = participantCardIds.get(key)
-  if (!cardId) {
-    cardId = crypto.randomUUID()
-    participantCardIds.set(key, cardId)
-    participantCardNumbers.set(key, template.cardNumber)
+  let card = participantCards.get(key)
+  if (!card) {
+    card = {
+      ...template,
+      cardId: crypto.randomUUID(),
+      ownerUserId: connection.userId,
+    }
   }
-  return {
-    ...template,
-    cardId,
-    cardNumber: participantCardNumbers.get(key)!,
-    ownerUserId: connection.userId,
-  }
+  const matchesLayout =
+    card.cells.length === template.cells.length &&
+    card.cells.every(
+      (cell, index) =>
+        cell.index === template.cells[index]?.index &&
+        cell.number === template.cells[index]?.number,
+    )
+  const nextCard = matchesLayout
+    ? {
+        ...template,
+        cardId: card.cardId,
+        cardNumber: card.cardNumber,
+        ownerUserId: connection.userId,
+      }
+    : card
+  const updatedCard = cardWithPickedBalls(nextCard, pickedBalls)
+  participantCards.set(key, updatedCard)
+  return updatedCard
 }
 
 function cardWithPickedBalls(card: Card, pickedBalls: number[]): Card {
@@ -93,8 +110,10 @@ export function eventForConnection(
       const body = event.body as { card: Card; pickedBalls?: number[] }
       const pickedBalls =
         body.pickedBalls ?? (event.type === 'GameStarted' ? initialPickedBalls : [])
-      const card = cardWithPickedBalls(body.card, pickedBalls)
-      return { ...event, body: { ...body, card: participantCard(connection, card) } }
+      return {
+        ...event,
+        body: { ...body, card: participantCard(connection, body.card, pickedBalls) },
+      }
     }
     default:
       return event
@@ -126,10 +145,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
       room.state === 'waiting' || participantIndex < 0
         ? undefined
         : (latestPickBody?.card ??
-          participantCard(
-            connection,
-            cardWithPickedBalls(mockCards[participantIndex % mockCards.length]!, pickedBalls),
-          ))
+          participantCard(connection, mockCards[participantIndex % mockCards.length]!, pickedBalls))
 
     return {
       type: 'Initialized',
