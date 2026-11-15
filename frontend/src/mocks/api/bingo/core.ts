@@ -37,9 +37,10 @@ export function sendEvent<TBody>(
 export function sendEventToConnection<TBody>(
   connection: MockSocketConnection,
   event: { type: WebSocketEventType; body: TBody },
-): void {
-  if (!socketConnections.has(connection)) return
+): boolean {
+  if (!socketConnections.has(connection)) return false
   connection.send(JSON.stringify(event))
+  return true
 }
 
 export function currentUser(request: Request): User {

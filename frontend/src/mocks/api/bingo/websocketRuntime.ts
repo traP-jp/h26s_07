@@ -67,7 +67,9 @@ function scheduleScript(
       const event = eventForMode(item.event, connection.mode)
       if (event.type === 'PickFinished') {
         const body = event.body as { newActivityLog: ActivityLogEntry[] }
+        if (!sendEventToConnection(connection, event)) return
         appendActivityLog(connection.roomId, body.newActivityLog)
+        return
       }
       sendEventToConnection(connection, event)
     }, item.delayMs)
