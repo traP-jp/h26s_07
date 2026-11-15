@@ -132,15 +132,19 @@ function scheduleScript(
       const event = eventForMode(item.event, connection.mode)
       if (event.type === 'PickFinished') {
         const body = event.body as { newActivityLog: ActivityLogEntry[] }
-        appendActivityLog(connection.roomId, body.newActivityLog)
-        const knownIds = activityLogIdsByConnection.get(connection) ?? new Set<string>()
-        const newActivityLog = body.newActivityLog.filter((entry) => !knownIds.has(entry.id))
-        for (const entry of newActivityLog) knownIds.add(entry.id)
-        activityLogIdsByConnection.set(connection, knownIds)
-        sendEventToConnection(
+        const knownIds = new Set(activityLogIdsByConnection.get(connection) ?? [])
+        const newActivityLog = body.newActivityLog.filter((entry) => {
+          if (knownIds.has(entry.id)) return false
+          knownIds.add(entry.id)
+          return true
+        })
+        const delivered = sendEventToConnection(
           connection,
           eventForConnection(connection, { ...event, body: { ...body, newActivityLog } }),
         )
+        if (!delivered) return
+        appendActivityLog(connection.roomId, body.newActivityLog)
+        activityLogIdsByConnection.set(connection, knownIds)
         return
       }
       sendEventToConnection(connection, eventForConnection(connection, event))
