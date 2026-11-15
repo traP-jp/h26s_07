@@ -1,5 +1,5 @@
 import type { ActivityLogEntry } from '@/api/schema'
-import { sendEventToConnection, type MockSocketConnection } from './core'
+import { sendEvent, sendEventToConnection, type MockSocketConnection } from './core'
 import { appendMessageToRoom } from './chatHistory'
 import {
   demoChatMessages,
@@ -91,12 +91,8 @@ function scheduleDemoChatMessages(connection: MockSocketConnection): void {
           createdAt: new Date().toISOString(),
         }
         appendMessageToRoom(roomId, message)
-        sendEventToConnection(connection, {
-          type: 'MessageCreated',
-          body: {
-            message,
-          },
-        })
+        // 履歴へ保存したroomイベントなので、同じroomの再接続先にも配信する。
+        sendEvent({ type: 'MessageCreated', body: { message } }, { roomId })
       },
       2000 + index * 2000,
     )
