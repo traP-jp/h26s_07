@@ -67,6 +67,24 @@ const activeEffectKey = computed(() =>
     ? `${props.drawKey}-${activeEffect.value.mode}-${activeLine.value.join('-')}`
     : 'none',
 )
+const eventAnnouncement = computed(() => {
+  if (props.drawKey == null || !props.cardChanges) return ''
+  if (
+    props.cardChanges.openedCellIndices.length === 0 &&
+    props.cardChanges.newReachLines.length === 0 &&
+    props.cardChanges.newBingoLines.length === 0
+  ) {
+    return ''
+  }
+
+  const result = props.cardChanges.newBingoLines.length
+    ? 'ビンゴです。'
+    : props.cardChanges.newReachLines.length
+      ? 'リーチです。'
+      : ''
+
+  return `数字 ${props.drawKey} が抽選されました。${result}`
+})
 
 const isInLine = (lines: Line[] | undefined, cellIndex: number) =>
   lines?.some((line) => line.includes(cellIndex)) ?? false
@@ -182,12 +200,8 @@ const activeLineStyle = computed(() => {
       </div>
     </div>
 
-    <div
-      v-if="activeEffect?.mode === 'bingo'"
-      class="bingo-screen-reader-status"
-      aria-live="polite"
-    >
-      BINGO
+    <div class="bingo-screen-reader-status" aria-live="polite" aria-atomic="true">
+      {{ eventAnnouncement }}
     </div>
   </div>
 </template>
