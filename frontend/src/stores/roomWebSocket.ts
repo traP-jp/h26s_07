@@ -226,7 +226,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         qrCodeVisible.value = false
         break
       case 'MessageCreated':
-        chatMessages.value.push(event.body.message)
+        if (
+          !chatMessages.value.some((message) => message.messageId === event.body.message.messageId)
+        ) {
+          chatMessages.value.push(event.body.message)
+        }
         break
       case 'AllPicked':
         pickedBalls.value = event.body.pickedBalls
