@@ -24,6 +24,7 @@ import type {
   ReachUpdate,
   RoomId,
   RoomState,
+  UserId,
   DisplayWebSocketEvent,
   ParticipantWebSocketEvent,
   WebSocketMode,
@@ -42,12 +43,16 @@ type GameFinishedBody = ParticipantGameFinishedBody | DisplayGameFinishedBody
 type ConnectOptions = {
   roomId: RoomId
   mode: WebSocketMode
+  userId?: UserId
 }
 
-function createRoomWebSocketUrl(roomId: RoomId, mode: WebSocketMode) {
+function createRoomWebSocketUrl(roomId: RoomId, mode: WebSocketMode, userId?: UserId) {
   const url = new URL(`/api/rooms/${roomId}/ws`, window.location.origin)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   url.searchParams.set('mode', mode)
+  if (import.meta.env.DEV && import.meta.env.VITE_API_MOCK === 'true' && userId) {
+    url.searchParams.set('userId', userId)
+  }
   return url.toString()
 }
 
@@ -55,6 +60,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const socket = shallowRef<WebSocket | null>(null)
   const roomId = ref<RoomId | null>(null)
   const mode = ref<WebSocketMode | null>(null)
+  const userId = ref<UserId | null>(null)
   const status = ref<RoomWebSocketConnectionStatus>('idle')
   const reconnectAttempt = ref(0)
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
@@ -91,6 +97,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     return (
       roomId.value === options.roomId &&
       mode.value === options.mode &&
+      userId.value === (options.userId ?? null) &&
       (status.value === 'connecting' || status.value === 'open')
     )
   }
@@ -262,11 +269,12 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       resetRoomState()
       reconnectAttempt.value = 0
     }
+    userId.value = options.userId ?? null
     enabled = true
     const connectionGeneration = generation
     installListeners()
 
-    const wsUrl = createRoomWebSocketUrl(options.roomId, options.mode)
+    const wsUrl = createRoomWebSocketUrl(options.roomId, options.mode, options.userId)
 
     roomId.value = options.roomId
     mode.value = options.mode
@@ -346,7 +354,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     const attempt = reconnectAttempt.value
-    const options = { roomId: roomId.value, mode: mode.value }
+    const options = { roomId: roomId.value, mode: mode.value, userId: userId.value ?? undefined }
     // Replace even an apparently OPEN socket when its application state may be stale.
     disconnect()
     reconnectAttempt.value = attempt
@@ -379,6 +387,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     generation += 1
     enabled = false
     sawOffline = false
+    userId.value = null
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     window.removeEventListener('offline', markOffline)

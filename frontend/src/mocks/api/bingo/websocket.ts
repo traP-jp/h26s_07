@@ -6,6 +6,7 @@ import {
   setSocketConnection,
   type MockSocketConnection,
 } from './core'
+import { mockRooms } from './fixtures'
 import { startMockRoomWebSocket } from './websocketRuntime'
 
 const roomSocket = ws.link('*/api/rooms/:roomId/ws')
@@ -22,8 +23,22 @@ export const roomWebSocketHandler = roomSocket.addEventListener(
       return
     }
 
+    const room = mockRooms.find((item) => item.roomId === roomId || item.roomCode === roomId)
+    if (!room) {
+      client.close(1008, 'Room not found')
+      return
+    }
+
     if (mode !== 'participant' && mode !== 'display') {
       client.close(1008, 'Invalid mode')
+      return
+    }
+
+    if (
+      mode === 'participant' &&
+      !room.participants.some((participant) => participant.user.userId === userId)
+    ) {
+      client.close(1008, 'Participant not found')
       return
     }
 

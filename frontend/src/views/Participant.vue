@@ -64,7 +64,7 @@ async function connectToRoom(nextRoomCode: RoomCode | undefined) {
     }
 
     if (generation !== roomLookupGeneration) return
-    roomWebSocketStore.connect({ roomId: nextRoomId, mode: 'participant' })
+    roomWebSocketStore.connect({ roomId: nextRoomId, mode: 'participant', userId })
   } catch (error) {
     if (generation === roomLookupGeneration) {
       errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
