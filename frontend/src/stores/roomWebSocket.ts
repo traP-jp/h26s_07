@@ -122,7 +122,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         !event.body.participant ||
         typeof event.body.participant.userId !== 'string' ||
         event.body.participant.userId.length === 0 ||
-        !Number.isInteger(event.body.participantCount) ||
+        !Number.isSafeInteger(event.body.participantCount) ||
         event.body.participantCount < 0)
     ) {
       errorMessage.value = 'Invalid ParticipantJoined event'
