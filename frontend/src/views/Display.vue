@@ -11,6 +11,9 @@
       />
       <div class="display-page__stage">
         <div v-if="isActiveRoom" class="display-page__content">
+          <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {{ latestDrawAnnouncement }}
+          </p>
           <div class="display-page__latest-ball">
             <NumberBall
               class="display-page__latest-number"
@@ -102,11 +105,13 @@ import GameStartCutin from '@/components/GameStartCutin.vue'
 
 const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
-const { latestBall, mode, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
+const { latestBall, latestEvent, mode, pickedBalls, qrCodeVisible, roomState } =
+  storeToRefs(roomWebSocketStore)
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
 const roomId = ref<RoomId | null>(null)
+const latestDrawAnnouncement = ref('')
 let roomLookupGeneration = 0
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
 const { bottomText, cutinKey, handleCutinComplete, resetDisplayEffects, showCutin, topText } =
@@ -117,6 +122,12 @@ const isActiveRoom = computed(
   () => roomId.value !== null && roomWebSocketStore.roomId === roomId.value,
 )
 const isGameWaiting = computed(() => roomState.value === 'waiting')
+
+watch(latestEvent, (event) => {
+  if (isActiveRoom.value && event?.type === 'PickFinished') {
+    latestDrawAnnouncement.value = `数字 ${event.body.pickedBall} が抽選されました。`
+  }
+})
 
 function syncFullscreenState() {
   isFullscreen.value = document.fullscreenElement === displayPageElement.value
@@ -133,6 +144,7 @@ async function toggleFullscreen() {
 
 async function connectToRoom(roomCode: string) {
   const generation = ++roomLookupGeneration
+  latestDrawAnnouncement.value = ''
   resetDisplayEffects()
   if (mode.value === 'display') roomWebSocketStore.disconnect()
   roomId.value = null
