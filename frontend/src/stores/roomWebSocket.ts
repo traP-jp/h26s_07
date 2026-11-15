@@ -145,6 +145,17 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       return
     }
 
+    if (event.type === 'PickFinished') {
+      const body = event.body as PickFinishedBody
+      // A late or duplicated snapshot must not roll the card back or replay an old effect.
+      if (
+        body.pickedBalls.length <= pickedBalls.value.length ||
+        !pickedBalls.value.every((ball, index) => body.pickedBalls[index] === ball)
+      ) {
+        return
+      }
+    }
+
     latestEvent.value = event
 
     switch (event.type) {
