@@ -86,6 +86,7 @@ const { latestBall, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWe
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
+let disposed = false
 const roomId = ref<RoomId | null>(null)
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
 const { bottomText, cutinKey, handleCutinComplete, showCutin, topText } = useDisplayEffects()
@@ -112,6 +113,7 @@ onMounted(async () => {
   if (!props.roomCode) return
 
   const room = await roomsStore.getRoomByCode(props.roomCode)
+  if (disposed) return
   roomId.value = room?.roomId ?? null
 
   if (!roomId.value) return
@@ -124,6 +126,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   document.removeEventListener('fullscreenchange', syncFullscreenState)
 
   if (
