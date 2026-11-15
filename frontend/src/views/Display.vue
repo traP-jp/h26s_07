@@ -325,4 +325,125 @@ onBeforeUnmount(() => {
   line-height: 1.4;
   color: #43678f;
 }
+
+@media (max-width: 720px) {
+  .display-page__stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .display-page__content {
+    gap: 3%;
+  }
+
+  .display-page__latest-ball {
+    height: 28%;
+  }
+
+  :deep(.ball-state-grid__cell),
+  :deep(.ball-state-grid__number) {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  :deep(.ball-state-grid) {
+    grid-template-columns: repeat(15, minmax(12px, 1fr));
+    gap: 2px;
+  }
+
+  .display-page__waiting-title {
+    font-size: 24px;
+  }
+
+  .display-page__waiting-text {
+    font-size: 16px;
+  }
+
+  .room-stats-bar {
+    height: 56px;
+    gap: 14px;
+    padding: 7px 20px;
+  }
+}
+
+@media (max-width: 720px) and (max-height: 500px) {
+  .display-page__stage {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 38vw);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .display-page__content {
+    gap: 3%;
+  }
+
+  .display-page__latest-ball {
+    height: 28%;
+  }
+
+  .display-page__waiting-panel {
+    min-height: 0;
+    gap: 6px;
+    padding: 12px;
+  }
+
+  .display-page__waiting-title {
+    font-size: 20px;
+  }
+
+  .display-page__waiting-text {
+    font-size: 14px;
+  }
+
+  .display-page__waiting-panel > div {
+    max-height: 42px;
+  }
+}
+
+@media (max-width: 720px) and (min-height: 501px) and (max-height: 650px) {
+  .display-page__stage {
+    grid-template-rows: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  }
+
+  .display-page__content {
+    gap: 1%;
+  }
+
+  .display-page__latest-ball {
+    height: 12%;
+  }
+
+  .display-page__latest-number {
+    font-size: min(6dvh, 38cqw);
+  }
+
+  :deep(.ball-state-grid) {
+    width: min(100%, 84vw);
+  }
+
+  .display-page__waiting-panel {
+    min-height: 0;
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .display-page__waiting-title {
+    font-size: 18px;
+  }
+
+  .display-page__waiting-text {
+    font-size: 12px;
+  }
+
+  .display-page__waiting-panel > div {
+    max-height: 24px;
+  }
+
+  .room-stats-bar {
+    height: 48px;
+  }
+}
 </style>
