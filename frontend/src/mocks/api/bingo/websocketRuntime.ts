@@ -1,5 +1,5 @@
 import type { ActivityLogEntry } from '@/api/schema'
-import { sendEvent, type MockSocketConnection } from './core'
+import { sendEventToConnection, type MockSocketConnection } from './core'
 import { appendMessageToRoom } from './chatHistory'
 import {
   demoChatMessages,
@@ -69,12 +69,13 @@ function scheduleScript(
         const body = event.body as { newActivityLog: ActivityLogEntry[] }
         appendActivityLog(connection.roomId, body.newActivityLog)
       }
-      sendEvent(event, { roomId: connection.roomId, mode: connection.mode })
+      sendEventToConnection(connection, event)
     }, item.delayMs)
   }
 }
 
-function scheduleDemoChatMessages(roomId: string): void {
+function scheduleDemoChatMessages(connection: MockSocketConnection): void {
+  const { roomId } = connection
   if (scheduledDemoChatRoomIds.has(roomId)) {
     return
   }
@@ -90,7 +91,12 @@ function scheduleDemoChatMessages(roomId: string): void {
           createdAt: new Date().toISOString(),
         }
         appendMessageToRoom(roomId, message)
-        sendEvent({ type: 'MessageCreated', body: { message } }, { roomId })
+        sendEventToConnection(connection, {
+          type: 'MessageCreated',
+          body: {
+            message,
+          },
+        })
       },
       2000 + index * 2000,
     )
@@ -101,8 +107,8 @@ export function startMockRoomWebSocket(connection: MockSocketConnection): void {
   const room = roomByPathParam(connection.roomId)
   const script = scriptForRoom(room)
 
-  sendEvent(initializedEvent(connection), { roomId: connection.roomId, mode: connection.mode })
-  scheduleDemoChatMessages(connection.roomId)
+  sendEventToConnection(connection, initializedEvent(connection))
+  scheduleDemoChatMessages(connection)
 
   if (room.state !== 'waiting' || connection.mode === 'display') {
     scheduleScript(connection, script.onConnect)
