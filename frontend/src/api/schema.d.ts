@@ -933,7 +933,7 @@ export interface operations {
                     "application/json": components["schemas"]["Message"][];
                 };
             };
-            /** @description roomId が UUID として不正。 */
+            /** @description ルーム ID の形式が不正。 */
             400: {
                 headers: {
                     [name: string]: unknown;

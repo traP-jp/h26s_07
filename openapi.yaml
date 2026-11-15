@@ -174,7 +174,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/Message"
         "400":
-          description: roomId が UUID として不正。
+          description: ルーム ID の形式が不正。
           content:
             application/json:
               schema:
