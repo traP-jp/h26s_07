@@ -28,6 +28,7 @@ const errorMessage = ref('')
 
 let roomLookupGeneration = 0
 let joinAbortController: AbortController | undefined
+let permissionCheckKey: string | null = null
 
 async function connectToRoom(nextRoomCode: RoomCode | undefined) {
   const generation = ++roomLookupGeneration
@@ -73,6 +74,59 @@ async function connectToRoom(nextRoomCode: RoomCode | undefined) {
 }
 
 watch(roomCode, (code) => void connectToRoom(code), { immediate: true })
+
+watch(
+  () => roomWebSocketStore.status,
+  (status) => {
+    if (
+      (status !== 'error' && status !== 'closed') ||
+      mode.value !== 'participant' ||
+      roomId.value === null ||
+      connectedRoomId.value !== roomId.value
+    ) {
+      return
+    }
+
+    const expectedRoomId = roomId.value
+    const expectedUserId = currentUserStore.userId
+    if (expectedUserId === null) return
+    const expectedGeneration = roomLookupGeneration
+    const checkKey = `${expectedGeneration}:${expectedRoomId}`
+    if (permissionCheckKey === checkKey) return
+
+    permissionCheckKey = checkKey
+    void roomsStore
+      .fetchRooms()
+      .then(() => {
+        if (
+          roomLookupGeneration !== expectedGeneration ||
+          roomId.value !== expectedRoomId ||
+          connectedRoomId.value !== expectedRoomId ||
+          mode.value !== 'participant'
+        ) {
+          return
+        }
+
+        const room = roomsStore.rooms.find((item) => item.roomId === expectedRoomId)
+        const stillParticipant =
+          room?.participants.some((participant) => participant.user.userId === expectedUserId) ??
+          false
+
+        if (!stillParticipant) {
+          errorMessage.value = 'このルームには参加できません。'
+          roomId.value = null
+          displayCard.value = null
+          roomWebSocketStore.disconnect()
+        }
+      })
+      .catch(() => {
+        // A failed permission refresh is indistinguishable from a transient network outage.
+      })
+      .finally(() => {
+        if (permissionCheckKey === checkKey) permissionCheckKey = null
+      })
+  },
+)
 
 onBeforeUnmount(() => {
   roomLookupGeneration += 1
