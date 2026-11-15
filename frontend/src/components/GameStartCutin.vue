@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main ref="root" class="cutin-stage" :style="stageStyle">
+  <div ref="root" class="cutin-stage" :style="stageStyle">
     <div class="tilt">
       <div class="wipe wipe-red" transition-style="in:wipe:left">
         <span class="wipe-label label-red">{{ topText }}</span>
@@ -129,7 +129,7 @@ onBeforeUnmount(() => {
         <span class="wipe-label label-blue">{{ bottomText }}</span>
       </div>
     </div>
-  </main>
+  </div>
 </template>
 
 <style scoped>

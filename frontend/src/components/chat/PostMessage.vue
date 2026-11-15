@@ -132,7 +132,7 @@ const post = async () => {
 
 .message-count {
   flex: 0 0 auto;
-  color: #7b817f;
+  color: #626c69;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }

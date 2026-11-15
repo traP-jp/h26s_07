@@ -93,7 +93,8 @@ watch(
 </script>
 
 <template>
-  <div class="participant-room">
+  <main class="participant-room" aria-labelledby="participant-room-title">
+    <h1 id="participant-room-title" class="sr-only">ビンゴカード</h1>
     <ConnectionBadge />
     <UAlert v-if="errorMessage" :description="errorMessage" color="error" />
     <div class="participant-room__card">
@@ -123,7 +124,7 @@ watch(
       :connect="false"
       variant="participant"
     />
-  </div>
+  </main>
 </template>
 
 <style scoped>

@@ -233,7 +233,13 @@ watch(participantChatOpen, (open) => {
   <div v-if="room.variant === 'participant'" class="participant-chat">
     <section class="participant-chat__desktop">
       <div class="participant-chat__header">Chat</div>
-      <div ref="participantInlineChatContainer" class="chat-container chat-container--participant">
+      <div
+        ref="participantInlineChatContainer"
+        class="chat-container chat-container--participant"
+        tabindex="0"
+        role="region"
+        aria-label="チャット履歴"
+      >
         <div class="chat-container__messages">
           <div
             v-if="historyStatus === 'loading' && timelineMessages.length === 0"
@@ -305,6 +311,9 @@ watch(participantChatOpen, (open) => {
           <div
             ref="participantDrawerChatContainer"
             class="chat-container chat-container--participant"
+            tabindex="0"
+            role="region"
+            aria-label="チャット履歴"
           >
             <div class="chat-container__messages">
               <div
@@ -347,6 +356,9 @@ watch(participantChatOpen, (open) => {
       ref="chatContainer"
       class="chat-container"
       :class="{ 'chat-container--display': room.variant === 'display' }"
+      tabindex="0"
+      role="region"
+      aria-label="チャット履歴"
     >
       <div class="chat-container__messages">
         <div

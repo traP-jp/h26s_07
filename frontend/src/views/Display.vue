@@ -1,6 +1,7 @@
 <template>
   <div class="page">
-    <div ref="displayPageElement" class="display-page">
+    <main ref="displayPageElement" class="display-page" aria-labelledby="display-page-title">
+      <h1 id="display-page-title" class="sr-only">ビンゴ抽選画面</h1>
       <Iridescence
         class="display-page__background"
         :color="[1, 1, 1]"
@@ -74,7 +75,7 @@
         :bottom-text="bottomText"
         :top-text="topText"
       />
-    </div>
+    </main>
   </div>
 </template>
 
