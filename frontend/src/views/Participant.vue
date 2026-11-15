@@ -1,46 +1,57 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
 import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
-import type { RoomCode, Card, RoomId, UserId } from '@/api/schema'
+import type { RoomCode, Card, RoomId } from '@/api/schema'
 import { useRoomsStore } from '@/stores/rooms'
 import { useCurrentUserStore } from '@/stores/currentUser'
 import { storeToRefs } from 'pinia'
 
 const route = useRoute()
-const roomCode = route.params.roomCode as RoomCode | undefined
+const roomCode = computed(() => route.params.roomCode as RoomCode | undefined)
 const roomId = ref<RoomId | null>(null)
 const roomWebSocketStore = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 const currentUserStore = useCurrentUserStore()
-const { roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
+const { mode, roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
 
 const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
 const { latestBall } = storeToRefs(roomWebSocketStore)
 
 const displayCard = ref<Card | null>(null)
 const isGameWaiting = computed(() => roomState.value === 'waiting')
+const isActiveRoom = computed(() => roomId.value !== null && connectedRoomId.value === roomId.value)
 const errorMessage = ref('')
-const currentUserId = ref<UserId>()
 
-let disposed = false
-onMounted(async () => {
+let roomLookupGeneration = 0
+let joinAbortController: AbortController | undefined
+
+async function connectToRoom(nextRoomCode: RoomCode | undefined) {
+  const generation = ++roomLookupGeneration
+  joinAbortController?.abort()
+  joinAbortController = undefined
+  if (mode.value === 'participant') roomWebSocketStore.disconnect()
+  roomId.value = null
+  displayCard.value = null
+  errorMessage.value = ''
+
   try {
-    if (!roomCode) return
+    if (!nextRoomCode) return
 
-    currentUserId.value = await currentUserStore.getUserId()
+    const userId = await currentUserStore.getUserId()
+    if (generation !== roomLookupGeneration) return
+    const room = await roomsStore.getRoomByCode(nextRoomCode)
+    if (generation !== roomLookupGeneration) return
+    const nextRoomId = room?.roomId ?? null
+    roomId.value = nextRoomId
 
-    const room = await roomsStore.getRoomByCode(roomCode)
-    roomId.value = room?.roomId ?? null
-
-    if (!roomId.value) return
+    if (!nextRoomId) return
 
     const isParticipant =
-      room?.participants.some((participant) => participant.user.userId === currentUserId.value) ??
-      false
+      room?.participants.some((participant) => participant.user.userId === userId) ?? false
 
     if (!isParticipant) {
       if (room?.state !== 'waiting') {
@@ -48,19 +59,26 @@ onMounted(async () => {
         return
       }
 
-      await roomsStore.joinRoom(roomId.value)
+      joinAbortController = new AbortController()
+      await roomsStore.joinRoom(nextRoomId, joinAbortController.signal)
     }
 
-    if (disposed) return
-    roomWebSocketStore.connect({ roomId: roomId.value, mode: 'participant' })
+    if (generation !== roomLookupGeneration) return
+    roomWebSocketStore.connect({ roomId: nextRoomId, mode: 'participant' })
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
+    if (generation === roomLookupGeneration) {
+      errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
+    }
   }
-})
-onBeforeUnmount(() => {
-  disposed = true
+}
 
-  if (roomId.value && connectedRoomId.value === roomId.value) {
+watch(roomCode, (code) => void connectToRoom(code), { immediate: true })
+
+onBeforeUnmount(() => {
+  roomLookupGeneration += 1
+  joinAbortController?.abort()
+
+  if (mode.value === 'participant' && connectedRoomId.value === roomId.value) {
     roomWebSocketStore.disconnect()
   }
 })
@@ -79,9 +97,13 @@ watch(
     <ConnectionBadge />
     <UAlert v-if="errorMessage" :description="errorMessage" color="error" />
     <div class="participant-room__card">
-      <div v-if="isGameWaiting" class="participant-room__waiting">
-        <p class="participant-room__waiting-title">ゲームはまだ始まっていません</p>
-        <p class="participant-room__waiting-text">開始されるまでお待ちください</p>
+      <div v-if="!isActiveRoom || isGameWaiting" class="participant-room__waiting">
+        <p class="participant-room__waiting-title">
+          {{ isActiveRoom ? 'ゲームはまだ始まっていません' : 'ルームに接続しています' }}
+        </p>
+        <p v-if="isActiveRoom" class="participant-room__waiting-text">
+          開始されるまでお待ちください
+        </p>
       </div>
       <BingoCardPaper
         v-else
@@ -93,7 +115,8 @@ watch(
       />
     </div>
     <ChatContainer
-      v-if="roomCode"
+      :key="roomCode"
+      v-if="roomCode && isActiveRoom"
       class="participant-room__chat"
       :room-code="roomCode"
       textarea

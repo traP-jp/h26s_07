@@ -365,6 +365,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   function disconnect() {
     generation += 1
     enabled = false
+    sawOffline = false
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     window.removeEventListener('offline', markOffline)

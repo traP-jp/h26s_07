@@ -9,7 +9,7 @@
         :speed="0.1"
       />
       <div class="display-page__stage">
-        <div class="display-page__content">
+        <div v-if="isActiveRoom" class="display-page__content">
           <div class="display-page__latest-ball">
             <NumberBall
               class="display-page__latest-number"
@@ -43,6 +43,8 @@
         <div class="display-page__chat">
           <div class="display-page__chat-header">Chat</div>
           <ChatContainer
+            v-if="isActiveRoom"
+            :key="props.roomCode"
             :room-code="props.roomCode"
             :textarea="false"
             :connect="false"
@@ -59,10 +61,13 @@
         :aria-label="isFullscreen ? '全画面表示を終了' : '全画面表示'"
         @click="toggleFullscreen"
       />
-      <DisplayParticipantQrCode :room-code="props.roomCode" :open="qrCodeVisible ?? false" />
+      <DisplayParticipantQrCode
+        :room-code="props.roomCode"
+        :open="isActiveRoom && (qrCodeVisible ?? false)"
+      />
 
       <GameStartCutin
-        v-if="showCutin"
+        v-if="isActiveRoom && showCutin"
         :key="cutinKey"
         @complete="handleCutinComplete"
         class="z-1"
@@ -74,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import type { RoomId } from '@/api/schema'
@@ -94,16 +99,20 @@ import GameStartCutin from '@/components/GameStartCutin.vue'
 
 const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
-const { latestBall, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
+const { latestBall, mode, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
-let disposed = false
 const roomId = ref<RoomId | null>(null)
+let roomLookupGeneration = 0
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
-const { bottomText, cutinKey, handleCutinComplete, showCutin, topText } = useDisplayEffects()
+const { bottomText, cutinKey, handleCutinComplete, resetDisplayEffects, showCutin, topText } =
+  useDisplayEffects()
 useNumberBallFavicon()
 
+const isActiveRoom = computed(
+  () => roomId.value !== null && roomWebSocketStore.roomId === roomId.value,
+)
 const isGameWaiting = computed(() => roomState.value === 'waiting')
 
 function syncFullscreenState() {
@@ -119,32 +128,41 @@ async function toggleFullscreen() {
   await displayPageElement.value?.requestFullscreen()
 }
 
-onMounted(async () => {
-  document.addEventListener('fullscreenchange', syncFullscreenState)
+async function connectToRoom(roomCode: string) {
+  const generation = ++roomLookupGeneration
+  resetDisplayEffects()
+  if (mode.value === 'display') roomWebSocketStore.disconnect()
+  roomId.value = null
 
-  if (!props.roomCode) return
+  if (!roomCode) return
 
-  const room = await roomsStore.getRoomByCode(props.roomCode)
-  if (disposed) return
-  roomId.value = room?.roomId ?? null
+  const room = await roomsStore.getRoomByCode(roomCode)
+  if (generation !== roomLookupGeneration) return
 
-  if (!roomId.value) return
+  const nextRoomId = room?.roomId ?? null
+  roomId.value = nextRoomId
+  if (!nextRoomId) return
 
-  if (roomWebSocketStore.isActiveConnection({ roomId: roomId.value, mode: 'display' })) {
-    return
+  if (!roomWebSocketStore.isActiveConnection({ roomId: nextRoomId, mode: 'display' })) {
+    roomWebSocketStore.connect({ roomId: nextRoomId, mode: 'display' })
   }
+}
 
-  roomWebSocketStore.connect({ roomId: roomId.value, mode: 'display' })
+watch(
+  () => props.roomCode,
+  (roomCode) => void connectToRoom(roomCode),
+  { immediate: true },
+)
+
+onMounted(() => {
+  document.addEventListener('fullscreenchange', syncFullscreenState)
 })
 
 onBeforeUnmount(() => {
-  disposed = true
+  roomLookupGeneration += 1
   document.removeEventListener('fullscreenchange', syncFullscreenState)
 
-  if (
-    roomId.value &&
-    roomWebSocketStore.isActiveConnection({ roomId: roomId.value, mode: 'display' })
-  ) {
+  if (mode.value === 'display') {
     roomWebSocketStore.disconnect()
   }
 })
