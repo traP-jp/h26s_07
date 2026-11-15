@@ -562,6 +562,7 @@ components:
     WebSocketEventType:
       type: string
       enum:
+        - ParticipantJoined
         - Initialized
         - GameStarted
         - PickStarted
@@ -944,6 +945,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
         state:
           $ref: "#/components/schemas/RoomState"
         settings:
@@ -968,6 +973,7 @@ components:
           items:
             $ref: "#/components/schemas/ReachSummary"
       required:
+        - participants
         - state
         - settings
         - pickState
@@ -1205,6 +1211,7 @@ components:
     DisplayWebSocketEvent:
       description: display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。
       oneOf:
+        - $ref: "#/components/schemas/DisplayParticipantJoinedEvent"
         - $ref: "#/components/schemas/DisplayInitializedEvent"
         - $ref: "#/components/schemas/DisplayGameStartedEvent"
         - $ref: "#/components/schemas/DisplayPickStartedEvent"
@@ -1529,3 +1536,26 @@ components:
       required:
         - type
         - body
+
+    ParticipantJoinedBody:
+      type: object
+      additionalProperties: false
+      properties:
+        participant:
+          $ref: "#/components/schemas/User"
+        participantCount:
+          type: integer
+          minimum: 0
+      required: [participant, participantCount]
+
+    DisplayParticipantJoinedEvent:
+      allOf:
+        - $ref: "#/components/schemas/WebSocketEventBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [ParticipantJoined]
+            body:
+              $ref: "#/components/schemas/ParticipantJoinedBody"
+          required: [type, body]
