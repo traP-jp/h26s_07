@@ -121,7 +121,13 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     switch (event.type) {
       case 'ParticipantJoined':
         participantCount.value = event.body.participantCount
-        participants.value.push(event.body.participant)
+        if (
+          !participants.value.some(
+            (participant) => participant.userId === event.body.participant.userId,
+          )
+        ) {
+          participants.value.push(event.body.participant)
+        }
         break
       case 'Initialized': {
         const body = event.body as InitializedBody
