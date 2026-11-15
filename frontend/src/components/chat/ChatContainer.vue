@@ -32,9 +32,11 @@ const room = withDefaults(
 const messages = ref<Message[]>([])
 const noticeMessages = ref<Message[]>([])
 const summaryMessages = ref<Message[]>([])
+const historyStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
+const participantDrawer = ref<HTMLElement | null>(null)
 const activeRoomId = ref<Uuid | null>(null)
 const participantChatOpen = ref(false)
 const participantChatClosing = ref(false)
@@ -106,13 +108,22 @@ const latestMessagePreview = computed(() => {
   return `${latestMessage.author.userId}: ${latestMessage.content}`
 })
 
-const scrollToBottom = async () => {
-  await nextTick()
-  for (const element of [
+const scrollToBottom = async (force = false) => {
+  const elements = [
     chatContainer.value,
     participantInlineChatContainer.value,
     participantDrawerChatContainer.value,
-  ]) {
+  ]
+  const shouldFollow =
+    force ||
+    elements.some((element) => {
+      if (!element || element.clientHeight === 0) return false
+      return element.scrollHeight - element.scrollTop - element.clientHeight <= 72
+    })
+  if (!shouldFollow) return
+
+  await nextTick()
+  for (const element of elements) {
     if (!element) continue
     element.scrollTop = element.scrollHeight
   }
@@ -128,13 +139,19 @@ const addUserMessage = async (m: Message) => {
 }
 
 const loadMessages = async (roomId: Uuid) => {
-  const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
-    params: { path: { roomId } },
-  })
+  historyStatus.value = 'loading'
+  try {
+    const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
+      params: { path: { roomId } },
+    })
+    if (response.error || !response.data) throw new Error('Failed to load chat history')
 
-  if (response.data) {
     messages.value = mergeMessages(response.data)
-    void scrollToBottom()
+    historyStatus.value = 'ready'
+    void scrollToBottom(true)
+  } catch (error) {
+    console.error('Error loading chat history', error)
+    historyStatus.value = 'error'
   }
 }
 
@@ -150,22 +167,39 @@ const notificationType = (message: Message) => {
   if (message.author.userId !== '') return undefined
   if (message.messageId.startsWith('newBingos')) return 'bingo'
   if (message.messageId.startsWith('newReaches')) return 'reach'
+  if (message.messageId.startsWith('allPicked')) return 'exhausted'
   return 'notice'
 }
 
-onMounted(async () => {
-  const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
-  if (!roomId) return
-  activeRoomId.value = roomId
+const initializeChat = async () => {
+  historyStatus.value = 'loading'
+  try {
+    const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
+    if (!roomId) {
+      throw new Error('Room not found')
+    }
+    activeRoomId.value = roomId
 
-  await loadMessages(roomId)
+    await loadMessages(roomId)
 
-  if (!room.connect) return
+    if (!room.connect) return
 
-  const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
-  if (store.isActiveConnection({ roomId, mode })) return
+    const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
+    if (store.isActiveConnection({ roomId, mode })) return
 
-  store.connect({ roomId, mode })
+    store.connect({ roomId, mode })
+  } catch (error) {
+    console.error('Error initializing chat', error)
+    historyStatus.value = 'error'
+  }
+}
+
+const retryLoadMessages = () => {
+  void initializeChat()
+}
+
+onMounted(() => {
+  void initializeChat()
 })
 
 onBeforeUnmount(() => {
@@ -205,6 +239,7 @@ watch(
   () => {
     void scrollToBottom()
   },
+  { flush: 'pre' },
 )
 
 watch(participantChatOpen, (open) => {
@@ -212,6 +247,7 @@ watch(participantChatOpen, (open) => {
 
   if (open) {
     participantChatClosing.value = false
+    void nextTick(() => participantDrawer.value?.querySelector('button')?.focus())
     void scrollToBottom()
     return
   }
@@ -229,6 +265,32 @@ watch(participantChatOpen, (open) => {
       <div class="participant-chat__header">Chat</div>
       <div ref="participantInlineChatContainer" class="chat-container chat-container--participant">
         <div class="chat-container__messages">
+          <div
+            v-if="historyStatus === 'loading' && timelineMessages.length === 0"
+            class="chat-state"
+            role="status"
+          >
+            <template v-if="historyStatus === 'loading'">チャットを読み込んでいます…</template>
+            <template v-else>
+              <span>チャットを読み込めませんでした</span>
+              <button class="chat-state__retry" type="button" @click="retryLoadMessages">
+                再読み込み
+              </button>
+            </template>
+          </div>
+          <div v-else-if="historyStatus === 'error'" class="chat-state" role="status">
+            <span>チャットを読み込めませんでした</span>
+            <button class="chat-state__retry" type="button" @click="retryLoadMessages">
+              再読み込み
+            </button>
+          </div>
+          <div
+            v-else-if="timelineMessages.length === 0"
+            class="chat-state chat-state--empty"
+            role="status"
+          >
+            まだメッセージはありません
+          </div>
           <div v-for="message in timelineMessages" :key="message.messageId">
             <MessageContainer
               :user-id="message.author.userId"
@@ -244,7 +306,7 @@ watch(participantChatOpen, (open) => {
     <UDrawer
       v-model:open="participantChatOpen"
       direction="bottom"
-      :handle="true"
+      :handle="false"
       :ui="{
         content: 'bg-white p-0 sm:hidden h-[82dvh] max-h-[82dvh]',
       }"
@@ -253,6 +315,7 @@ watch(participantChatOpen, (open) => {
         class="participant-chat__mobile-peek"
         :class="{ 'participant-chat__mobile-peek--closing': participantChatClosing }"
         type="button"
+        aria-label="チャットを開く"
       >
         <span class="participant-chat__mobile-handle"></span>
         <span class="participant-chat__mobile-peek-row">
@@ -262,14 +325,16 @@ watch(participantChatOpen, (open) => {
       </button>
 
       <template #content>
-        <section class="participant-chat__drawer">
+        <section ref="participantDrawer" class="participant-chat__drawer">
           <div class="participant-chat__drawer-header">
             <span>Chat</span>
             <UButton
+              class="participant-chat__drawer-close"
               icon="i-lucide-x"
               color="neutral"
               variant="ghost"
               size="sm"
+              aria-label="チャットを閉じる"
               @click="closeParticipantChat"
             />
           </div>
@@ -278,6 +343,32 @@ watch(participantChatOpen, (open) => {
             class="chat-container chat-container--participant"
           >
             <div class="chat-container__messages">
+              <div
+                v-if="historyStatus === 'loading' && timelineMessages.length === 0"
+                class="chat-state"
+                role="status"
+              >
+                <template v-if="historyStatus === 'loading'">チャットを読み込んでいます…</template>
+                <template v-else>
+                  <span>チャットを読み込めませんでした</span>
+                  <button class="chat-state__retry" type="button" @click="retryLoadMessages">
+                    再読み込み
+                  </button>
+                </template>
+              </div>
+              <div v-else-if="historyStatus === 'error'" class="chat-state" role="status">
+                <span>チャットを読み込めませんでした</span>
+                <button class="chat-state__retry" type="button" @click="retryLoadMessages">
+                  再読み込み
+                </button>
+              </div>
+              <div
+                v-else-if="timelineMessages.length === 0"
+                class="chat-state chat-state--empty"
+                role="status"
+              >
+                まだメッセージはありません
+              </div>
               <div v-for="message in timelineMessages" :key="message.messageId">
                 <MessageContainer
                   :user-id="message.author.userId"
@@ -300,6 +391,32 @@ watch(participantChatOpen, (open) => {
       :class="{ 'chat-container--display': room.variant === 'display' }"
     >
       <div class="chat-container__messages">
+        <div
+          v-if="historyStatus === 'loading' && timelineMessages.length === 0"
+          class="chat-state"
+          role="status"
+        >
+          <template v-if="historyStatus === 'loading'">チャットを読み込んでいます…</template>
+          <template v-else>
+            <span>チャットを読み込めませんでした</span>
+            <button class="chat-state__retry" type="button" @click="retryLoadMessages">
+              再読み込み
+            </button>
+          </template>
+        </div>
+        <div v-else-if="historyStatus === 'error'" class="chat-state" role="status">
+          <span>チャットを読み込めませんでした</span>
+          <button class="chat-state__retry" type="button" @click="retryLoadMessages">
+            再読み込み
+          </button>
+        </div>
+        <div
+          v-else-if="timelineMessages.length === 0"
+          class="chat-state chat-state--empty"
+          role="status"
+        >
+          まだメッセージはありません
+        </div>
         <div v-for="message in timelineMessages" :key="message.messageId">
           <MessageContainer
             :user-id="message.author.userId"
@@ -319,7 +436,9 @@ watch(participantChatOpen, (open) => {
 <style>
 .chat-container {
   height: calc(100% - 50px);
-  overflow-y: scroll;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
   scrollbar-width: none;
 }
 
@@ -328,6 +447,40 @@ watch(participantChatOpen, (open) => {
   min-height: 100%;
   flex-direction: column;
   justify-content: flex-end;
+  padding-bottom: 4px;
+}
+
+.chat-state {
+  display: flex;
+  min-height: 72px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: auto 12px;
+  color: #737b7c;
+  font-size: 13px;
+  text-align: center;
+}
+
+.chat-state--empty {
+  color: #89908e;
+}
+
+.chat-state__retry {
+  padding: 5px 10px;
+  border: 1px solid #d8d1c4;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #654d42;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-state__retry:focus-visible {
+  outline: 3px solid rgb(140 67 56 / 25%);
+  outline-offset: 2px;
 }
 
 .chat-container.chat-container--display {
@@ -391,7 +544,7 @@ watch(participantChatOpen, (open) => {
   justify-content: space-between;
   padding: 0 16px;
   border-bottom: 1px solid rgb(35 63 105 / 0.1);
-  color: #1f3556;
+  color: #26353b;
   font-size: 16px;
   font-weight: 800;
 }
@@ -402,6 +555,7 @@ watch(participantChatOpen, (open) => {
   min-height: 0;
   overflow-y: auto;
   padding: 8px 0;
+  scroll-behavior: smooth;
 }
 
 .chat-container--participant .nakami:not(.special) {
@@ -429,11 +583,17 @@ watch(participantChatOpen, (open) => {
   overflow: hidden;
   border: 0;
   border-top: 1px solid rgb(35 63 105 / 0.14);
-  border-radius: 18px 18px 0 0;
-  background: rgb(255 255 255 / 0.97);
-  box-shadow: 0 -10px 30px rgb(24 47 85 / 0.18);
-  color: #233f69;
+  border-radius: 14px 14px 0 0;
+  background: #fffdf8;
+  box-shadow: 0 -6px 18px rgb(24 35 39 / 0.11);
+  color: #26353b;
   text-align: left;
+  cursor: pointer;
+}
+
+.participant-chat__mobile-peek:focus-visible {
+  outline: 3px solid #a9362c;
+  outline-offset: -4px;
 }
 
 .participant-chat__mobile-handle {
@@ -479,7 +639,20 @@ watch(participantChatOpen, (open) => {
   min-height: 0;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
-  background: #fff;
+  background: #fffdf8;
+}
+
+.participant-chat__drawer-close {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-container,
+  .participant-chat__mobile-peek-row {
+    scroll-behavior: auto;
+    transition: none;
+  }
 }
 
 @media (max-width: 639px) {

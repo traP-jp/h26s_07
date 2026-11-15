@@ -9,14 +9,14 @@ const props = defineProps<{
 const ballColor = computed(() => {
   switch (props.cell.cellState) {
     case 'bingo':
-      return '#ff9800'
+      return '#9b6327'
     case 'reach':
-      return '#f06fb1'
+      return '#a44350'
     case 'open':
-      return '#4caf50'
+      return '#49765d'
     case 'closed':
     default:
-      return '#dddddd'
+      return '#e7e0d2'
   }
 })
 
@@ -35,9 +35,10 @@ const textColor = computed(() => {
 
 <template>
   <NumberBall
-    :key="props.cell.cellState"
     :ball-color="ballColor"
     :text-color="textColor"
     :text="props.cell.displayText"
+    :aria-label="props.cell.displayText === 'FREE' ? 'Free cell' : props.cell.displayText"
+    :class="`ball--${props.cell.cellState}`"
   />
 </template>

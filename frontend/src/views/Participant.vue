@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
 import ChatContainer from '@/components/chat/ChatContainer.vue'
@@ -9,7 +9,6 @@ import type { RoomCode, Card, RoomId, UserId } from '@/api/schema'
 import { useRoomsStore } from '@/stores/rooms'
 import { useCurrentUserStore } from '@/stores/currentUser'
 import { storeToRefs } from 'pinia'
-import { Fireworks } from 'fireworks-js'
 
 const route = useRoute()
 const roomCode = route.params.roomCode as RoomCode | undefined
@@ -20,12 +19,10 @@ const currentUserStore = useCurrentUserStore()
 const { roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
 
 const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
+const { latestBall } = storeToRefs(roomWebSocketStore)
 
 const displayCard = ref<Card | null>(null)
-const fireworksOverlay = ref<HTMLElement | null>(null)
 const isGameWaiting = computed(() => roomState.value === 'waiting')
-let fireworks: Fireworks | undefined
-let fireworksStopTimer: ReturnType<typeof setTimeout> | undefined
 const errorMessage = ref('')
 const currentUserId = ref<UserId>()
 
@@ -62,7 +59,6 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   disposed = true
-  stopBingoFireworks(true)
 
   if (roomId.value && connectedRoomId.value === roomId.value) {
     roomWebSocketStore.disconnect()
@@ -76,78 +72,6 @@ watch(
   },
   { immediate: true },
 )
-
-watch(
-  () => latestCardChanges.value?.newBingoLines,
-  async (newBingoLines) => {
-    if (!newBingoLines?.length) return
-
-    await nextTick()
-    playBingoFireworks()
-  },
-)
-
-function playBingoFireworks() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  if (!fireworksOverlay.value) return
-
-  stopBingoFireworks(true)
-
-  fireworks = new Fireworks(fireworksOverlay.value, {
-    autoresize: true,
-    opacity: 0.78,
-    acceleration: 1.03,
-    friction: 0.965,
-    gravity: 1.18,
-    particles: 120,
-    explosion: 8,
-    intensity: 46,
-    traceLength: 3.1,
-    traceSpeed: 8,
-    rocketsPoint: { min: 8, max: 92 },
-    hue: { min: 185, max: 345 },
-    delay: { min: 8, max: 20 },
-    brightness: { min: 84, max: 100 },
-    decay: { min: 0.011, max: 0.022 },
-    flickering: 42,
-    lineWidth: {
-      explosion: { min: 1.8, max: 4.4 },
-      trace: { min: 1.4, max: 3.4 },
-    },
-    lineStyle: 'round',
-    mouse: {
-      click: false,
-      move: false,
-      max: 0,
-    },
-    sound: {
-      enabled: false,
-      files: [],
-      volume: { min: 0, max: 0 },
-    },
-  })
-
-  fireworks.start()
-  fireworks.launch(12)
-
-  fireworksStopTimer = setTimeout(() => {
-    fireworks?.launch(9)
-    fireworksStopTimer = setTimeout(() => {
-      fireworks?.launch(6)
-      fireworksStopTimer = setTimeout(() => stopBingoFireworks(), 1900)
-    }, 520)
-  }, 420)
-}
-
-function stopBingoFireworks(dispose = false) {
-  if (fireworksStopTimer) {
-    clearTimeout(fireworksStopTimer)
-    fireworksStopTimer = undefined
-  }
-
-  fireworks?.stop(dispose)
-  fireworks = undefined
-}
 </script>
 
 <template>
@@ -164,6 +88,7 @@ function stopBingoFireworks(dispose = false) {
         class="participant-room__bingo-card"
         :card="displayCard"
         :card-changes="latestCardChanges"
+        :draw-key="latestBall"
         :placeholder="displayCard === null"
       />
     </div>
@@ -175,8 +100,6 @@ function stopBingoFireworks(dispose = false) {
       :connect="false"
       variant="participant"
     />
-
-    <div ref="fireworksOverlay" class="participant-room__fireworks"></div>
   </div>
 </template>
 
@@ -186,12 +109,7 @@ function stopBingoFireworks(dispose = false) {
   height: 100dvh;
   padding: 18px;
 
-  background:
-    radial-gradient(circle at 12% 18%, rgb(176 226 255 / 0.75), transparent 34%),
-    radial-gradient(circle at 82% 16%, rgb(255 197 223 / 0.7), transparent 32%),
-    radial-gradient(circle at 24% 82%, rgb(194 255 231 / 0.65), transparent 36%),
-    radial-gradient(circle at 78% 76%, rgb(211 198 255 / 0.7), transparent 34%),
-    linear-gradient(135deg, #f7fbff 0%, #fff8fd 48%, #f4fff9 100%);
+  background: #e9e7df;
 }
 
 .participant-room__card {
@@ -207,7 +125,7 @@ function stopBingoFireworks(dispose = false) {
 }
 
 .participant-room__chat {
-  width: 360px;
+  width: clamp(300px, 28vw, 360px);
   flex-shrink: 0;
   height: 100%;
 }
@@ -239,21 +157,6 @@ function stopBingoFireworks(dispose = false) {
   line-height: 1.45;
 }
 
-.participant-room__fireworks {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  overflow: hidden;
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-
-.participant-room__fireworks :deep(canvas) {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
 @media (max-width: 639px) {
   .participant-room {
     height: 100dvh;
@@ -266,6 +169,10 @@ function stopBingoFireworks(dispose = false) {
   .participant-room__card {
     width: 100%;
     height: 100%;
+  }
+
+  .participant-room__bingo-card {
+    width: min(94cqw, 68cqh);
   }
 
   .participant-room__waiting {
@@ -285,6 +192,12 @@ function stopBingoFireworks(dispose = false) {
     width: auto;
     height: auto;
     min-height: 0;
+  }
+}
+
+@media (max-width: 639px) and (orientation: landscape) {
+  .participant-room__bingo-card {
+    width: min(94cqw, 76cqh);
   }
 }
 </style>
