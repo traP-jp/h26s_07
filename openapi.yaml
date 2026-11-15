@@ -532,6 +532,7 @@ components:
 
     UserId:
       type: string
+      minLength: 1
       description: traP ID。
 
     RoomId:
@@ -1573,7 +1574,8 @@ components:
           $ref: "#/components/schemas/User"
         participantCount:
           type: integer
-          minimum: 0
+          minimum: 1
+          maximum: 9007199254740991
       required: [participant, participantCount]
 
     DisplayParticipantJoinedEvent:
