@@ -67,25 +67,24 @@ export function usePickRollingEffect() {
     }, 60)
   }
 
-  watch(latestEvent, (event) => {
-    if (!event) return
-
-    switch (event.type) {
-      case 'PickStarted':
+  watch(
+    pickState,
+    (state) => {
+      stopRollingBall()
+      if (state === 'picking') {
         startRollingBall()
         drumroll.play()
-        break
-      case 'PickFinished':
-        stopRollingBall()
+      } else {
+        rollingPickedBall.value = null
         drumroll.stop()
-        cymbal.play()
-        break
-      case 'PickCanceled':
-      case 'GameFinished':
-      case 'AllPicked':
-        stopRollingBall()
-        drumroll.stop()
-        break
+      }
+    },
+    { immediate: true },
+  )
+
+  watch(latestEvent, (event) => {
+    if (event?.type === 'PickFinished') {
+      cymbal.play()
     }
   })
 
