@@ -115,6 +115,15 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     qrCodeVisible.value = null
   }
 
+  function appendActivityLogEntries(entries: ActivityLogEntry[]) {
+    const knownIds = new Set(activityLog.value.map((entry) => entry.id))
+    for (const entry of entries) {
+      if (knownIds.has(entry.id)) continue
+      knownIds.add(entry.id)
+      activityLog.value.push(entry)
+    }
+  }
+
   function applyEvent(event: RoomWebSocketEvent) {
     if (
       event.type === 'ParticipantJoined' &&
@@ -187,7 +196,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       case 'PickFinished': {
         const body = event.body as PickFinishedBody
 
-        activityLog.value.push(...body.newActivityLog)
+        appendActivityLogEntries(body.newActivityLog)
         latestBall.value = body.pickedBall
         latestNewBingos.value = body.newBingos
         latestNewReaches.value = body.newReaches
