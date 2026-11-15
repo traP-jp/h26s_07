@@ -9,7 +9,19 @@ export const useRoomsStore = defineStore('rooms', () => {
   const initialized = ref(false)
 
   const roomsByCode = computed(() => {
-    return new Map(rooms.value.map((room) => [room.roomCode, room]))
+    const byCode = new Map<RoomCode, Room>()
+    for (const room of rooms.value) {
+      const previous = byCode.get(room.roomCode)
+      if (
+        !previous ||
+        (previous.state === 'finished' && room.state !== 'finished') ||
+        ((previous.state === 'finished') === (room.state === 'finished') &&
+          Date.parse(room.createdAt) > Date.parse(previous.createdAt))
+      ) {
+        byCode.set(room.roomCode, room)
+      }
+    }
+    return byCode
   })
 
   async function fetchRooms(): Promise<void> {
