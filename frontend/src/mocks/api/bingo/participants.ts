@@ -15,7 +15,7 @@ export const participantHandlers = [
           type: 'ParticipantJoined',
           body: { participant, participantCount: room.participants.length },
         },
-        'display',
+        { roomId: params.roomId, mode: 'display' },
       )
     }
     return response(204).empty()

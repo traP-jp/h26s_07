@@ -22,13 +22,13 @@ export const controlHandlers = [
     return response(204).empty()
   }),
 
-  http.post('/api/rooms/{roomId}/control/qrcode/show', ({ response }) => {
-    sendEvent({ type: 'ShowQRCode', body: {} })
+  http.post('/api/rooms/{roomId}/control/qrcode/show', ({ params, response }) => {
+    sendEvent({ type: 'ShowQRCode', body: {} }, { roomId: params.roomId })
     return response(204).empty()
   }),
 
-  http.post('/api/rooms/{roomId}/control/qrcode/hide', ({ response }) => {
-    sendEvent({ type: 'HideQRCode', body: {} })
+  http.post('/api/rooms/{roomId}/control/qrcode/hide', ({ params, response }) => {
+    sendEvent({ type: 'HideQRCode', body: {} }, { roomId: params.roomId })
     return response(204).empty()
   }),
 ]

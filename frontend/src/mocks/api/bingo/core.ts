@@ -26,11 +26,13 @@ export function clearSocketConnection(connection: MockSocketConnection): void {
 
 export function sendEvent<TBody>(
   event: { type: WebSocketEventType; body: TBody },
-  mode?: WebSocketMode,
+  target?: { roomId?: string; mode?: WebSocketMode },
 ): void {
-  if (!mode || currentSocketConnection?.mode === mode) {
-    currentSocketConnection?.send(JSON.stringify(event))
-  }
+  if (!currentSocketConnection) return
+  if (target?.roomId && currentSocketConnection.roomId !== target.roomId) return
+  if (target?.mode && currentSocketConnection.mode !== target.mode) return
+
+  currentSocketConnection.send(JSON.stringify(event))
 }
 
 export function currentUser(request: Request): User {

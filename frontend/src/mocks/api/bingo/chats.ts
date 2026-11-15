@@ -2,14 +2,14 @@ import type { CreateMessageRequest, Message } from '@/api/schema'
 
 import { http } from '../../http'
 import { currentUser, readJson, sendEvent } from './core'
-import { mockMessages } from './fixtures/index'
+import { appendMessageToRoom, messagesForRoom } from './chatHistory'
 
 export const chatHandlers = [
-  http.get('/api/rooms/{roomId}/chats', ({ response }) => {
-    return response(200).json(mockMessages)
+  http.get('/api/rooms/{roomId}/chats', ({ params, response }) => {
+    return response(200).json(messagesForRoom(params.roomId))
   }),
 
-  http.post('/api/rooms/{roomId}/chats', async ({ request, response }) => {
+  http.post('/api/rooms/{roomId}/chats', async ({ params, request, response }) => {
     const body = await readJson<CreateMessageRequest>(request)
     const message: Message = {
       messageId: crypto.randomUUID(),
@@ -18,9 +18,9 @@ export const chatHandlers = [
       createdAt: new Date().toISOString(),
     }
 
-    mockMessages.push(message)
+    appendMessageToRoom(params.roomId, message)
 
-    sendEvent({ type: 'MessageCreated', body: { message } })
+    sendEvent({ type: 'MessageCreated', body: { message } }, { roomId: params.roomId })
 
     return response(200).json(message)
   }),
