@@ -1,4 +1,4 @@
-import type { Card, Message, PickedBall, WebSocketEventType } from '@/api/schema'
+import type { ActivityLogEntry, Card, Message, PickedBall, WebSocketEventType } from '@/api/schema'
 import type { MockSocketConnection } from '../core'
 import { fallbackRoom, mockRooms } from './rooms'
 
@@ -287,10 +287,32 @@ const pickSnapshots = [
 
 const lastPickSnapshot = pickSnapshots[3]!
 
+function activityForSnapshot(snapshot: (typeof pickSnapshots)[number]): ActivityLogEntry[] {
+  return [
+    ...snapshot.newReaches.map(({ user }) => ({
+      id: `reach-${snapshot.pickedBall}-${user.userId}`,
+      kind: 'reach' as const,
+      user,
+      createdAt: snapshot.reachSummaries.find((item) => item.user.userId === user.userId)!
+        .createdAt,
+    })),
+    ...snapshot.newBingos.map(({ user, bingoOrders }) => ({
+      id: `bingo-${snapshot.pickedBall}-${user.userId}`,
+      kind: 'bingo' as const,
+      user,
+      createdAt: snapshot.bingoSummaries.find((item) => item.user.userId === user.userId)!
+        .createdAt,
+      bingoRank: bingoOrders[0],
+      lineCount: bingoOrders.length,
+    })),
+  ]
+}
+
 const pickFinishedEvent = (snapshot: (typeof pickSnapshots)[number]): ModeWebSocketEvent => ({
   participant: {
     type: 'PickFinished',
     body: {
+      newActivityLog: activityForSnapshot(snapshot),
       pickedBall: snapshot.pickedBall,
       pickState: 'idle',
       card: snapshot.card,
@@ -305,6 +327,7 @@ const pickFinishedEvent = (snapshot: (typeof pickSnapshots)[number]): ModeWebSoc
   display: {
     type: 'PickFinished',
     body: {
+      newActivityLog: activityForSnapshot(snapshot),
       pickedBall: snapshot.pickedBall,
       pickState: 'idle',
       participantCount: 6,
