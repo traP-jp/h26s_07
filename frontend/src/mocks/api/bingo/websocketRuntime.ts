@@ -1,5 +1,5 @@
-import type { ActivityLogEntry } from '@/api/schema'
-import { sendEvent, type MockSocketConnection } from './core'
+import type { ActivityLogEntry, Card } from '@/api/schema'
+import { sendEvent, sendEventToConnection, type MockSocketConnection } from './core'
 import { appendMessageToRoom } from './chatHistory'
 import {
   demoChatMessages,
@@ -10,9 +10,13 @@ import {
   roomByPathParam,
   scriptForRoom,
 } from './fixtures/index'
+import { mockCards } from './fixtures/websocket'
 
 const scheduledDemoChatRoomIds = new Set<string>()
 const activityLogsByRoom = new Map<string, ActivityLogEntry[]>()
+const participantCardIds = new Map<string, string>()
+const participantCardNumbers = new Map<string, string>()
+const activityLogIdsByConnection = new WeakMap<MockSocketConnection, Set<string>>()
 
 function appendActivityLog(roomId: string, entries: ActivityLogEntry[]): void {
   activityLogsByRoom.set(roomId, [
@@ -22,11 +26,71 @@ function appendActivityLog(roomId: string, entries: ActivityLogEntry[]): void {
   ])
 }
 
+function participantCard(connection: MockSocketConnection, template: Card): Card {
+  const key = `${connection.roomId}:${connection.userId}`
+  let cardId = participantCardIds.get(key)
+  if (!cardId) {
+    cardId = crypto.randomUUID()
+    participantCardIds.set(key, cardId)
+    participantCardNumbers.set(key, template.cardNumber)
+  }
+  return {
+    ...template,
+    cardId,
+    cardNumber: participantCardNumbers.get(key)!,
+    ownerUserId: connection.userId,
+  }
+}
+
+function cardWithPickedBalls(card: Card, pickedBalls: number[]): Card {
+  const picked = new Set(pickedBalls)
+  return {
+    ...card,
+    cells: card.cells.map((cell) =>
+      cell.number !== null && picked.has(cell.number) && cell.cellState === 'closed'
+        ? { ...cell, cellState: 'open' }
+        : cell,
+    ),
+  }
+}
+
+export function eventForConnection(
+  connection: MockSocketConnection,
+  event: MockWebSocketEvent,
+): MockWebSocketEvent {
+  if (connection.mode !== 'participant') return event
+
+  switch (event.type) {
+    case 'GameStarted':
+    case 'PickFinished':
+    case 'GameFinished': {
+      const body = event.body as { card: Card; pickedBalls?: number[] }
+      const pickedBalls =
+        body.pickedBalls ?? (event.type === 'GameStarted' ? initialPickedBalls : [])
+      const card = cardWithPickedBalls(body.card, pickedBalls)
+      return { ...event, body: { ...body, card: participantCard(connection, card) } }
+    }
+    default:
+      return event
+  }
+}
+
 function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent {
   const room = roomByPathParam(connection.roomId)
   const pickedBalls = room.state === 'waiting' ? [] : initialPickedBalls
 
   if (connection.mode === 'participant') {
+    const participantIndex = room.participants.findIndex(
+      (participant) => participant.user.userId === connection.userId,
+    )
+    const card =
+      room.state === 'waiting' || participantIndex < 0
+        ? undefined
+        : participantCard(
+            connection,
+            cardWithPickedBalls(mockCards[participantIndex % mockCards.length]!, pickedBalls),
+          )
+
     return {
       type: 'Initialized',
       body: {
@@ -37,6 +101,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
         pickedBalls,
         bingoSummaries: room.bingoSummaries,
         reachSummaries: room.reachSummaries,
+        ...(card ? { card } : {}),
       },
     }
   }
@@ -68,8 +133,17 @@ function scheduleScript(
       if (event.type === 'PickFinished') {
         const body = event.body as { newActivityLog: ActivityLogEntry[] }
         appendActivityLog(connection.roomId, body.newActivityLog)
+        const knownIds = activityLogIdsByConnection.get(connection) ?? new Set<string>()
+        const newActivityLog = body.newActivityLog.filter((entry) => !knownIds.has(entry.id))
+        for (const entry of newActivityLog) knownIds.add(entry.id)
+        activityLogIdsByConnection.set(connection, knownIds)
+        sendEventToConnection(
+          connection,
+          eventForConnection(connection, { ...event, body: { ...body, newActivityLog } }),
+        )
+        return
       }
-      sendEvent(event, { roomId: connection.roomId, mode: connection.mode })
+      sendEventToConnection(connection, eventForConnection(connection, event))
     }, item.delayMs)
   }
 }
@@ -101,7 +175,10 @@ export function startMockRoomWebSocket(connection: MockSocketConnection): void {
   const room = roomByPathParam(connection.roomId)
   const script = scriptForRoom(room)
 
-  sendEvent(initializedEvent(connection), { roomId: connection.roomId, mode: connection.mode })
+  const event = initializedEvent(connection)
+  const body = event.body as { activityLog: ActivityLogEntry[] }
+  activityLogIdsByConnection.set(connection, new Set(body.activityLog.map((entry) => entry.id)))
+  sendEventToConnection(connection, event)
   scheduleDemoChatMessages(connection.roomId)
 
   if (room.state !== 'waiting' || connection.mode === 'display') {
