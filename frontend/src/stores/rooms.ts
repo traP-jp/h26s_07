@@ -68,7 +68,13 @@ export const useRoomsStore = defineStore('rooms', () => {
       throw new Error('Failed to join room')
     }
 
-    await fetchRooms()
+    // The join is committed by the POST. A follow-up room-list refresh is
+    // best-effort; its failure must not make the caller treat the join as failed.
+    try {
+      await fetchRooms()
+    } catch {
+      // Keep the existing room cache and let the caller continue with the join.
+    }
   }
 
   return {
