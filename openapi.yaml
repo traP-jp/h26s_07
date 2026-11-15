@@ -526,6 +526,7 @@ components:
 
     UserId:
       type: string
+      minLength: 1
       description: traP ID。
 
     RoomId:

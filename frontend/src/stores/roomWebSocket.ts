@@ -116,6 +116,19 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function applyEvent(event: RoomWebSocketEvent) {
+    if (
+      event.type === 'ParticipantJoined' &&
+      (!event.body ||
+        !event.body.participant ||
+        typeof event.body.participant.userId !== 'string' ||
+        event.body.participant.userId.length === 0 ||
+        !Number.isInteger(event.body.participantCount) ||
+        event.body.participantCount < 0)
+    ) {
+      errorMessage.value = 'Invalid ParticipantJoined event'
+      return
+    }
+
     latestEvent.value = event
 
     switch (event.type) {
