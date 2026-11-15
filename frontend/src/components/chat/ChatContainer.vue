@@ -300,8 +300,9 @@ watch(participantChatOpen, (open) => {
       v-model:open="participantChatOpen"
       direction="bottom"
       :handle="false"
+      title="チャット"
       :ui="{
-        content: 'bg-white p-0 sm:hidden h-[82dvh] max-h-[82dvh]',
+        content: 'participant-chat__drawer-panel bg-white p-0 sm:hidden h-[82dvh] max-h-[82dvh]',
       }"
     >
       <button
@@ -616,6 +617,11 @@ watch(participantChatOpen, (open) => {
   .participant-chat__mobile-peek-row {
     scroll-behavior: auto;
     transition-duration: 0.01ms;
+  }
+
+  .participant-chat__drawer-panel {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
 
