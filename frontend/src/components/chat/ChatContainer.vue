@@ -23,7 +23,7 @@ const room = withDefaults(
 )
 
 const historyMessages = ref<Message[]>([])
-const historyStatus = ref<'loading' | 'ready' | 'error'>('loading')
+const historyStatus = ref<'loading' | 'ready' | 'error' | 'forbidden'>('loading')
 const messages = computed(() => [
   ...historyMessages.value,
   ...(store.roomId === activeRoomId.value ? store.chatMessages : []),
@@ -144,7 +144,10 @@ const loadMessages = async (roomId: Uuid) => {
     })
 
     if (response.response.status === 403) {
-      if (isCurrentRequest()) historyStatus.value = 'ready'
+      if (isCurrentRequest()) {
+        historyMessages.value = []
+        historyStatus.value = 'forbidden'
+      }
       return
     }
 
@@ -261,6 +264,9 @@ watch(participantChatOpen, (open) => {
           >
             チャットを読み込んでいます…
           </div>
+          <div v-else-if="historyStatus === 'forbidden'" class="chat-state" role="status">
+            過去のチャット履歴を表示する権限がありません
+          </div>
           <div v-else-if="historyStatus === 'error'" class="chat-state" role="status">
             <span>チャットを読み込めませんでした</span>
             <button class="chat-state__retry" type="button" @click="retryLoadMessages">
@@ -283,7 +289,11 @@ watch(participantChatOpen, (open) => {
           </div>
         </div>
       </div>
-      <PostMessage v-if="activeRoomId" :room-id="activeRoomId" variant="light"></PostMessage>
+      <PostMessage
+        v-if="activeRoomId && historyStatus !== 'forbidden'"
+        :room-id="activeRoomId"
+        variant="light"
+      ></PostMessage>
     </section>
 
     <UDrawer
@@ -336,6 +346,9 @@ watch(participantChatOpen, (open) => {
               >
                 チャットを読み込んでいます…
               </div>
+              <div v-else-if="historyStatus === 'forbidden'" class="chat-state" role="status">
+                過去のチャット履歴を表示する権限がありません
+              </div>
               <div v-else-if="historyStatus === 'error'" class="chat-state" role="status">
                 <span>チャットを読み込めませんでした</span>
                 <button class="chat-state__retry" type="button" @click="retryLoadMessages">
@@ -358,7 +371,11 @@ watch(participantChatOpen, (open) => {
               </div>
             </div>
           </div>
-          <PostMessage v-if="activeRoomId" :room-id="activeRoomId" variant="light"></PostMessage>
+          <PostMessage
+            v-if="activeRoomId && historyStatus !== 'forbidden'"
+            :room-id="activeRoomId"
+            variant="light"
+          ></PostMessage>
         </section>
       </template>
     </UDrawer>
@@ -380,6 +397,9 @@ watch(participantChatOpen, (open) => {
           role="status"
         >
           チャットを読み込んでいます…
+        </div>
+        <div v-else-if="historyStatus === 'forbidden'" class="chat-state" role="status">
+          過去のチャット履歴を表示する権限がありません
         </div>
         <div v-else-if="historyStatus === 'error'" class="chat-state" role="status">
           <span>チャットを読み込めませんでした</span>
