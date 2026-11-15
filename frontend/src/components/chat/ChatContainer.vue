@@ -37,6 +37,8 @@ const activeRoomId = ref<Uuid | null>(null)
 const participantChatOpen = ref(false)
 const participantChatClosing = ref(false)
 let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
+let historyRequestGeneration = 0
+let isUnmounted = false
 
 const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
@@ -129,6 +131,12 @@ const closeParticipantChat = () => {
 }
 
 const loadMessages = async (roomId: Uuid) => {
+  if (isUnmounted) return
+
+  const requestGeneration = ++historyRequestGeneration
+  const isCurrentRequest = () =>
+    !isUnmounted && requestGeneration === historyRequestGeneration && activeRoomId.value === roomId
+
   historyStatus.value = 'loading'
   try {
     const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
@@ -136,20 +144,20 @@ const loadMessages = async (roomId: Uuid) => {
     })
 
     if (response.response.status === 403) {
-      historyStatus.value = 'ready'
+      if (isCurrentRequest()) historyStatus.value = 'ready'
       return
     }
 
-    if (response.data && activeRoomId.value === roomId) {
+    if (response.data && isCurrentRequest()) {
       // 履歴APIは全件返すため、再取得しても同じIDは重ねない。
       historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
       historyStatus.value = 'ready'
       void scrollToBottom(true)
-    } else {
+    } else if (isCurrentRequest()) {
       historyStatus.value = 'error'
     }
   } catch {
-    historyStatus.value = 'error'
+    if (isCurrentRequest()) historyStatus.value = 'error'
   }
 }
 
@@ -160,9 +168,12 @@ const notificationType = (message: Message) => {
 }
 
 const initializeChat = async () => {
+  if (isUnmounted) return
+
   historyStatus.value = 'loading'
   try {
     const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
+    if (isUnmounted) return
     if (!roomId) throw new Error('Room not found')
     activeRoomId.value = roomId
 
@@ -172,7 +183,7 @@ const initializeChat = async () => {
     }
     await loadMessages(roomId)
   } catch {
-    historyStatus.value = 'error'
+    if (!isUnmounted) historyStatus.value = 'error'
   }
 }
 
@@ -202,6 +213,8 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  isUnmounted = true
+  historyRequestGeneration += 1
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
 })
 
