@@ -263,7 +263,10 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       return
     }
 
-    const changed = roomId.value !== options.roomId || mode.value !== options.mode
+    const changed =
+      roomId.value !== options.roomId ||
+      mode.value !== options.mode ||
+      userId.value !== (options.userId ?? null)
     disconnect()
     if (changed) {
       resetRoomState()
@@ -356,7 +359,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     const attempt = reconnectAttempt.value
     const options = { roomId: roomId.value, mode: mode.value, userId: userId.value ?? undefined }
     // Replace even an apparently OPEN socket when its application state may be stale.
-    disconnect()
+    disconnect(true)
     reconnectAttempt.value = attempt
     connect(options)
   }
@@ -383,11 +386,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     sawOffline = true
   }
 
-  function disconnect() {
+  function disconnect(preserveUserIdentity = false) {
     generation += 1
     enabled = false
     sawOffline = false
-    userId.value = null
+    if (!preserveUserIdentity) userId.value = null
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     window.removeEventListener('offline', markOffline)
