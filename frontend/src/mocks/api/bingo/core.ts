@@ -24,8 +24,13 @@ export function clearSocketConnection(connection: MockSocketConnection): void {
   }
 }
 
-export function sendEvent<TBody>(event: { type: WebSocketEventType; body: TBody }): void {
-  currentSocketConnection?.send(JSON.stringify(event))
+export function sendEvent<TBody>(
+  event: { type: WebSocketEventType; body: TBody },
+  mode?: WebSocketMode,
+): void {
+  if (!mode || currentSocketConnection?.mode === mode) {
+    currentSocketConnection?.send(JSON.stringify(event))
+  }
 }
 
 export function currentUser(request: Request): User {
