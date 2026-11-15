@@ -14,8 +14,9 @@ const newMessage = ref('')
 const sending = ref(false)
 const sendError = ref('')
 const inputId = useId()
+const messageLength = computed(() => Array.from(newMessage.value).length)
 const canSend = computed(
-  () => newMessage.value.trim().length > 0 && newMessage.value.length <= 500 && !sending.value,
+  () => newMessage.value.trim().length > 0 && messageLength.value <= 500 && !sending.value,
 )
 
 const post = async () => {
@@ -50,13 +51,13 @@ const post = async () => {
       v-model="newMessage"
       class="message-input"
       type="text"
-      maxlength="500"
+      maxlength="1000"
       autocomplete="off"
       placeholder="メッセージを書く"
       @input="sendError = ''"
     />
-    <span class="message-count" :class="{ 'message-count--limit': newMessage.length > 450 }">
-      {{ newMessage.length }}/500
+    <span class="message-count" :class="{ 'message-count--limit': messageLength > 450 }">
+      {{ messageLength }}/500
     </span>
     <button
       class="send-button"
