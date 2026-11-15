@@ -21,10 +21,21 @@
           <div v-if="isGameWaiting" class="display-page__waiting-panel">
             <p class="display-page__waiting-title">ゲームはまだ始まっていません</p>
             <p class="display-page__waiting-text">参加者の準備ができるまでお待ちください</p>
-            <p>参加者: {{ roomWebSocketStore.participantCount ?? 0 }} 人</p>
-            <p class="max-h-24 overflow-auto">
-              {{ roomWebSocketStore.participants.map((user) => user.userId).join('、') }}
+            <p role="status" aria-live="polite" aria-atomic="true">
+              参加者: {{ roomWebSocketStore.participantCount ?? 0 }} 人
             </p>
+            <div class="max-h-24 overflow-auto" role="list" aria-label="参加者一覧">
+              <span
+                v-for="(user, index) in roomWebSocketStore.participants"
+                :key="user.userId"
+                role="listitem"
+              >
+                {{ user.userId
+                }}<span v-if="index < roomWebSocketStore.participants.length - 1" aria-hidden="true"
+                  >、</span
+                >
+              </span>
+            </div>
           </div>
           <BallStateGrid v-else :picked-balls="pickedBalls" :latest-ball="latestBall" />
           <RoomStatsBar />
@@ -45,6 +56,7 @@
         variant="soft"
         size="xl"
         :icon="isFullscreen ? 'i-lucide-minimize' : 'i-lucide-expand'"
+        :aria-label="isFullscreen ? '全画面表示を終了' : '全画面表示'"
         @click="toggleFullscreen"
       />
       <DisplayParticipantQrCode :room-code="props.roomCode" :open="qrCodeVisible ?? false" />
