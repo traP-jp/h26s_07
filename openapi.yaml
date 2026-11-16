@@ -1461,6 +1461,11 @@ components:
         kind:
           type: string
           enum: [reach, bingo]
+        pickBall:
+          type: integer
+          minimum: 1
+          maximum: 75
+          description: この記録を発生させた抽選の球。同じ抽選で成立した記録は同じ値になる。
         user:
           $ref: "#/components/schemas/User"
         createdAt:
@@ -1472,4 +1477,4 @@ components:
           type: integer
           minimum: 1
           maximum: 12
-      required: [id, kind, user, createdAt]
+      required: [id, kind, pickBall, user, createdAt]

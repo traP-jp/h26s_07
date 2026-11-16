@@ -594,6 +594,8 @@ export interface components {
             id: string;
             /** @enum {string} */
             kind: "reach" | "bingo";
+            /** @description この記録を発生させた抽選の球。同じ抽選で成立した記録は同じ値になる。 */
+            pickBall: number;
             user: components["schemas"]["User"];
             createdAt: components["schemas"]["DateTime"];
             bingoRank?: number;

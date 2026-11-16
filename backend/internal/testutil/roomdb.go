@@ -86,6 +86,7 @@ func NewRoomDB(t testing.TB) *gorm.DB {
 		`CREATE TABLE room_bingo_records (
 			record_id TEXT PRIMARY KEY,
 			room_id TEXT NOT NULL,
+			pick_ball INTEGER NOT NULL,
 			user_id TEXT NOT NULL,
 			card_id TEXT NOT NULL,
 			line_index INTEGER NOT NULL,
@@ -97,6 +98,7 @@ func NewRoomDB(t testing.TB) *gorm.DB {
 		`CREATE TABLE room_reach_records (
 			record_id TEXT PRIMARY KEY,
 			room_id TEXT NOT NULL,
+			pick_ball INTEGER NOT NULL,
 			user_id TEXT NOT NULL,
 			line_index INTEGER NOT NULL,
 			last_cell_index INTEGER NOT NULL,

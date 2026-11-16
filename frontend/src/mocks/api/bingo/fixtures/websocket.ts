@@ -213,12 +213,14 @@ const pickSnapshots = [
       {
         id: 'reach-17-kurosaki',
         kind: 'reach',
+        pickBall: 17,
         user: demoUsers.kurosaki,
         createdAt: '2026-06-27T11:11:00.000Z',
       },
       {
         id: 'reach-17-rurun',
         kind: 'reach',
+        pickBall: 17,
         user: demoUsers.rurun,
         createdAt: '2026-06-27T11:11:00.000Z',
       },
@@ -237,18 +239,21 @@ const pickSnapshots = [
       {
         id: 'reach-22-howard127',
         kind: 'reach',
+        pickBall: 22,
         user: demoUsers.howard127,
         createdAt: '2026-06-27T11:12:00.000Z',
       },
       {
         id: 'reach-22-kurao',
         kind: 'reach',
+        pickBall: 22,
         user: demoUsers.kurao,
         createdAt: '2026-06-27T11:12:00.000Z',
       },
       {
         id: 'bingo-22-kurosaki',
         kind: 'bingo',
+        pickBall: 22,
         user: demoUsers.kurosaki,
         createdAt: '2026-06-27T11:12:00.000Z',
         bingoRank: 1,
@@ -269,12 +274,14 @@ const pickSnapshots = [
       {
         id: 'reach-45-minami',
         kind: 'reach',
+        pickBall: 45,
         user: demoUsers.minami,
         createdAt: '2026-06-27T11:13:00.000Z',
       },
       {
         id: 'bingo-45-rurun',
         kind: 'bingo',
+        pickBall: 45,
         user: demoUsers.rurun,
         createdAt: '2026-06-27T11:13:00.000Z',
         bingoRank: 2,
@@ -295,12 +302,14 @@ const pickSnapshots = [
       {
         id: 'reach-61-yamada',
         kind: 'reach',
+        pickBall: 61,
         user: demoUsers.yamada,
         createdAt: '2026-06-27T11:14:00.000Z',
       },
       {
         id: 'bingo-61-howard127',
         kind: 'bingo',
+        pickBall: 61,
         user: demoUsers.howard127,
         createdAt: '2026-06-27T11:14:00.000Z',
         bingoRank: 3,
@@ -309,6 +318,7 @@ const pickSnapshots = [
       {
         id: 'bingo-61-kurao',
         kind: 'bingo',
+        pickBall: 61,
         user: demoUsers.kurao,
         createdAt: '2026-06-27T11:14:00.000Z',
         bingoRank: 4,

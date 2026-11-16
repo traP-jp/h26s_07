@@ -20,6 +20,7 @@ const (
 type ActivityLogEntry struct {
 	ID        RecordID
 	Kind      ActivityLogKind
+	PickBall  BallNumber // この記録を発生させた抽選の球。同じ抽選の記録は同じ値になる。
 	UserID    UserID
 	CreatedAt time.Time
 	BingoRank *int // 初めてビンゴした参加者の順位。ビンゴ記録では1始まり、リーチ記録ではnil。
@@ -29,7 +30,7 @@ type ActivityLogEntry struct {
 func (room *Room) ActivityLog() []ActivityLogEntry {
 	entries := make([]ActivityLogEntry, 0, len(room.ReachRecords)+len(room.BingoRecords))
 	for _, r := range room.ReachRecords {
-		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: ActivityLogKindReach, UserID: r.UserID, CreatedAt: r.CreatedAt})
+		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: ActivityLogKindReach, PickBall: r.PickBall, UserID: r.UserID, CreatedAt: r.CreatedAt})
 	}
 	bingoRecords := slices.Clone(room.BingoRecords)
 	// 同じ抽選で時刻が同じ記録の順位は、保存済みの順序で決める。
@@ -42,7 +43,7 @@ func (room *Room) ActivityLog() []ActivityLogEntry {
 		}
 		counts[r.UserID]++
 		rank, count := ranks[r.UserID], counts[r.UserID]
-		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: ActivityLogKindBingo, UserID: r.UserID, CreatedAt: r.CreatedAt, BingoRank: &rank, LineCount: &count})
+		entries = append(entries, ActivityLogEntry{ID: r.RecordID, Kind: ActivityLogKindBingo, PickBall: r.PickBall, UserID: r.UserID, CreatedAt: r.CreatedAt, BingoRank: &rank, LineCount: &count})
 	}
 	slices.SortFunc(entries, func(a, b ActivityLogEntry) int {
 		if c := a.CreatedAt.Compare(b.CreatedAt); c != 0 {

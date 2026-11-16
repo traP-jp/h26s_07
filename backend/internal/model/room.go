@@ -90,6 +90,7 @@ type BingoOrder uint
 
 type BingoRecord struct {
 	RecordID  RecordID
+	PickBall  BallNumber
 	UserID    UserID
 	Line      LineIndex
 	Order     BingoOrder
@@ -109,6 +110,7 @@ type ReachSummary struct {
 
 type ReachRecord struct {
 	RecordID      RecordID
+	PickBall      BallNumber
 	UserID        UserID
 	Line          LineIndex
 	LastCellIndex CellIndex
@@ -539,6 +541,7 @@ func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID Recor
 			}
 			record := BingoRecord{
 				RecordID:  recordID,
+				PickBall:  picked,
 				UserID:    cards[i].OwnerUserID,
 				Line:      line,
 				Order:     BingoOrder(len(bingoRecords) + 1),
@@ -558,6 +561,7 @@ func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID Recor
 			lastCellIndex, _ := cards[i].LastMissingCellIndex(newReachLines[0])
 			record := ReachRecord{
 				RecordID:      recordID,
+				PickBall:      picked,
 				UserID:        cards[i].OwnerUserID,
 				Line:          newReachLines[0],
 				LastCellIndex: lastCellIndex,
