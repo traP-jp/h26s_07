@@ -29,14 +29,9 @@ const isGameWaiting = computed(() => roomState.value === 'waiting')
 const isActiveRoom = computed(() => roomId.value !== null && connectedRoomId.value === roomId.value)
 const errorMessage = ref('')
 
-let roomLookupGeneration = 0
-let joinAbortController: AbortController | undefined
-let permissionCheckKey: string | null = null
+let permissionCheckKey: RoomId | null = null
 
 async function connectToRoom(nextRoomCode: RoomCode | undefined) {
-  const generation = ++roomLookupGeneration
-  joinAbortController?.abort()
-  joinAbortController = undefined
   if (mode.value === 'participant') roomWebSocketStore.disconnect()
   roomId.value = null
   displayCard.value = null
@@ -46,9 +41,7 @@ async function connectToRoom(nextRoomCode: RoomCode | undefined) {
     if (!nextRoomCode) return
 
     const userId = await currentUserStore.getUserId()
-    if (generation !== roomLookupGeneration) return
     const room = await roomsStore.getRoomByCode(nextRoomCode)
-    if (generation !== roomLookupGeneration) return
     const nextRoomId = room?.roomId ?? null
     roomId.value = nextRoomId
 
@@ -63,16 +56,12 @@ async function connectToRoom(nextRoomCode: RoomCode | undefined) {
         return
       }
 
-      joinAbortController = new AbortController()
-      await roomsStore.joinRoom(nextRoomId, joinAbortController.signal)
+      await roomsStore.joinRoom(nextRoomId)
     }
 
-    if (generation !== roomLookupGeneration) return
     roomWebSocketStore.connect({ roomId: nextRoomId, mode: 'participant', userId })
   } catch (error) {
-    if (generation === roomLookupGeneration) {
-      errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
-    }
+    errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
   }
 }
 
@@ -93,16 +82,13 @@ watch(
     const expectedRoomId = roomId.value
     const expectedUserId = currentUserStore.userId
     if (expectedUserId === null) return
-    const expectedGeneration = roomLookupGeneration
-    const checkKey = `${expectedGeneration}:${expectedRoomId}`
-    if (permissionCheckKey === checkKey) return
+    if (permissionCheckKey === expectedRoomId) return
 
-    permissionCheckKey = checkKey
+    permissionCheckKey = expectedRoomId
     void roomsStore
       .fetchRooms()
       .then(() => {
         if (
-          roomLookupGeneration !== expectedGeneration ||
           roomId.value !== expectedRoomId ||
           connectedRoomId.value !== expectedRoomId ||
           mode.value !== 'participant'
@@ -126,14 +112,12 @@ watch(
         // A failed permission refresh is indistinguishable from a transient network outage.
       })
       .finally(() => {
-        if (permissionCheckKey === checkKey) permissionCheckKey = null
+        if (permissionCheckKey === expectedRoomId) permissionCheckKey = null
       })
   },
 )
 
 onBeforeUnmount(() => {
-  roomLookupGeneration += 1
-  joinAbortController?.abort()
   stopBingoFireworks(true)
 
   if (mode.value === 'participant' && connectedRoomId.value === roomId.value) {

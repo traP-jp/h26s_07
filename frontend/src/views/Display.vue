@@ -88,7 +88,6 @@ const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
 const roomId = ref<RoomId | null>(null)
-let roomLookupGeneration = 0
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
 const { bottomText, cutinKey, handleCutinComplete, resetDisplayEffects, showCutin, topText } =
   useDisplayEffects()
@@ -113,7 +112,6 @@ async function toggleFullscreen() {
 }
 
 async function connectToRoom(roomCode: string) {
-  const generation = ++roomLookupGeneration
   resetDisplayEffects()
   if (mode.value === 'display') roomWebSocketStore.disconnect()
   roomId.value = null
@@ -121,7 +119,6 @@ async function connectToRoom(roomCode: string) {
   if (!roomCode) return
 
   const room = await roomsStore.getRoomByCode(roomCode)
-  if (generation !== roomLookupGeneration) return
 
   const nextRoomId = room?.roomId ?? null
   roomId.value = nextRoomId
@@ -143,7 +140,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  roomLookupGeneration += 1
   document.removeEventListener('fullscreenchange', syncFullscreenState)
 
   if (mode.value === 'display') {
