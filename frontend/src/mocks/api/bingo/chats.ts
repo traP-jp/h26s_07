@@ -9,7 +9,7 @@ export const chatHandlers = [
     return response(200).json(mockMessages)
   }),
 
-  http.post('/api/rooms/{roomId}/chats', async ({ request, response }) => {
+  http.post('/api/rooms/{roomId}/chats', async ({ params, request, response }) => {
     const body = await readJson<CreateMessageRequest>(request)
     const message: Message = {
       messageId: crypto.randomUUID(),
@@ -20,7 +20,7 @@ export const chatHandlers = [
 
     mockMessages.push(message)
 
-    sendEvent({ type: 'MessageCreated', body: { message } })
+    sendEvent({ type: 'MessageCreated', body: { message } }, { roomId: params.roomId })
 
     return response(200).json(message)
   }),

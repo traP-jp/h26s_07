@@ -1,4 +1,4 @@
-import { sendEvent, type MockSocketConnection } from './core'
+import { sendEventToConnection, type MockSocketConnection } from './core'
 import {
   demoChatMessages,
   eventForMode,
@@ -32,6 +32,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
   return {
     type: 'Initialized',
     body: {
+      participants: room.participants.map((participant) => participant.user),
       state: room.state,
       settings: room.settings,
       pickState: room.pickState,
@@ -50,12 +51,13 @@ function scheduleScript(
 ): void {
   for (const item of script) {
     window.setTimeout(() => {
-      sendEvent(eventForMode(item.event, connection.mode))
+      sendEventToConnection(connection, eventForMode(item.event, connection.mode))
     }, item.delayMs)
   }
 }
 
-function scheduleDemoChatMessages(roomId: string): void {
+function scheduleDemoChatMessages(connection: MockSocketConnection): void {
+  const { roomId } = connection
   if (scheduledDemoChatRoomIds.has(roomId)) {
     return
   }
@@ -65,7 +67,7 @@ function scheduleDemoChatMessages(roomId: string): void {
   for (const [index, messageTemplate] of demoChatMessages.entries()) {
     window.setTimeout(
       () => {
-        sendEvent({
+        sendEventToConnection(connection, {
           type: 'MessageCreated',
           body: {
             message: {
@@ -85,8 +87,8 @@ export function startMockRoomWebSocket(connection: MockSocketConnection): void {
   const room = roomByPathParam(connection.roomId)
   const script = scriptForRoom(room)
 
-  sendEvent(initializedEvent(connection))
-  scheduleDemoChatMessages(connection.roomId)
+  sendEventToConnection(connection, initializedEvent(connection))
+  scheduleDemoChatMessages(connection)
 
   if (room.state !== 'waiting' || connection.mode === 'display') {
     scheduleScript(connection, script.onConnect)

@@ -173,6 +173,21 @@ func (e DisplayMessageCreatedEventType) Valid() bool {
 	}
 }
 
+// Defines values for DisplayParticipantJoinedEventType.
+const (
+	ParticipantJoined DisplayParticipantJoinedEventType = "ParticipantJoined"
+)
+
+// Valid indicates whether the value is a known member of the DisplayParticipantJoinedEventType enum.
+func (e DisplayParticipantJoinedEventType) Valid() bool {
+	switch e {
+	case ParticipantJoined:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DisplayPickCanceledEventType.
 const (
 	DisplayPickCanceledEventTypePickCanceled DisplayPickCanceledEventType = "PickCanceled"
@@ -449,6 +464,7 @@ const (
 	WebSocketEventTypeHideQRCode          WebSocketEventType = "HideQRCode"
 	WebSocketEventTypeInitialized         WebSocketEventType = "Initialized"
 	WebSocketEventTypeMessageCreated      WebSocketEventType = "MessageCreated"
+	WebSocketEventTypeParticipantJoined   WebSocketEventType = "ParticipantJoined"
 	WebSocketEventTypePickCanceled        WebSocketEventType = "PickCanceled"
 	WebSocketEventTypePickFinished        WebSocketEventType = "PickFinished"
 	WebSocketEventTypePickStarted         WebSocketEventType = "PickStarted"
@@ -471,6 +487,8 @@ func (e WebSocketEventType) Valid() bool {
 	case WebSocketEventTypeInitialized:
 		return true
 	case WebSocketEventTypeMessageCreated:
+		return true
+	case WebSocketEventTypeParticipantJoined:
 		return true
 	case WebSocketEventTypePickCanceled:
 		return true
@@ -648,6 +666,7 @@ type DisplayHideQRCodeEventType string
 type DisplayInitializedBody struct {
 	BingoSummaries   []BingoSummary `json:"bingoSummaries"`
 	ParticipantCount int            `json:"participantCount"`
+	Participants     []User         `json:"participants"`
 	PickState        PickState      `json:"pickState"`
 	PickedBalls      []PickedBall   `json:"pickedBalls"`
 	QrCodeVisible    bool           `json:"qrCodeVisible"`
@@ -673,6 +692,15 @@ type DisplayMessageCreatedEvent struct {
 
 // DisplayMessageCreatedEventType defines model for DisplayMessageCreatedEvent.Type.
 type DisplayMessageCreatedEventType string
+
+// DisplayParticipantJoinedEvent defines model for DisplayParticipantJoinedEvent.
+type DisplayParticipantJoinedEvent struct {
+	Body ParticipantJoinedBody             `json:"body"`
+	Type DisplayParticipantJoinedEventType `json:"type"`
+}
+
+// DisplayParticipantJoinedEventType defines model for DisplayParticipantJoinedEvent.Type.
+type DisplayParticipantJoinedEventType string
 
 // DisplayPickCanceledEvent defines model for DisplayPickCanceledEvent.
 type DisplayPickCanceledEvent struct {
@@ -859,6 +887,12 @@ type ParticipantInitializedEvent struct {
 
 // ParticipantInitializedEventType defines model for ParticipantInitializedEvent.Type.
 type ParticipantInitializedEventType string
+
+// ParticipantJoinedBody defines model for ParticipantJoinedBody.
+type ParticipantJoinedBody struct {
+	Participant      User `json:"participant"`
+	ParticipantCount int  `json:"participantCount"`
+}
 
 // ParticipantMessageCreatedEvent defines model for ParticipantMessageCreatedEvent.
 type ParticipantMessageCreatedEvent struct {
@@ -1048,6 +1082,32 @@ type CreateMessageJSONRequestBody = CreateMessageRequest
 
 // UpdateGameSettingsJSONRequestBody defines body for UpdateGameSettings for application/json ContentType.
 type UpdateGameSettingsJSONRequestBody = UpdateGameSettingsRequest
+
+// AsDisplayParticipantJoinedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayParticipantJoinedEvent
+func (t DisplayWebSocketEvent) AsDisplayParticipantJoinedEvent() (DisplayParticipantJoinedEvent, error) {
+	var body DisplayParticipantJoinedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDisplayParticipantJoinedEvent overwrites any union data inside the DisplayWebSocketEvent as the provided DisplayParticipantJoinedEvent
+func (t *DisplayWebSocketEvent) FromDisplayParticipantJoinedEvent(v DisplayParticipantJoinedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDisplayParticipantJoinedEvent performs a merge with any union data inside the DisplayWebSocketEvent, using the provided DisplayParticipantJoinedEvent
+func (t *DisplayWebSocketEvent) MergeDisplayParticipantJoinedEvent(v DisplayParticipantJoinedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
 
 // AsDisplayInitializedEvent returns the union data inside the DisplayWebSocketEvent as a DisplayInitializedEvent
 func (t DisplayWebSocketEvent) AsDisplayInitializedEvent() (DisplayInitializedEvent, error) {

@@ -314,9 +314,14 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 			Body: body,
 		}, true, nil
 	case openapi.Display:
+		participants := make([]openapi.User, 0, len(room.Participants))
+		for _, participant := range room.Participants {
+			participants = append(participants, openapi.User{UserID: string(participant.UserID)})
+		}
 		return openapi.DisplayInitializedEvent{
 			Type: openapi.DisplayInitializedEventTypeInitialized,
 			Body: openapi.DisplayInitializedBody{
+				Participants:     participants,
 				State:            openapi.RoomState(room.State),
 				Settings:         convertRoomSettingsToOpenAPI(room.Settings),
 				PickState:        openapi.PickState(room.PickState),
