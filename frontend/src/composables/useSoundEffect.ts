@@ -22,7 +22,7 @@ export function useSoundEffect(name: SoundEffectName, options: UseSoundEffectOpt
 
     audio.currentTime = 0
     void audio.play().catch(() => {
-      // Browser autoplay policy can reject playback until the page has user activation.
+      // ページ上でユーザー操作が行われるまでは、ブラウザーの自動再生制限で再生できない場合がある。
     })
   }
 

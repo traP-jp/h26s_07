@@ -221,10 +221,6 @@ func (room *Room) CanFinishPick(userID UserID) bool {
 	return room.State == RoomStatePlaying && room.IsAdmin(userID) && room.PickState == RoomPickStatePicking
 }
 
-func (room *Room) ParticipantCount() int {
-	return len(room.Participants)
-}
-
 func (room *Room) Join(userID UserID, now time.Time) error {
 	if room.IsParticipant(userID) {
 		return nil
@@ -278,16 +274,6 @@ type ParticipantCardUpdate struct {
 	CardChanges CardChanges
 }
 
-type BingoUpdate struct {
-	UserID         UserID
-	NewBingoOrders []BingoOrder
-	BingoOrders    []BingoOrder
-}
-
-type ReachUpdate struct {
-	UserID UserID
-}
-
 type GameStartedResult struct {
 	ParticipantCards []ParticipantCardUpdate
 }
@@ -301,8 +287,6 @@ type PickFinishedResult struct {
 	Room               *Room
 	PickedBall         BallNumber
 	ParticipantUpdates []ParticipantCardUpdate
-	NewBingos          []BingoUpdate
-	NewReaches         []ReachUpdate
 	AllPicked          bool
 }
 
@@ -540,8 +524,6 @@ func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID Recor
 	pickedBalls := append(append([]BallNumber(nil), room.PickedBalls...), picked)
 	bingoRecords := append([]BingoRecord(nil), room.BingoRecords...)
 	reachRecords := append([]ReachRecord(nil), room.ReachRecords...)
-	newBingoRecords := make([]BingoRecord, 0)
-	newReachRecords := make([]ReachRecord, 0)
 	participantUpdates := make([]ParticipantCardUpdate, 0, len(cards))
 
 	for i := range cards {
@@ -563,7 +545,6 @@ func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID Recor
 				CreatedAt: now,
 			}
 			bingoRecords = append(bingoRecords, record)
-			newBingoRecords = append(newBingoRecords, record)
 		}
 		cards[i].MarkBingoLines(newBingoLines)
 
@@ -583,7 +564,6 @@ func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID Recor
 				CreatedAt:     now,
 			}
 			reachRecords = append(reachRecords, record)
-			newReachRecords = append(newReachRecords, record)
 		}
 		cards[i].MarkReachLines(reachLines)
 
@@ -613,8 +593,6 @@ func (room *Room) FinishPick(actor UserID, picked BallNumber, nextRecordID Recor
 		Room:               room,
 		PickedBall:         picked,
 		ParticipantUpdates: participantUpdates,
-		NewBingos:          bingoUpdates(newBingoRecords, bingoRecords),
-		NewReaches:         reachUpdates(newReachRecords),
 		AllPicked:          room.AllPicked(),
 	}, nil
 }
@@ -684,41 +662,4 @@ func lineDifference(lines []LineIndex, existing []LineIndex) []LineIndex {
 		}
 	}
 	return result
-}
-
-func bingoUpdates(newRecords []BingoRecord, allRecords []BingoRecord) []BingoUpdate {
-	updates := make([]BingoUpdate, 0)
-	indexByUserID := make(map[UserID]int)
-	for _, record := range newRecords {
-		index, ok := indexByUserID[record.UserID]
-		if !ok {
-			index = len(updates)
-			indexByUserID[record.UserID] = index
-			updates = append(updates, BingoUpdate{
-				UserID:         record.UserID,
-				NewBingoOrders: []BingoOrder{},
-				BingoOrders:    bingoOrders(allRecords, record.UserID),
-			})
-		}
-		updates[index].NewBingoOrders = append(updates[index].NewBingoOrders, record.Order)
-	}
-	return updates
-}
-
-func bingoOrders(records []BingoRecord, userID UserID) []BingoOrder {
-	orders := make([]BingoOrder, 0)
-	for _, record := range records {
-		if record.UserID == userID {
-			orders = append(orders, record.Order)
-		}
-	}
-	return orders
-}
-
-func reachUpdates(records []ReachRecord) []ReachUpdate {
-	updates := make([]ReachUpdate, 0, len(records))
-	for _, record := range records {
-		updates = append(updates, ReachUpdate{UserID: record.UserID})
-	}
-	return updates
 }

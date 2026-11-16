@@ -288,7 +288,7 @@ func (c *webSocketClient) closeWithStatus(code websocket.StatusCode, reason stri
 		close(c.send)
 		c.mu.Unlock()
 		c.hub.unregister(c)
-		// Closing handshakes must not block broadcasts to other clients.
+		// 接続終了処理が他のクライアントへの配信を妨げないよう、別の処理で実行する。
 		go func() { _ = c.conn.Close(code, reason) }()
 	})
 }
@@ -297,12 +297,11 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 	switch mode {
 	case openapi.Participant:
 		body := openapi.ParticipantInitializedBody{
-			State:          openapi.RoomState(room.State),
-			Settings:       convertRoomSettingsToOpenAPI(room.Settings),
-			PickState:      openapi.PickState(room.PickState),
-			PickedBalls:    utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
-			BingoSummaries: convertBingoSummariesToOpenAPI(room.BingoSummaries()),
-			ReachSummaries: convertReachSummariesToOpenAPI(room.ReachSummaries()),
+			ActivityLog: utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
+			State:       openapi.RoomState(room.State),
+			Settings:    convertRoomSettingsToOpenAPI(room.Settings),
+			PickState:   openapi.PickState(room.PickState),
+			PickedBalls: utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
 		}
 		if room.State != model.RoomStateWaiting {
 			if card, ok := utils.FindCard(room, userID); ok {
@@ -321,15 +320,13 @@ func buildInitializedEvent(room *model.Room, mode openapi.WebSocketMode, userID 
 		return openapi.DisplayInitializedEvent{
 			Type: openapi.DisplayInitializedEventTypeInitialized,
 			Body: openapi.DisplayInitializedBody{
-				Participants:     participants,
-				State:            openapi.RoomState(room.State),
-				Settings:         convertRoomSettingsToOpenAPI(room.Settings),
-				PickState:        openapi.PickState(room.PickState),
-				ParticipantCount: room.ParticipantCount(),
-				PickedBalls:      utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
-				QrCodeVisible:    room.QrCodeVisible,
-				BingoSummaries:   convertBingoSummariesToOpenAPI(room.BingoSummaries()),
-				ReachSummaries:   convertReachSummariesToOpenAPI(room.ReachSummaries()),
+				Participants:  participants,
+				ActivityLog:   utils.ConvertActivityLogToOpenAPI(room.ActivityLog()),
+				State:         openapi.RoomState(room.State),
+				Settings:      convertRoomSettingsToOpenAPI(room.Settings),
+				PickState:     openapi.PickState(room.PickState),
+				PickedBalls:   utils.ConvertPickedBallsToOpenAPI(room.PickedBalls),
+				QrCodeVisible: room.QrCodeVisible,
 			},
 		}, true, nil
 	default:

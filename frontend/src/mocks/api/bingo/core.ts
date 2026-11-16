@@ -12,35 +12,35 @@ export type MockSocketConnection = {
   close(code?: number, reason?: string): void
 }
 
-let currentSocketConnection: MockSocketConnection | undefined
+const socketConnections = new Set<MockSocketConnection>()
 
 export function setSocketConnection(connection: MockSocketConnection): void {
-  currentSocketConnection = connection
+  socketConnections.add(connection)
 }
 
 export function clearSocketConnection(connection: MockSocketConnection): void {
-  if (currentSocketConnection === connection) {
-    currentSocketConnection = undefined
-  }
+  socketConnections.delete(connection)
 }
 
 export function sendEvent<TBody>(
   event: { type: WebSocketEventType; body: TBody },
   target: { roomId: string; mode?: WebSocketMode },
 ): void {
-  if (!currentSocketConnection) return
-  if (currentSocketConnection.roomId !== target.roomId) return
-  if (target.mode && currentSocketConnection.mode !== target.mode) return
-
-  currentSocketConnection.send(JSON.stringify(event))
+  const serializedEvent = JSON.stringify(event)
+  for (const connection of socketConnections) {
+    if (connection.roomId !== target.roomId) continue
+    if (target.mode && connection.mode !== target.mode) continue
+    connection.send(serializedEvent)
+  }
 }
 
 export function sendEventToConnection<TBody>(
   connection: MockSocketConnection,
   event: { type: WebSocketEventType; body: TBody },
-): void {
-  if (currentSocketConnection !== connection) return
+): boolean {
+  if (!socketConnections.has(connection)) return false
   connection.send(JSON.stringify(event))
+  return true
 }
 
 export function currentUser(request: Request): User {

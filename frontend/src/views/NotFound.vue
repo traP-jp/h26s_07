@@ -12,14 +12,9 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
-  defineProps<{
-    errorMessage?: string
-  }>(),
-  {
-    errorMessage: 'ページが見つかりませんでした。',
-  },
-)
+const { errorMessage = 'ページが見つかりませんでした。' } = defineProps<{
+  errorMessage?: string
+}>()
 </script>
 
 <style scoped>

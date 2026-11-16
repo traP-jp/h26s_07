@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { apiClient } from '@/api/apiClient'
-const room = withDefaults(
-  defineProps<{
-    roomId: string
-    variant?: 'default' | 'light'
-  }>(),
-  {
-    variant: 'default',
-  },
-)
+const { roomId, variant = 'default' } = defineProps<{
+  roomId: string
+  variant?: 'default' | 'light'
+}>()
 
 const newMessage = ref('')
 type RequestBody = {
@@ -26,7 +21,7 @@ const post = async () => {
   }
   try {
     const response = await apiClient.POST('/api/rooms/{roomId}/chats', {
-      params: { path: { roomId: room.roomId } },
+      params: { path: { roomId } },
       body: data,
     })
     if (response.error) {
@@ -41,7 +36,7 @@ const post = async () => {
 </script>
 
 <template>
-  <div class="wrapper" :class="{ 'wrapper--light': room.variant === 'light' }">
+  <div class="wrapper" :class="{ 'wrapper--light': variant === 'light' }">
     <div class="newMessage">
       <input
         v-model="newMessage"

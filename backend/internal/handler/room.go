@@ -125,7 +125,7 @@ func convertReachSummariesToOpenAPI(reachSummaries []model.ReachSummary) []opena
 
 func convertRoom(room *model.Room) openapi.Room {
 	return openapi.Room{
-		RoomID:         openapi.RoomID(room.RoomID.String()),
+		RoomID:         openapi.RoomID(uuid.UUID(room.RoomID)),
 		Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 		State:          openapi.RoomState(room.State),
 		PickState:      openapi.PickState(room.PickState),
@@ -199,7 +199,7 @@ func convertRoomSummary(rooms []model.RoomSummary) []openapi.Room {
 	for _, room := range rooms {
 		result = append(result,
 			openapi.Room{
-				RoomID:         openapi.RoomID(room.RoomID.String()),
+				RoomID:         openapi.RoomID(uuid.UUID(room.RoomID)),
 				Settings:       convertRoomSettingsToOpenAPI(room.Settings),
 				State:          openapi.RoomState(room.State),
 				PickState:      openapi.PickState(room.PickState),
@@ -256,7 +256,7 @@ func (h *RoomHandler) PostParticipant(c *echo.Context) error {
 
 func convertMessageToOpenAPI(message model.Message) openapi.Message {
 	return openapi.Message{
-		MessageID: uuid.UUID(message.MessageID).String(),
+		MessageID: uuid.UUID(message.MessageID),
 		Content:   message.Content,
 		Author: openapi.User{
 			UserID: openapi.UserID(message.Author),

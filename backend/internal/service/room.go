@@ -128,7 +128,7 @@ func (s *RoomService) postParticipants(ctx context.Context, roomID model.RoomID,
 		return err
 	}
 	// 参加一覧を使う表示画面にだけ参加者追加を通知する。
-	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}, ParticipantCount: len(room.Participants)}
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: string(user)}}
 	return s.queueRoomEvent(ctx, roomID, openapi.DisplayParticipantJoinedEvent{Type: openapi.ParticipantJoined, Body: body})
 }
 
@@ -155,7 +155,7 @@ func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user
 			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
 			Content:   createdMessage.Content,
 			CreatedAt: createdMessage.CreatedAt,
-			MessageID: openapi.UUID(uuid.UUID(createdMessage.MessageID).String()),
+			MessageID: uuid.UUID(createdMessage.MessageID),
 		}},
 	})
 	if err != nil {
@@ -167,7 +167,7 @@ func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user
 			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
 			Content:   createdMessage.Content,
 			CreatedAt: createdMessage.CreatedAt,
-			MessageID: openapi.UUID(uuid.UUID(createdMessage.MessageID).String()),
+			MessageID: uuid.UUID(createdMessage.MessageID),
 		}},
 	})
 	if err != nil {
@@ -211,70 +211,13 @@ func convertPickedBallsToOpenAPI(pickedBalls []model.BallNumber) []openapi.Picke
 	return result
 }
 
-func convertBingoSummariesToOpenAPI(bingoSummaries []model.BingoSummary) []openapi.BingoSummary {
-	result := make([]openapi.BingoSummary, 0, len(bingoSummaries))
-	for _, bingoSummary := range bingoSummaries {
-		bingoOrders := make([]int, 0, len(bingoSummary.BingoOrders))
-		for _, bingoOrder := range bingoSummary.BingoOrders {
-			bingoOrders = append(bingoOrders, int(bingoOrder))
-		}
-		result = append(result, openapi.BingoSummary{
-			BingoOrders: bingoOrders,
-			CreatedAt:   bingoSummary.CreatedAt,
-			User:        openapi.User{UserID: openapi.UserID(bingoSummary.UserID)},
-		})
-	}
-	return result
-}
-
-func convertReachSummariesToOpenAPI(reachSummaries []model.ReachSummary) []openapi.ReachSummary {
-	result := make([]openapi.ReachSummary, 0, len(reachSummaries))
-	for _, reachSummary := range reachSummaries {
-		result = append(result, openapi.ReachSummary{
-			CreatedAt: reachSummary.CreatedAt,
-			User:      openapi.User{UserID: openapi.UserID(reachSummary.UserID)},
-		})
-	}
-	return result
-}
-
-func convertBingoUpdatesToOpenAPI(updates []model.BingoUpdate) []openapi.BingoUpdate {
-	result := make([]openapi.BingoUpdate, 0, len(updates))
-	for _, update := range updates {
-		result = append(result, openapi.BingoUpdate{
-			User:           openapi.User{UserID: openapi.UserID(update.UserID)},
-			NewBingoOrders: convertBingoOrdersToOpenAPI(update.NewBingoOrders),
-			BingoOrders:    convertBingoOrdersToOpenAPI(update.BingoOrders),
-		})
-	}
-	return result
-}
-
-func convertBingoOrdersToOpenAPI(orders []model.BingoOrder) []int {
-	result := make([]int, 0, len(orders))
-	for _, order := range orders {
-		result = append(result, int(order))
-	}
-	return result
-}
-
-func convertReachUpdatesToOpenAPI(updates []model.ReachUpdate) []openapi.ReachUpdate {
-	result := make([]openapi.ReachUpdate, 0, len(updates))
-	for _, update := range updates {
-		result = append(result, openapi.ReachUpdate{
-			User: openapi.User{UserID: openapi.UserID(update.UserID)},
-		})
-	}
-	return result
-}
-
 func convertCardToOpenAPI(room *model.Room, card model.Card) openapi.Card {
 	cells := make([]openapi.CardCell, 0, len(card.Cells))
 	for _, cell := range card.Cells {
 		cells = append(cells, convertCardCellToOpenAPI(cell))
 	}
 	return openapi.Card{
-		CardID:      uuid.UUID(card.CardID).String(),
+		CardID:      uuid.UUID(card.CardID),
 		CardNumber:  string(card.CardNumber),
 		OwnerUserID: openapi.UserID(card.OwnerUserID),
 		Cells:       cells,
@@ -412,7 +355,7 @@ func (s *RoomService) startGame(ctx context.Context, roomID model.RoomID, user m
 	}
 	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayGameStartedEvent{
 		Type: openapi.DisplayGameStartedEventTypeGameStarted,
-		Body: openapi.DisplayGameStartedBody{ParticipantCount: len(room.Participants)},
+		Body: openapi.EmptyObject{},
 	}); err != nil {
 		return err
 	}
@@ -452,17 +395,13 @@ func (s *RoomService) finishGame(ctx context.Context, roomID model.RoomID, user 
 		s.queueRoomEvent(ctx, roomID, openapi.DisplayPickCanceledEvent{Type: openapi.DisplayPickCanceledEventTypePickCanceled, Body: openapi.PickCanceledBody{}})
 		s.queueRoomEvent(ctx, roomID, openapi.ParticipantPickCanceledEvent{Type: openapi.ParticipantPickCanceledEventTypePickCanceled, Body: openapi.PickCanceledBody{}})
 	}
-	reachSummaries := convertReachSummariesToOpenAPI(room.ReachSummaries())
-	bingoSummaries := convertBingoSummariesToOpenAPI(room.BingoSummaries())
 	for _, update := range result.ParticipantUpdates {
 		if err := s.queueParticipantEvent(ctx, roomID, update.UserID, openapi.ParticipantGameFinishedEvent{
 			Type: openapi.ParticipantGameFinishedEventTypeGameFinished,
 			Body: openapi.ParticipantGameFinishedBody{
-				BingoSummaries: bingoSummaries,
-				Card:           utils.ConvertCardToOpenAPI(room, update.Card),
-				PickState:      openapi.ParticipantGameFinishedBodyPickState(room.PickState),
-				ReachSummaries: reachSummaries,
-				State:          openapi.ParticipantGameFinishedBodyState(room.State),
+				Card:      utils.ConvertCardToOpenAPI(room, update.Card),
+				PickState: openapi.ParticipantGameFinishedBodyPickState(room.PickState),
+				State:     openapi.ParticipantGameFinishedBodyState(room.State),
 			},
 		}); err != nil {
 			return err
@@ -471,11 +410,8 @@ func (s *RoomService) finishGame(ctx context.Context, roomID model.RoomID, user 
 	err = s.queueRoomEvent(ctx, roomID, openapi.DisplayGameFinishedEvent{
 		Type: openapi.DisplayGameFinishedEventTypeGameFinished,
 		Body: openapi.DisplayGameFinishedBody{
-			ParticipantCount: len(room.Participants),
-			BingoSummaries:   bingoSummaries,
-			PickState:        openapi.DisplayGameFinishedBodyPickState(room.PickState),
-			ReachSummaries:   reachSummaries,
-			State:            openapi.DisplayGameFinishedBodyState(room.State),
+			PickState: openapi.DisplayGameFinishedBodyPickState(room.PickState),
+			State:     openapi.DisplayGameFinishedBodyState(room.State),
 		},
 	})
 	if err != nil {
@@ -624,6 +560,13 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 	if err != nil {
 		return err
 	}
+	oldIDs := map[model.RecordID]bool{}
+	for _, record := range room.BingoRecords {
+		oldIDs[record.RecordID] = true
+	}
+	for _, record := range room.ReachRecords {
+		oldIDs[record.RecordID] = true
+	}
 	now := time.Now()
 	result, err := room.FinishPick(actor, picked, func() (model.RecordID, error) {
 		recordID, err := uuid.NewV7()
@@ -640,7 +583,7 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 		return err
 	}
 
-	if err := s.sendPickFinishedEvents(ctx, roomID, result); err != nil {
+	if err := s.sendPickFinishedEvents(ctx, roomID, result, oldIDs); err != nil {
 		return err
 	}
 	if result.AllPicked {
@@ -651,25 +594,19 @@ func (s *RoomService) finishPick(ctx context.Context, roomID model.RoomID, actor
 	return nil
 }
 
-func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.RoomID, result model.PickFinishedResult) error {
+func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.RoomID, result model.PickFinishedResult, oldIDs map[model.RecordID]bool) error {
 	room := result.Room
-	bingoSummaries := convertBingoSummariesToOpenAPI(room.BingoSummaries())
-	reachSummaries := convertReachSummariesToOpenAPI(room.ReachSummaries())
-	newBingos := convertBingoUpdatesToOpenAPI(result.NewBingos)
-	newReaches := convertReachUpdatesToOpenAPI(result.NewReaches)
+	entries := slices.DeleteFunc(room.ActivityLog(), func(entry model.ActivityLogEntry) bool { return oldIDs[entry.ID] })
+	newActivityLog := utils.ConvertActivityLogToOpenAPI(entries)
 	pickedBalls := convertPickedBallsToOpenAPI(room.PickedBalls)
 
 	if err := s.queueRoomEvent(ctx, roomID, openapi.DisplayPickFinishedEvent{
 		Type: openapi.DisplayPickFinishedEventTypePickFinished,
 		Body: openapi.DisplayPickFinishedBody{
-			PickedBall:       openapi.PickedBall(result.PickedBall),
-			PickState:        openapi.PickState(room.PickState),
-			ParticipantCount: room.ParticipantCount(),
-			BingoSummaries:   bingoSummaries,
-			ReachSummaries:   reachSummaries,
-			NewBingos:        newBingos,
-			NewReaches:       newReaches,
-			PickedBalls:      pickedBalls,
+			NewActivityLog: newActivityLog,
+			PickedBall:     openapi.PickedBall(result.PickedBall),
+			PickState:      openapi.PickState(room.PickState),
+			PickedBalls:    pickedBalls,
 		},
 	}); err != nil {
 		return err
@@ -679,15 +616,12 @@ func (s *RoomService) sendPickFinishedEvents(ctx context.Context, roomID model.R
 		if err := s.queueParticipantEvent(ctx, roomID, update.UserID, openapi.ParticipantPickFinishedEvent{
 			Type: openapi.ParticipantPickFinishedEventTypePickFinished,
 			Body: openapi.ParticipantPickFinishedBody{
+				NewActivityLog: newActivityLog,
 				PickedBall:     openapi.PickedBall(result.PickedBall),
 				PickState:      openapi.PickState(room.PickState),
 				Card:           convertCardToOpenAPI(room, update.Card),
 				CardChanges:    convertCardChangesToOpenAPI(update.CardChanges),
 				PickedBalls:    pickedBalls,
-				BingoSummaries: bingoSummaries,
-				ReachSummaries: reachSummaries,
-				NewBingos:      newBingos,
-				NewReaches:     newReaches,
 			},
 		}); err != nil {
 			return err

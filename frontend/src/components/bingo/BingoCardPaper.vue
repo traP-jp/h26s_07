@@ -3,14 +3,15 @@ import type { Card, CardCell as CardCellType, CardChanges, Line } from '@/api/sc
 import CardCell from '@/components/bingo/CardCell.vue'
 import { computed, ref, watch } from 'vue'
 
-const props = withDefaults(
-  defineProps<{
-    card?: Card | null
-    cardChanges?: CardChanges | null
-    placeholder?: boolean
-  }>(),
-  { cardChanges: null, placeholder: false },
-)
+const {
+  card,
+  cardChanges = null,
+  placeholder = false,
+} = defineProps<{
+  card?: Card | null
+  cardChanges?: CardChanges | null
+  placeholder?: boolean
+}>()
 
 type CardEffectMode = 'bingo' | 'reach'
 type LineEffectItem = {
@@ -20,7 +21,7 @@ type LineEffectItem = {
   style: Record<string, string>
 }
 
-const cardNo = computed(() => props.card?.cardNumber ?? 'not assigned')
+const cardNo = computed(() => card?.cardNumber ?? 'not assigned')
 const title = ['B', 'I', 'N', 'G', 'O']
 const placeholderCells: CardCellType[] = Array.from({ length: 25 }, (_, index) => ({
   index,
@@ -28,14 +29,14 @@ const placeholderCells: CardCellType[] = Array.from({ length: 25 }, (_, index) =
   displayText: index === 12 ? 'FREE' : '?',
   cellState: index === 12 ? 'open' : 'closed',
 }))
-const cells = computed(() => props.card?.cells ?? placeholderCells)
+const cells = computed(() => card?.cells ?? placeholderCells)
 const effectSerial = ref(0)
 
 const activeEffect = computed<{ mode: CardEffectMode; line: Line } | null>(() => {
-  const bingoLine = props.cardChanges?.newBingoLines.at(-1)
+  const bingoLine = cardChanges?.newBingoLines.at(-1)
   if (bingoLine) return { mode: 'bingo', line: bingoLine }
 
-  const reachLine = props.cardChanges?.newReachLines.at(-1)
+  const reachLine = cardChanges?.newReachLines.at(-1)
   if (reachLine) return { mode: 'reach', line: reachLine }
 
   return null
@@ -48,11 +49,9 @@ const activeEffectKey = computed(() => {
 })
 
 const persistentLineEffects = computed<LineEffectItem[]>(() => {
-  const bingoLines = props.card?.bingoLines ?? []
+  const bingoLines = card?.bingoLines ?? []
   const bingoLineKeys = new Set(bingoLines.map(lineKey))
-  const reachLines = (props.card?.reachLines ?? []).filter(
-    (line) => !bingoLineKeys.has(lineKey(line)),
-  )
+  const reachLines = (card?.reachLines ?? []).filter((line) => !bingoLineKeys.has(lineKey(line)))
 
   return [
     ...bingoLines.map((line, index) => ({
@@ -118,8 +117,8 @@ const activeLineOrder = (cellIndex: number) => {
 }
 
 const gridCellClass = (cell: CardCellType) => ({
-  'grid-cell--line-bingo': isInLine(props.card?.bingoLines, cell.index),
-  'grid-cell--line-reach': isInLine(props.card?.reachLines, cell.index),
+  'grid-cell--line-bingo': isInLine(card?.bingoLines, cell.index),
+  'grid-cell--line-reach': isInLine(card?.reachLines, cell.index),
   'grid-cell--active-line': isInActiveEffectLine(cell.index),
   'grid-cell--active-bingo':
     activeEffect.value?.mode === 'bingo' && isInActiveEffectLine(cell.index),
@@ -143,7 +142,7 @@ function cellCenter(index: number) {
 }
 
 watch(
-  () => props.cardChanges,
+  () => cardChanges,
   () => {
     effectSerial.value += 1
   },
@@ -194,7 +193,7 @@ watch(
 
     <div class="card-no">Card No. {{ cardNo }}</div>
 
-    <div v-if="props.placeholder || !props.card" class="bingo-placeholder-message">
+    <div v-if="placeholder || !card" class="bingo-placeholder-message">
       カードはまだ配られていません
     </div>
   </div>

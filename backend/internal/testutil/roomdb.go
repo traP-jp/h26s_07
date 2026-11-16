@@ -1,4 +1,4 @@
-// Package testutil provides the portable SQLite room schema used by backend tests.
+// Package testutil はバックエンドのテストで使う SQLite のルーム用スキーマを提供する。
 package testutil
 
 import (
@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// NewRoomDB omits MariaDB-specific defaults and checks from the production schema.
+// NewRoomDB は本番スキーマから MariaDB 固有の既定値と制約を除いたテスト用データベースを作成する。
 func NewRoomDB(t testing.TB) *gorm.DB {
 	t.Helper()
 
