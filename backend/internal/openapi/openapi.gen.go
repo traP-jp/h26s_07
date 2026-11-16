@@ -549,7 +549,10 @@ type ActivityLogEntry struct {
 	ID        openapi_types.UUID   `json:"id"`
 	Kind      ActivityLogEntryKind `json:"kind"`
 	LineCount *int                 `json:"lineCount,omitempty"`
-	User      User                 `json:"user"`
+
+	// PickBall この記録を発生させた抽選の球。同じ抽選で成立した記録は同じ値になる。
+	PickBall int  `json:"pickBall"`
+	User     User `json:"user"`
 }
 
 // ActivityLogEntryKind defines model for ActivityLogEntry.Kind.

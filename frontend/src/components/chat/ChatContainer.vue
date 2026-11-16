@@ -38,58 +38,82 @@ const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 const { activityLog } = storeToRefs(store)
 
-const sortedMessages = (items: Message[]) =>
+type NotificationType = 'bingo' | 'reach' | 'notice'
+type TimelineMessage = Message & { notificationType?: NotificationType }
+
+const sortedMessages = <T extends Message>(items: T[]) =>
   [...items].sort((a, b) => {
     const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     if (diff !== 0) return diff
     return a.messageId.localeCompare(b.messageId)
   })
 
-const mergeMessages = (items: Message[]) => {
-  const messageById = new Map<string, Message>()
+const mergeMessages = <T extends Message>(items: T[]): T[] => {
+  const messageById = new Map<string, T>()
   for (const message of items) {
     messageById.set(message.messageId, message)
   }
   return sortedMessages([...messageById.values()])
 }
 
-const systemMessage = (id: string, content: string, createdAt: DateTime): Message => ({
-  messageId: id,
+// messageId は重複排除と v-for の key に必要なだけで、表示には使わない。
+const systemMessage = (
+  content: string,
+  createdAt: DateTime,
+  notificationType: NotificationType,
+  key: string,
+): TimelineMessage => ({
+  messageId: `${notificationType}:${key}`,
   content,
   author: { userId: '' },
   createdAt,
+  notificationType,
 })
 
-const groupActivityEntriesByCreatedAt = (entries: ActivityLogEntry[]) => {
-  const groups = new Map<DateTime, ActivityLogEntry[]>()
+type ActivityGroup = {
+  key: string
+  createdAt: DateTime
+  entries: ActivityLogEntry[]
+}
+
+// 同じ抽選の記録は pickBall が同じになる。
+const groupActivityEntriesByPick = (entries: ActivityLogEntry[]): ActivityGroup[] => {
+  const groups = new Map<string, ActivityGroup>()
   for (const entry of entries) {
-    const group = groups.get(entry.createdAt) ?? []
-    group.push(entry)
-    groups.set(entry.createdAt, group)
+    const key = `ball:${entry.pickBall}`
+    const group = groups.get(key)
+    if (group) {
+      group.entries.push(entry)
+    } else {
+      groups.set(key, { key, createdAt: entry.createdAt, entries: [entry] })
+    }
   }
-  return [...groups.entries()]
+  return [...groups.values()]
 }
 
 const bingoMessages = (entries: ActivityLogEntry[]) =>
-  groupActivityEntriesByCreatedAt(entries).map(([createdAt, group]) =>
+  groupActivityEntriesByPick(entries).map(({ key, createdAt, entries }) =>
     systemMessage(
-      `newBingos-${createdAt}`,
-      `${group.map((entry) => entry.user.userId).join('、')} がビンゴしました！`,
+      `${entries.map((entry) => entry.user.userId).join('、')} がビンゴしました！`,
       createdAt,
+      'bingo',
+      key,
     ),
   )
 
 const reachMessages = (entries: ActivityLogEntry[]) =>
-  groupActivityEntriesByCreatedAt(entries).map(([createdAt, group]) => {
+  groupActivityEntriesByPick(entries).map(({ key, createdAt, entries }) => {
     const content =
-      group.length >= 2
-        ? `${group[0]?.user.userId} と他 ${group.length - 1} 人がリーチしました！`
-        : `${group[0]?.user.userId} がリーチしました！`
+      entries.length >= 2
+        ? `${entries[0]?.user.userId} と他 ${entries.length - 1} 人がリーチしました！`
+        : `${entries[0]?.user.userId} がリーチしました！`
 
-    return systemMessage(`newReaches-${createdAt}`, content, createdAt)
+    return systemMessage(content, createdAt, 'reach', key)
   })
 
 const summaryMessages = computed(() => {
+  // lineCount は参加者の通算ライン数なので、1 がその人の初回ビンゴ。
+  // ビンゴ通知は一人一回に絞り、同時に複数ラインが成立しても1件だけ出す。
   const bingoEntries = activityLog.value.filter(
     (entry) => entry.kind === 'bingo' && (entry.lineCount ?? 1) === 1,
   )
@@ -97,18 +121,19 @@ const summaryMessages = computed(() => {
   return [...bingoMessages(bingoEntries), ...reachMessages(reachEntries)]
 })
 
-const timelineMessages = computed(() =>
-  mergeMessages([
+const timelineMessages = computed<TimelineMessage[]>(() =>
+  mergeMessages<TimelineMessage>([
     ...messages.value,
     ...summaryMessages.value,
     ...(store.roomId === activeRoomId.value && store.pickState === 'exhausted'
       ? [
           systemMessage(
-            `exhausted:${activeRoomId.value}`,
             '球が枯渇しました！',
             summaryMessages.value.at(-1)?.createdAt ??
               roomsStore.rooms.find((item) => item.roomId === activeRoomId.value)?.createdAt ??
               '1970-01-01T00:00:00.000Z',
+            'notice',
+            `exhausted:${activeRoomId.value}`,
           ),
         ]
       : []),
@@ -154,11 +179,6 @@ const loadMessages = async (roomId: string) => {
   } catch {
     // 履歴取得に失敗しても、WebSocket の新着メッセージは表示する。
   }
-}
-
-const notificationType = (message: Message) => {
-  if (message.author.userId !== '') return undefined
-  return activityLog.value.find((entry) => entry.id === message.messageId)?.kind ?? 'notice'
 }
 
 onMounted(async () => {
@@ -225,7 +245,7 @@ watch(participantChatOpen, (open) => {
             <MessageContainer
               :user-id="message.author.userId"
               :content="message.content"
-              :notification-type="notificationType(message)"
+              :notification-type="message.notificationType"
             ></MessageContainer>
           </div>
         </div>
@@ -274,7 +294,7 @@ watch(participantChatOpen, (open) => {
                 <MessageContainer
                   :user-id="message.author.userId"
                   :content="message.content"
-                  :notification-type="notificationType(message)"
+                  :notification-type="message.notificationType"
                 ></MessageContainer>
               </div>
             </div>
@@ -296,7 +316,7 @@ watch(participantChatOpen, (open) => {
           <MessageContainer
             :user-id="message.author.userId"
             :content="message.content"
-            :notification-type="notificationType(message)"
+            :notification-type="message.notificationType"
           ></MessageContainer>
         </div>
       </div>

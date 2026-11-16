@@ -87,6 +87,7 @@ func (RoomPickedBall) TableName() string {
 
 type RoomBingoRecord struct {
 	RecordID   string    `gorm:"column:record_id;type:char(36);primaryKey"`
+	PickBall   uint8     `gorm:"column:pick_ball;type:tinyint unsigned;not null"`
 	RoomID     string    `gorm:"column:room_id;type:char(36);not null;uniqueIndex:uq_room_bingo_records_room_order,priority:1;uniqueIndex:uq_room_bingo_records_room_user_line,priority:1;index:idx_room_bingo_records_card_room_user,priority:2;index:idx_room_bingo_records_room_user_order,priority:1"`
 	UserID     string    `gorm:"column:user_id;type:varchar(64);not null;uniqueIndex:uq_room_bingo_records_room_user_line,priority:2;index:idx_room_bingo_records_card_room_user,priority:3;index:idx_room_bingo_records_room_user_order,priority:2"`
 	CardID     string    `gorm:"column:card_id;type:char(36);not null;index:idx_room_bingo_records_card_room_user,priority:1"`
@@ -101,6 +102,7 @@ func (RoomBingoRecord) TableName() string {
 
 type RoomReachRecord struct {
 	RecordID      string    `gorm:"column:record_id;type:char(36);primaryKey"`
+	PickBall      uint8     `gorm:"column:pick_ball;type:tinyint unsigned;not null"`
 	RoomID        string    `gorm:"column:room_id;type:char(36);not null;uniqueIndex:uq_room_reach_records_room_user,priority:1;index:idx_room_reach_records_room_created,priority:1"`
 	UserID        string    `gorm:"column:user_id;type:varchar(64);not null;uniqueIndex:uq_room_reach_records_room_user,priority:2"`
 	LineIndex     uint8     `gorm:"column:line_index;type:tinyint unsigned;not null;check:chk_room_reach_records_line,line_index BETWEEN 0 AND 11"`

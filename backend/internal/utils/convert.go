@@ -20,7 +20,7 @@ func ConvertPickedBallsToOpenAPI(pickedBalls []model.BallNumber) []openapi.Picke
 func ConvertActivityLogToOpenAPI(entries []model.ActivityLogEntry) []openapi.ActivityLogEntry {
 	result := make([]openapi.ActivityLogEntry, 0, len(entries))
 	for _, entry := range entries {
-		result = append(result, openapi.ActivityLogEntry{ID: uuid.UUID(entry.ID), Kind: openapi.ActivityLogEntryKind(entry.Kind), User: openapi.User{UserID: string(entry.UserID)}, CreatedAt: entry.CreatedAt, BingoRank: entry.BingoRank, LineCount: entry.LineCount})
+		result = append(result, openapi.ActivityLogEntry{ID: uuid.UUID(entry.ID), Kind: openapi.ActivityLogEntryKind(entry.Kind), PickBall: int(entry.PickBall), User: openapi.User{UserID: string(entry.UserID)}, CreatedAt: entry.CreatedAt, BingoRank: entry.BingoRank, LineCount: entry.LineCount})
 	}
 	return result
 }

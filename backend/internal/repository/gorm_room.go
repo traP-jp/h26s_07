@@ -306,6 +306,7 @@ func (r *GormRoomRepository) replaceBingoRecords(tx *gorm.DB, room *model.Room) 
 		}
 		rows = append(rows, dbmodel.RoomBingoRecord{
 			RecordID:   recordIDString(record.RecordID),
+			PickBall:   uint8(record.PickBall),
 			RoomID:     roomID,
 			UserID:     string(record.UserID),
 			CardID:     cardID,
@@ -334,6 +335,7 @@ func (r *GormRoomRepository) replaceReachRecords(tx *gorm.DB, room *model.Room) 
 		}
 		rows = append(rows, dbmodel.RoomReachRecord{
 			RecordID:      recordIDString(record.RecordID),
+			PickBall:      uint8(record.PickBall),
 			RoomID:        roomID,
 			UserID:        string(record.UserID),
 			LineIndex:     uint8(record.Line),
@@ -681,6 +683,7 @@ func loadBingoRecords(db *gorm.DB, roomIDs []string, roomByID map[string]*model.
 		}
 		roomByID[row.RoomID].BingoRecords = append(roomByID[row.RoomID].BingoRecords, model.BingoRecord{
 			RecordID:  recordID,
+			PickBall:  model.BallNumber(row.PickBall),
 			UserID:    model.UserID(row.UserID),
 			Line:      model.LineIndex(row.LineIndex),
 			Order:     model.BingoOrder(row.BingoOrder),
@@ -783,6 +786,7 @@ func loadReachRecords(db *gorm.DB, roomIDs []string, roomByID map[string]*model.
 		}
 		roomByID[row.RoomID].ReachRecords = append(roomByID[row.RoomID].ReachRecords, model.ReachRecord{
 			RecordID:      recordID,
+			PickBall:      model.BallNumber(row.PickBall),
 			UserID:        model.UserID(row.UserID),
 			Line:          model.LineIndex(row.LineIndex),
 			LastCellIndex: model.CellIndex(row.LastCellIndex),
