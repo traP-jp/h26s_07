@@ -1,70 +1,97 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
 import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
-import type { RoomCode, Card, RoomId, UserId } from '@/api/schema'
+import type { RoomCode, Card, RoomId } from '@/api/schema'
 import { useRoomsStore } from '@/stores/rooms'
 import { useCurrentUserStore } from '@/stores/currentUser'
 import { storeToRefs } from 'pinia'
 import { Fireworks } from 'fireworks-js'
 
 const route = useRoute()
-const roomCode = route.params.roomCode as RoomCode | undefined
-const roomId = ref<RoomId | null>(null)
+const roomCode = computed(() => route.params.roomCode as RoomCode | undefined)
 const roomWebSocketStore = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 const currentUserStore = useCurrentUserStore()
-const { roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
+const { mode, roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
+const { activeRoomId: roomId, isActiveRoom, joinError: errorMessage } = storeToRefs(roomsStore)
 
 const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
 
 const displayCard = ref<Card | null>(null)
 const fireworksOverlay = ref<HTMLElement | null>(null)
-const isGameWaiting = computed(() => roomState.value === 'waiting')
 let fireworks: Fireworks | undefined
 let fireworksStopTimer: ReturnType<typeof setTimeout> | undefined
-const errorMessage = ref('')
-const currentUserId = ref<UserId>()
+const isGameWaiting = computed(() => roomState.value === 'waiting')
 
-let disposed = false
-onMounted(async () => {
-  try {
-    if (!roomCode) return
+let permissionCheckKey: RoomId | null = null
 
-    currentUserId.value = await currentUserStore.getUserId()
+watch(
+  roomCode,
+  (code) => {
+    displayCard.value = null
+    void roomsStore.connectToRoom(code, { mode: 'participant', join: true })
+  },
+  { immediate: true },
+)
 
-    const room = await roomsStore.getRoomByCode(roomCode)
-    roomId.value = room?.roomId ?? null
-
-    if (!roomId.value) return
-
-    const isParticipant =
-      room?.participants.some((participant) => participant.user.userId === currentUserId.value) ??
-      false
-
-    if (!isParticipant) {
-      if (room?.state !== 'waiting') {
-        errorMessage.value = 'このルームには参加できません。'
-        return
-      }
-
-      await roomsStore.joinRoom(roomId.value)
+watch(
+  () => roomWebSocketStore.status,
+  (status) => {
+    if (
+      (status !== 'error' && status !== 'closed') ||
+      mode.value !== 'participant' ||
+      roomId.value === null ||
+      connectedRoomId.value !== roomId.value
+    ) {
+      return
     }
 
-    if (disposed) return
-    roomWebSocketStore.connect({ roomId: roomId.value, mode: 'participant' })
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
-  }
-})
+    const expectedRoomId = roomId.value
+    const expectedUserId = currentUserStore.userId
+    if (expectedUserId === null) return
+    if (permissionCheckKey === expectedRoomId) return
+
+    permissionCheckKey = expectedRoomId
+    void roomsStore
+      .fetchRooms()
+      .then(() => {
+        if (
+          roomId.value !== expectedRoomId ||
+          connectedRoomId.value !== expectedRoomId ||
+          mode.value !== 'participant'
+        ) {
+          return
+        }
+
+        const room = roomsStore.rooms.find((item) => item.roomId === expectedRoomId)
+        const stillParticipant =
+          room?.participants.some((participant) => participant.user.userId === expectedUserId) ??
+          false
+
+        if (!stillParticipant) {
+          errorMessage.value = 'このルームには参加できません。'
+          roomId.value = null
+          displayCard.value = null
+          roomWebSocketStore.disconnect()
+        }
+      })
+      .catch(() => {
+        // A failed permission refresh is indistinguishable from a transient network outage.
+      })
+      .finally(() => {
+        if (permissionCheckKey === expectedRoomId) permissionCheckKey = null
+      })
+  },
+)
+
 onBeforeUnmount(() => {
-  disposed = true
   stopBingoFireworks(true)
 
-  if (roomId.value && connectedRoomId.value === roomId.value) {
+  if (mode.value === 'participant' && connectedRoomId.value === roomId.value) {
     roomWebSocketStore.disconnect()
   }
 })
@@ -76,7 +103,6 @@ watch(
   },
   { immediate: true },
 )
-
 watch(
   () => latestCardChanges.value?.newBingoLines,
   async (newBingoLines) => {
@@ -155,7 +181,7 @@ function stopBingoFireworks(dispose = false) {
     <ConnectionBadge />
     <UAlert v-if="errorMessage" :description="errorMessage" color="error" />
     <div class="participant-room__card">
-      <div v-if="isGameWaiting" class="participant-room__waiting">
+      <div v-if="!isActiveRoom || isGameWaiting" class="participant-room__waiting">
         <p class="participant-room__waiting-title">ゲームはまだ始まっていません</p>
         <p class="participant-room__waiting-text">開始されるまでお待ちください</p>
       </div>

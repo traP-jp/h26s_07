@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { ActivityLogEntry, Message, DateTime, WebSocketMode } from '@/api/schema'
+import type { RoomId, ActivityLogEntry, Message, DateTime, WebSocketMode } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
 import MessageContainer from '@/components/chat/MessageContainer.vue'
 import PostMessage from '@/components/chat/PostMessage.vue'
@@ -21,6 +21,7 @@ const {
 }>()
 
 const historyMessages = ref<Message[]>([])
+const historyStatus = ref<'loading' | 'ready' | 'error' | 'forbidden'>('loading')
 const messages = computed(() => [
   ...historyMessages.value,
   ...(store.roomId === activeRoomId.value ? store.newChatMessages : []),
@@ -29,10 +30,12 @@ const messages = computed(() => [
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
-const activeRoomId = ref<string | null>(null)
+const activeRoomId = ref<RoomId | null>(null)
 const participantChatOpen = ref(false)
 const participantChatClosing = ref(false)
 let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
+let historyRequestGeneration = 0
+let isUnmounted = false
 
 const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
@@ -163,35 +166,69 @@ const closeParticipantChat = () => {
   participantChatOpen.value = false
 }
 
-const loadMessages = async (roomId: string) => {
+const loadMessages = async (roomId: RoomId) => {
+  if (isUnmounted) return
+
+  const requestGeneration = ++historyRequestGeneration
+  const isCurrentRequest = () =>
+    !isUnmounted && requestGeneration === historyRequestGeneration && activeRoomId.value === roomId
+
+  historyStatus.value = 'loading'
   try {
     const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
       params: { path: { roomId } },
     })
 
-    if (response.response.status === 403) return
+    if (response.response.status === 403) {
+      if (isCurrentRequest()) {
+        historyMessages.value = []
+        historyStatus.value = 'forbidden'
+      }
+      return
+    }
 
-    if (response.data && activeRoomId.value === roomId) {
+    if (response.data && isCurrentRequest()) {
       // 履歴APIは全件返すため、再取得しても同じIDは重ねない。
       historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
+      historyStatus.value = 'ready'
       void scrollToBottom()
+    } else if (isCurrentRequest()) {
+      historyStatus.value = 'error'
     }
   } catch {
-    // 履歴取得に失敗しても、WebSocket の新着メッセージは表示する。
+    if (isCurrentRequest()) historyStatus.value = 'error'
   }
 }
 
-onMounted(async () => {
-  const roomId = await roomsStore.getRoomIdByCode(roomCode)
-  if (!roomId) return
-  activeRoomId.value = roomId
+const initializeChat = async () => {
+  if (isUnmounted) return
 
-  if (connect) {
-    const mode: WebSocketMode = textarea ? 'participant' : 'display'
-    if (!store.isActiveConnection({ roomId, mode })) store.connect({ roomId, mode })
+  historyStatus.value = 'loading'
+  try {
+    const roomId = await roomsStore.getRoomIdByCode(roomCode)
+    if (isUnmounted) return
+    if (!roomId) throw new Error('Room not found')
+    activeRoomId.value = roomId
+
+    if (connect) {
+      const mode: WebSocketMode = textarea ? 'participant' : 'display'
+      if (!store.isActiveConnection({ roomId, mode })) store.connect({ roomId, mode })
+    }
+    await loadMessages(roomId)
+  } catch {
+    if (!isUnmounted) historyStatus.value = 'error'
   }
-  await loadMessages(roomId)
-})
+}
+
+const retryLoadMessages = () => {
+  if (activeRoomId.value) {
+    void loadMessages(activeRoomId.value)
+  } else {
+    void initializeChat()
+  }
+}
+
+onMounted(() => void initializeChat())
 
 watch(
   () => store.latestEvent,
@@ -209,6 +246,8 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  isUnmounted = true
+  historyRequestGeneration += 1
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
 })
 
@@ -241,6 +280,19 @@ watch(participantChatOpen, (open) => {
       <div class="participant-chat__header">Chat</div>
       <div ref="participantInlineChatContainer" class="chat-container chat-container--participant">
         <div class="chat-container__messages">
+          <div v-if="historyStatus === 'forbidden'" role="status">
+            過去のチャット履歴を表示する権限がありません
+          </div>
+          <div v-else-if="historyStatus === 'error'" role="status">
+            <span>チャットを読み込めませんでした</span>
+            <button type="button" @click="retryLoadMessages">再読み込み</button>
+          </div>
+          <div
+            v-else-if="historyStatus === 'loading' && timelineMessages.length === 0"
+            role="status"
+          >
+            チャットを読み込んでいます…
+          </div>
           <div v-for="message in timelineMessages" :key="message.messageId">
             <MessageContainer
               :user-id="message.author.userId"
@@ -290,6 +342,19 @@ watch(participantChatOpen, (open) => {
             class="chat-container chat-container--participant"
           >
             <div class="chat-container__messages">
+              <div v-if="historyStatus === 'forbidden'" role="status">
+                過去のチャット履歴を表示する権限がありません
+              </div>
+              <div v-else-if="historyStatus === 'error'" role="status">
+                <span>チャットを読み込めませんでした</span>
+                <button type="button" @click="retryLoadMessages">再読み込み</button>
+              </div>
+              <div
+                v-else-if="historyStatus === 'loading' && timelineMessages.length === 0"
+                role="status"
+              >
+                チャットを読み込んでいます…
+              </div>
               <div v-for="message in timelineMessages" :key="message.messageId">
                 <MessageContainer
                   :user-id="message.author.userId"
@@ -312,6 +377,16 @@ watch(participantChatOpen, (open) => {
       :class="{ 'chat-container--display': variant === 'display' }"
     >
       <div class="chat-container__messages">
+        <div v-if="historyStatus === 'forbidden'" role="status">
+          過去のチャット履歴を表示する権限がありません
+        </div>
+        <div v-else-if="historyStatus === 'error'" role="status">
+          <span>チャットを読み込めませんでした</span>
+          <button type="button" @click="retryLoadMessages">再読み込み</button>
+        </div>
+        <div v-else-if="historyStatus === 'loading' && timelineMessages.length === 0" role="status">
+          チャットを読み込んでいます…
+        </div>
         <div v-for="message in timelineMessages" :key="message.messageId">
           <MessageContainer
             :user-id="message.author.userId"

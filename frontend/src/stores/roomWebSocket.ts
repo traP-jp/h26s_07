@@ -20,6 +20,7 @@ import type {
   PickedBall,
   RoomId,
   RoomState,
+  UserId,
   DisplayWebSocketEvent,
   ParticipantWebSocketEvent,
   WebSocketMode,
@@ -38,12 +39,16 @@ type GameFinishedBody = ParticipantGameFinishedBody | DisplayGameFinishedBody
 type ConnectOptions = {
   roomId: RoomId
   mode: WebSocketMode
+  userId?: UserId
 }
 
-function createRoomWebSocketUrl(roomId: RoomId, mode: WebSocketMode) {
+function createRoomWebSocketUrl(roomId: RoomId, mode: WebSocketMode, userId?: UserId) {
   const url = new URL(`/api/rooms/${roomId}/ws`, window.location.origin)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   url.searchParams.set('mode', mode)
+  if (import.meta.env.DEV && import.meta.env.VITE_API_MOCK === 'true' && userId) {
+    url.searchParams.set('userId', userId)
+  }
   return url.toString()
 }
 
@@ -51,6 +56,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const socket = shallowRef<WebSocket | null>(null)
   const roomId = ref<RoomId | null>(null)
   const mode = ref<WebSocketMode | null>(null)
+  const userId = ref<UserId | null>(null)
   const status = ref<RoomWebSocketConnectionStatus>('idle')
   const reconnectAttempt = ref(0)
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
@@ -99,6 +105,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     return (
       roomId.value === options.roomId &&
       mode.value === options.mode &&
+      userId.value === (options.userId ?? null) &&
       (status.value === 'connecting' || status.value === 'open')
     )
   }
@@ -128,6 +135,28 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function applyEvent(event: RoomWebSocketEvent) {
+    if (
+      event.type === 'ParticipantJoined' &&
+      (!event.body ||
+        !event.body.participant ||
+        typeof event.body.participant.userId !== 'string' ||
+        event.body.participant.userId.length === 0)
+    ) {
+      errorMessage.value = 'Invalid ParticipantJoined event'
+      return
+    }
+
+    if (event.type === 'PickFinished') {
+      const body = event.body as PickFinishedBody
+      // 古い抽選結果や重複イベントでカード状態や演出を巻き戻さない。
+      if (
+        body.pickedBalls.length <= pickedBalls.value.length ||
+        !pickedBalls.value.every((ball, index) => body.pickedBalls[index] === ball)
+      ) {
+        return
+      }
+    }
+
     latestEvent.value = event
 
     switch (event.type) {
@@ -208,7 +237,13 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         qrCodeVisible.value = false
         break
       case 'MessageCreated':
-        newChatMessages.value.push(event.body.message)
+        if (
+          !newChatMessages.value.some(
+            (message) => message.messageId === event.body.message.messageId,
+          )
+        ) {
+          newChatMessages.value.push(event.body.message)
+        }
         break
       case 'AllPicked':
         pickedBalls.value = event.body.pickedBalls
@@ -225,17 +260,21 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
       return
     }
 
-    const changed = roomId.value !== options.roomId || mode.value !== options.mode
+    const changed =
+      roomId.value !== options.roomId ||
+      mode.value !== options.mode ||
+      userId.value !== (options.userId ?? null)
     disconnect()
     if (changed) {
       resetRoomState()
       reconnectAttempt.value = 0
     }
+    userId.value = options.userId ?? null
     enabled = true
     const connectionGeneration = generation
     installListeners()
 
-    const wsUrl = createRoomWebSocketUrl(options.roomId, options.mode)
+    const wsUrl = createRoomWebSocketUrl(options.roomId, options.mode, options.userId)
 
     roomId.value = options.roomId
     mode.value = options.mode
@@ -315,9 +354,9 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     const attempt = reconnectAttempt.value
-    const options = { roomId: roomId.value, mode: mode.value }
+    const options = { roomId: roomId.value, mode: mode.value, userId: userId.value ?? undefined }
     // OPEN に見えるソケットでも、アプリ側の状態が古い可能性があれば置き換える。
-    disconnect()
+    disconnect(true)
     reconnectAttempt.value = attempt
     connect(options)
   }
@@ -344,9 +383,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     sawOffline = true
   }
 
-  function disconnect() {
+  function disconnect(preserveUserIdentity = false) {
     generation += 1
     enabled = false
+    sawOffline = false
+    if (!preserveUserIdentity) userId.value = null
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     window.removeEventListener('offline', markOffline)
