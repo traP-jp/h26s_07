@@ -1,6 +1,7 @@
 <template>
   <div class="page">
-    <div ref="displayPageElement" class="display-page">
+    <main ref="displayPageElement" class="display-page" aria-labelledby="display-page-title">
+      <h1 id="display-page-title" class="sr-only">ビンゴ抽選画面</h1>
       <Iridescence
         class="display-page__background"
         :color="[1, 1, 1]"
@@ -9,7 +10,10 @@
         :speed="0.1"
       />
       <div class="display-page__stage">
-        <div class="display-page__content">
+        <div v-if="isActiveRoom" class="display-page__content">
+          <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {{ latestDrawAnnouncement }}
+          </p>
           <div class="display-page__latest-ball">
             <NumberBall
               class="display-page__latest-number"
@@ -21,6 +25,21 @@
           <div v-if="isGameWaiting" class="display-page__waiting-panel">
             <p class="display-page__waiting-title">ゲームはまだ始まっていません</p>
             <p class="display-page__waiting-text">参加者の準備ができるまでお待ちください</p>
+            <p role="status" aria-live="polite" aria-atomic="true">
+              参加者: {{ roomWebSocketStore.participantCount ?? 0 }} 人
+            </p>
+            <div class="max-h-24 overflow-auto" role="list" aria-label="参加者一覧">
+              <span
+                v-for="(user, index) in roomWebSocketStore.participants"
+                :key="user.userId"
+                role="listitem"
+              >
+                {{ user.userId
+                }}<span v-if="index < roomWebSocketStore.participants.length - 1" aria-hidden="true"
+                  >、</span
+                >
+              </span>
+            </div>
           </div>
           <BallStateGrid v-else :picked-balls="pickedBalls" :latest-ball="latestBall" />
           <RoomStatsBar />
@@ -42,9 +61,11 @@
         variant="soft"
         size="xl"
         :icon="isFullscreen ? 'i-lucide-minimize' : 'i-lucide-expand'"
+        :aria-label="isFullscreen ? '全画面表示を終了' : '全画面表示'"
         @click="toggleFullscreen"
       />
       <DisplayParticipantQrCode :room-code="props.roomCode" :open="qrCodeVisible ?? false" />
+      <ConnectionBadge />
 
       <GameStartCutin
         v-if="showCutin"
@@ -54,7 +75,7 @@
         :bottom-text="bottomText"
         :top-text="topText"
       />
-    </div>
+    </main>
   </div>
 </template>
 
@@ -63,6 +84,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import Iridescence from '@/components/backgrounds/Iridescence.vue'
+import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import NumberBall from '@/components/common/NumberBall.vue'
 import BallStateGrid from '@/components/display/BallStateGrid.vue'
 import DisplayParticipantQrCode from '@/components/display/DisplayParticipantQrCode.vue'
@@ -78,15 +100,24 @@ import GameStartCutin from '@/components/GameStartCutin.vue'
 
 const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
-const { latestBall, mode, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
+const { latestBall, latestEvent, mode, pickedBalls, qrCodeVisible, roomState } =
+  storeToRefs(roomWebSocketStore)
+const { isActiveRoom } = storeToRefs(roomsStore)
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
+const latestDrawAnnouncement = ref('')
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
 const { bottomText, cutinKey, handleCutinComplete, showCutin, topText } = useDisplayEffects()
 useNumberBallFavicon()
 
 const isGameWaiting = computed(() => roomState.value === 'waiting')
+
+watch(latestEvent, (event) => {
+  if (isActiveRoom.value && event?.type === 'PickFinished') {
+    latestDrawAnnouncement.value = `数字 ${event.body.pickedBall} が抽選されました。`
+  }
+})
 
 function syncFullscreenState() {
   isFullscreen.value = document.fullscreenElement === displayPageElement.value
@@ -104,6 +135,7 @@ async function toggleFullscreen() {
 watch(
   () => props.roomCode,
   (roomCode) => {
+    latestDrawAnnouncement.value = ''
     void roomsStore.connectToRoom(roomCode, { mode: 'display' })
   },
   { immediate: true },
@@ -275,5 +307,126 @@ onBeforeUnmount(() => {
   font-weight: 700;
   line-height: 1.4;
   color: #43678f;
+}
+
+@media (max-width: 720px) {
+  .display-page__stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .display-page__content {
+    gap: 3%;
+  }
+
+  .display-page__latest-ball {
+    height: 28%;
+  }
+
+  :deep(.ball-state-grid__cell),
+  :deep(.ball-state-grid__number) {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  :deep(.ball-state-grid) {
+    grid-template-columns: repeat(15, minmax(12px, 1fr));
+    gap: 2px;
+  }
+
+  .display-page__waiting-title {
+    font-size: 24px;
+  }
+
+  .display-page__waiting-text {
+    font-size: 16px;
+  }
+
+  .room-stats-bar {
+    height: 56px;
+    gap: 14px;
+    padding: 7px 20px;
+  }
+}
+
+@media (max-width: 720px) and (max-height: 500px) {
+  .display-page__stage {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 38vw);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .display-page__content {
+    gap: 3%;
+  }
+
+  .display-page__latest-ball {
+    height: 28%;
+  }
+
+  .display-page__waiting-panel {
+    min-height: 0;
+    gap: 6px;
+    padding: 12px;
+  }
+
+  .display-page__waiting-title {
+    font-size: 20px;
+  }
+
+  .display-page__waiting-text {
+    font-size: 14px;
+  }
+
+  .display-page__waiting-panel > div {
+    max-height: 42px;
+  }
+}
+
+@media (max-width: 720px) and (min-height: 501px) and (max-height: 650px) {
+  .display-page__stage {
+    grid-template-rows: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  }
+
+  .display-page__content {
+    gap: 1%;
+  }
+
+  .display-page__latest-ball {
+    height: 12%;
+  }
+
+  .display-page__latest-number {
+    font-size: min(6dvh, 38cqw);
+  }
+
+  :deep(.ball-state-grid) {
+    width: min(100%, 84vw);
+  }
+
+  .display-page__waiting-panel {
+    min-height: 0;
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .display-page__waiting-title {
+    font-size: 18px;
+  }
+
+  .display-page__waiting-text {
+    font-size: 12px;
+  }
+
+  .display-page__waiting-panel > div {
+    max-height: 24px;
+  }
+
+  .room-stats-bar {
+    height: 48px;
+  }
 }
 </style>

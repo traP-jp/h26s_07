@@ -9,7 +9,7 @@ const url = computed(() => `https://q.trap.jp/api/v3/public/icon/${userId.userId
 
 <template>
   <div>
-    <img class="icon" :src="url" />
+    <img class="icon" :src="url" alt="" width="30" height="30" />
   </div>
 </template>
 

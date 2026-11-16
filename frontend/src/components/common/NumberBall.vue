@@ -13,19 +13,6 @@ const props = defineProps<{
       backgroundColor: props.ballColor,
       color: props.textColor,
     }"
-    v-if="props.text == 'FREE'"
-  >
-    <span class="ball-content">
-      <UIcon name="i-lucide-star" />
-    </span>
-  </div>
-  <div
-    class="ball"
-    :style="{
-      backgroundColor: props.ballColor,
-      color: props.textColor,
-    }"
-    v-else
   >
     <span class="ball-content">{{ props.text }}</span>
   </div>
@@ -39,44 +26,37 @@ const props = defineProps<{
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 3px 9px rgb(0 0 0 / 0.08);
+  box-shadow:
+    0 1px 2px rgb(31 38 42 / 0.12),
+    inset 0 1px 0 rgb(255 255 255 / 0.34);
   container-type: inline-size;
   transition:
-    background-color 260ms ease,
-    color 260ms ease,
-    box-shadow 260ms ease,
-    transform 260ms ease;
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
   user-select: none;
-  animation: ball-state-pop 560ms cubic-bezier(0.18, 0.85, 0.28, 1.28) both;
 }
 
 .ball-content {
-  font-size: 42cqw;
-  font-weight: 900;
+  font-size: clamp(14px, 42cqw, 48px);
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-@keyframes ball-state-pop {
-  0% {
-    filter: brightness(1);
-    transform: scale(0.86);
-  }
-  48% {
-    filter: brightness(1.2);
-    box-shadow:
-      0 0 0 0.16em rgb(255 255 255 / 0.92),
-      0 0 24px rgb(255 220 242 / 0.62);
-    transform: scale(1.12);
-  }
-  100% {
-    filter: brightness(1);
-    transform: scale(1);
-  }
+.ball--closed {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.52);
+}
+
+.ball--open {
+  box-shadow:
+    0 2px 5px rgb(34 65 48 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.3);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ball {
-    transition-duration: 1ms;
-    animation-duration: 1ms;
+    transition: none;
   }
 }
 </style>
