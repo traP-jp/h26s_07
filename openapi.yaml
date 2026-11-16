@@ -4,7 +4,7 @@ info:
   title: h26_07 API
   version: 0.1.0
   description: |
-    通常数字球だけを扱う Web ビンゴアプリの HTTP API と WebSocket event body schema。
+    通常数字球だけを扱う Web ビンゴアプリの HTTP API と WebSocket イベント本文のスキーマ。
     ゲームルールの意味論は docs/domain.md、通信境界の設計は docs/api.md を正本とする。
 
 servers:
@@ -24,7 +24,7 @@ tags:
   - name: chats
     description: チャット
   - name: controls
-    description: admin 操作
+    description: 管理者向け操作
   - name: settings
     description: ゲーム設定
   - name: websocket
@@ -54,11 +54,11 @@ paths:
       tags:
         - rooms
       summary: ルーム一覧を取得
-      description: finished を含む全ルームを返す。
+      description: 終了済みのルームを含む全ルームを返す。
       operationId: listRooms
       responses:
         "200":
-          description: ルーム一覧。finished を含む。
+          description: 終了済みのルームを含む一覧。
           content:
             application/json:
               schema:
@@ -73,7 +73,7 @@ paths:
       tags:
         - rooms
       summary: ルームを作成
-      description: 認証済みユーザーがルームを作成する。作成者はそのルームの admin になる。
+      description: 認証済みユーザーがルームを作成する。作成者はそのルームの管理者になる。
       operationId: createRoom
       requestBody:
         required: true
@@ -100,7 +100,7 @@ paths:
       tags:
         - rooms
       summary: ルーム詳細を取得
-      description: participant または admin は finished の部屋も取得できる。
+      description: 参加者または管理者は終了済みのルームも取得できる。
       operationId: getRoom
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -129,7 +129,7 @@ paths:
       tags:
         - participants
       summary: ルームに参加
-      description: waiting 中のルームに参加する。既に参加済みのユーザーはルームの状態にかかわらず冪等に成功し、重複 participant は作らない。
+      description: 待機中のルームに参加する。既に参加済みのユーザーはルームの状態にかかわらず冪等に成功し、参加者を重複して登録しない。
       operationId: joinRoom
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -147,7 +147,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: ルームが waiting ではないため参加できない。
+          description: ルームが待機中ではないため参加できない。
           content:
             application/json:
               schema:
@@ -160,7 +160,7 @@ paths:
       tags:
         - chats
       summary: チャット履歴を取得
-      description: participant または admin が閲覧できる。
+      description: 参加者または管理者が閲覧できる。
       operationId: listMessages
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -195,7 +195,7 @@ paths:
       tags:
         - chats
       summary: チャットを投稿
-      description: participant または admin だけが waiting / playing 中に投稿できる。finished 後は投稿できない。
+      description: 参加者または管理者は待機中または進行中に投稿できる。終了後は投稿できない。
       operationId: createMessage
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -213,7 +213,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
         "400":
-          description: メッセージ本文が空、長すぎるなどリクエスト body が不正。
+          description: メッセージ本文が空、または長すぎるなど、リクエスト本文が不正。
           content:
             application/json:
               schema:
@@ -229,7 +229,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: ルームが finished など投稿できない状態。
+          description: ルームが終了済みなど、投稿できない状態。
           content:
             application/json:
               schema:
@@ -242,7 +242,7 @@ paths:
       tags:
         - controls
       summary: ゲームを開始
-      description: 開始時点の参加者全員にカードを一括生成する。既に playing の場合は変更せず成功する。
+      description: 開始時点の参加者全員にカードを一括生成する。既に進行中の場合は変更せず成功する。
       operationId: startGame
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -256,7 +256,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: ルームが finished、または参加者がいないため開始できない状態。
+          description: ルームが終了済み、または参加者がいないため開始できない状態。
           content:
             application/json:
               schema:
@@ -269,7 +269,7 @@ paths:
       tags:
         - controls
       summary: ゲームを終了
-      description: 既に finished の場合は変更せず成功する。admin が明示的にゲームを終了し、ルームを finished にする。picking 中に終了する場合は未確定の抽選結果を破棄し、WebSocket では PickCanceled を送った後に GameFinished を送る。
+      description: 管理者がゲームを終了し、ルームを終了済みにする。既に終了済みの場合は変更せず成功する。抽選中に終了する場合は未確定の結果を破棄し、WebSocket では PickCanceled の後に GameFinished を送る。
       operationId: finishGame
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -283,7 +283,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: ルームが waiting。
+          description: ルームが待機中。
           content:
             application/json:
               schema:
@@ -296,7 +296,7 @@ paths:
       tags:
         - controls
       summary: 抽選を開始
-      description: 抽選中状態にする。結果はまだ決めない。既に picking の場合も成功し、PickStarted を再送する。抽選可能な球がない場合は成功しない。
+      description: 抽選中の状態にする。結果はまだ決めない。既に抽選中の場合も成功し、PickStarted を再送する。抽選可能な球がない場合は成功しない。
       operationId: startPick
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -310,7 +310,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: playing ではない、または抽選可能な球がない。
+          description: ゲームが進行中ではない、または抽選可能な球がない。
           content:
             application/json:
               schema:
@@ -323,7 +323,7 @@ paths:
       tags:
         - controls
       summary: 抽選をキャンセル
-      description: 抽選中状態をキャンセルする。ゲーム状態と球履歴は変えない。既に idle の場合は変更せず成功する。
+      description: 抽選中の状態をキャンセルする。ゲーム状態と球履歴は変えない。既に待機中の場合は変更せず成功する。
       operationId: cancelPick
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -377,7 +377,7 @@ paths:
       tags:
         - controls
       summary: QR コードを表示
-      description: display 画面で QR コードを表示する。
+      description: 表示画面で QR コードを表示する。
       operationId: showQRCode
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -398,7 +398,7 @@ paths:
       tags:
         - controls
       summary: QR コードを非表示
-      description: display 画面で QR コードを非表示にする。
+      description: 表示画面で QR コードを非表示にする。
       operationId: hideQRCode
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -419,7 +419,7 @@ paths:
       tags:
         - settings
       summary: ゲーム設定を更新
-      description: waiting / playing 中に更新できる。admin の追加・削除もこの endpoint で行う。
+      description: 待機中または進行中に更新できる。管理者の追加・削除もこのエンドポイントで行う。
       operationId: updateGameSettings
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -445,7 +445,7 @@ paths:
         "404":
           $ref: "#/components/responses/RoomNotFound"
         "409":
-          description: ルームが finished のため設定変更できない。
+          description: ルームが終了済みのため設定変更できない。
           content:
             application/json:
               schema:
@@ -464,12 +464,12 @@ paths:
         - name: mode
           in: query
           required: true
-          description: participant, display のいずれか。card が必要な参加者は participant mode、card を受け取らない表示・運営画面は display mode で接続する。
+          description: 参加者用または表示用のいずれか。カードが必要な参加者は参加者用モード、カードを受け取らない表示・運営画面は表示用モードで接続する。
           schema:
             $ref: "#/components/schemas/WebSocketMode"
       responses:
         "101":
-          description: WebSocket stream。
+          description: WebSocket 通信。
 
 components:
   securitySchemes:
@@ -477,7 +477,7 @@ components:
       type: apiKey
       in: header
       name: X-Forwarded-User
-      description: 認証済みユーザーの traP ID。
+      description: 認証済みユーザーの traP ユーザー ID。
 
   parameters:
     RoomId:
@@ -490,7 +490,7 @@ components:
 
   responses:
     BadRequest:
-      description: リクエスト body が不正。
+      description: リクエスト本文が不正。
       content:
         application/json:
           schema:
@@ -502,7 +502,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     AdminRequired:
-      description: admin ではない。
+      description: 管理者ではない。
       content:
         application/json:
           schema:
@@ -524,12 +524,12 @@ components:
     DateTime:
       type: string
       format: date-time
-      description: ISO 8601 datetime string。
+      description: ISO 8601 形式の日時文字列。
 
     UserId:
       type: string
       minLength: 1
-      description: traP ID。
+      description: traP のユーザー ID。
 
     RoomId:
       type: string
@@ -607,7 +607,7 @@ components:
     GameSettingsInput:
       type: object
       additionalProperties: false
-      description: 作成・更新時に渡すゲーム設定。adminUserIds は指定した場合だけ admin 一覧を置き換える。
+      description: 作成・更新時に渡すゲーム設定。adminUserIds を指定した場合は管理者一覧を置き換える。
       properties:
         name:
           type: string
@@ -644,7 +644,7 @@ components:
     ParticipantSummary:
       type: object
       additionalProperties: false
-      description: 参加者一覧や display 向けの概要。admin 権限、カード詳細、リーチ情報、ビンゴ情報は含めない。
+      description: 参加者一覧や表示画面向けの概要。管理者権限、カード詳細、リーチ情報、ビンゴ情報は含めない。
       properties:
         user:
           $ref: "#/components/schemas/User"
@@ -702,7 +702,7 @@ components:
     Card:
       type: object
       additionalProperties: false
-      description: participant にだけ送るカード snapshot。
+      description: 参加者にだけ送るカードの状態一式。
       properties:
         cardId:
           type: string
@@ -750,7 +750,7 @@ components:
           minimum: 1
           maximum: 75
           nullable: true
-          description: 中央 FREE は null。
+          description: 中央のフリー枠は null。
         displayText:
           type: string
         cellState:
@@ -798,7 +798,7 @@ components:
     CardChanges:
       type: object
       additionalProperties: false
-      description: participant の PickFinished にだけ含める演出用差分。
+      description: 参加者向け PickFinished にだけ含める演出用の差分。
       properties:
         openedCellIndices:
           type: array
@@ -851,38 +851,6 @@ components:
         - user
         - createdAt
 
-    BingoUpdate:
-      type: object
-      additionalProperties: false
-      description: PickFinished の body で使う新規ビンゴ情報。カード詳細、ライン index、cell index は含めない。
-      properties:
-        user:
-          $ref: "#/components/schemas/User"
-        newBingoOrders:
-          type: array
-          items:
-            type: integer
-            minimum: 1
-        bingoOrders:
-          type: array
-          items:
-            type: integer
-            minimum: 1
-      required:
-        - user
-        - newBingoOrders
-        - bingoOrders
-
-    ReachUpdate:
-      type: object
-      additionalProperties: false
-      description: PickFinished の body で使う初リーチ情報。カード詳細、リーチライン index、cell index は含めない。
-      properties:
-        user:
-          $ref: "#/components/schemas/User"
-      required:
-        - user
-
     CreateRoomRequest:
       type: object
       additionalProperties: false
@@ -934,14 +902,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PickedBall"
-        bingoSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoSummary"
-        reachSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachSummary"
         card:
           $ref: "#/components/schemas/Card"
       required:
@@ -950,8 +910,6 @@ components:
         - settings
         - pickState
         - pickedBalls
-        - bingoSummaries
-        - reachSummaries
 
     DisplayInitializedBody:
       type: object
@@ -971,34 +929,20 @@ components:
           $ref: "#/components/schemas/GameSettings"
         pickState:
           $ref: "#/components/schemas/PickState"
-        participantCount:
-          type: integer
-          minimum: 0
         pickedBalls:
           type: array
           items:
             $ref: "#/components/schemas/PickedBall"
         qrCodeVisible:
           type: boolean
-        bingoSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoSummary"
-        reachSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachSummary"
       required:
         - participants
         - activityLog
         - state
         - settings
         - pickState
-        - participantCount
         - pickedBalls
         - qrCodeVisible
-        - bingoSummaries
-        - reachSummaries
 
     ParticipantGameStartedBody:
       type: object
@@ -1008,16 +952,6 @@ components:
           $ref: "#/components/schemas/Card"
       required:
         - card
-
-    DisplayGameStartedBody:
-      type: object
-      additionalProperties: false
-      properties:
-        participantCount:
-          type: integer
-          minimum: 0
-      required:
-        - participantCount
 
     PickStartedBody:
       $ref: "#/components/schemas/EmptyObject"
@@ -1045,22 +979,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PickedBall"
-        bingoSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoSummary"
-        reachSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachSummary"
-        newBingos:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoUpdate"
-        newReaches:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachUpdate"
       required:
         - newActivityLog
         - pickedBall
@@ -1068,10 +986,6 @@ components:
         - card
         - cardChanges
         - pickedBalls
-        - bingoSummaries
-        - reachSummaries
-        - newBingos
-        - newReaches
 
     DisplayPickFinishedBody:
       type: object
@@ -1085,25 +999,6 @@ components:
           $ref: "#/components/schemas/PickedBall"
         pickState:
           $ref: "#/components/schemas/PickState"
-        participantCount:
-          type: integer
-          minimum: 0
-        bingoSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoSummary"
-        reachSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachSummary"
-        newBingos:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoUpdate"
-        newReaches:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachUpdate"
         pickedBalls:
           type: array
           items:
@@ -1112,11 +1007,6 @@ components:
         - newActivityLog
         - pickedBall
         - pickState
-        - participantCount
-        - bingoSummaries
-        - reachSummaries
-        - newBingos
-        - newReaches
         - pickedBalls
 
     ParticipantGameFinishedBody:
@@ -1133,20 +1023,10 @@ components:
             - idle
         card:
           $ref: "#/components/schemas/Card"
-        bingoSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoSummary"
-        reachSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachSummary"
       required:
         - state
         - pickState
         - card
-        - bingoSummaries
-        - reachSummaries
 
     DisplayGameFinishedBody:
       type: object
@@ -1160,23 +1040,9 @@ components:
           type: string
           enum:
             - idle
-        participantCount:
-          type: integer
-          minimum: 0
-        bingoSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/BingoSummary"
-        reachSummaries:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReachSummary"
       required:
         - state
         - pickState
-        - participantCount
-        - bingoSummaries
-        - reachSummaries
 
     ShowQRCodeBody:
       $ref: "#/components/schemas/EmptyObject"
@@ -1223,7 +1089,7 @@ components:
         - settings
 
     ParticipantWebSocketEvent:
-      description: participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。
+      description: 参加者用モードに送信する WebSocket イベント。本文はイベントの種類に対応する参加者用スキーマを使う。
       oneOf:
         - $ref: "#/components/schemas/ParticipantInitializedEvent"
         - $ref: "#/components/schemas/ParticipantGameStartedEvent"
@@ -1236,7 +1102,7 @@ components:
         - $ref: "#/components/schemas/ParticipantGameSettingsUpdatedEvent"
 
     DisplayWebSocketEvent:
-      description: display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。
+      description: 表示用モードに送信する WebSocket イベント。本文はイベントの種類に対応する表示用スキーマを使い、カードを含めない。
       oneOf:
         - $ref: "#/components/schemas/DisplayParticipantJoinedEvent"
         - $ref: "#/components/schemas/DisplayInitializedEvent"
@@ -1411,7 +1277,7 @@ components:
               enum:
                 - GameStarted
             body:
-              $ref: "#/components/schemas/DisplayGameStartedBody"
+              $ref: "#/components/schemas/EmptyObject"
           required:
             - type
             - body
@@ -1570,11 +1436,7 @@ components:
       properties:
         participant:
           $ref: "#/components/schemas/User"
-        participantCount:
-          type: integer
-          minimum: 1
-          maximum: 9007199254740991
-      required: [participant, participantCount]
+      required: [participant]
 
     DisplayParticipantJoinedEvent:
       allOf:
@@ -1591,7 +1453,7 @@ components:
     ActivityLogEntry:
       type: object
       additionalProperties: false
-      description: First reach per user and every bingo line, ordered by time and record ID.
+      description: 各参加者の初回リーチと、成立した各ビンゴを時刻および記録 ID 順に並べた履歴。
       properties:
         id:
           type: string

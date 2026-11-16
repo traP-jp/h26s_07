@@ -55,8 +55,6 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
         settings: room.settings,
         pickState: room.pickState,
         pickedBalls,
-        bingoSummaries: room.bingoSummaries,
-        reachSummaries: room.reachSummaries,
       },
     }
   }
@@ -69,11 +67,8 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
       state: room.state,
       settings: room.settings,
       pickState: room.pickState,
-      participantCount: room.participants.length,
       pickedBalls,
       qrCodeVisible: room.qrCodeVisible,
-      bingoSummaries: room.bingoSummaries,
-      reachSummaries: room.reachSummaries,
     },
   }
 }
@@ -126,7 +121,7 @@ function scheduleDemoChatMessages(connection: MockSocketConnection): void {
           createdAt: new Date().toISOString(),
         }
         appendMessageToRoom(roomId, message)
-        // 履歴へ保存したroomイベントなので、同じroomの再接続先にも配信する。
+        // 履歴に保存したルームイベントなので、同じルームへの再接続先にも配信する。
         sendEvent({ type: 'MessageCreated', body: { message } }, { roomId })
       },
       2000 + index * 2000,

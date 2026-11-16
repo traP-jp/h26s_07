@@ -9,7 +9,7 @@ import (
 	"github.com/traP-jp/h26_07/backend/internal/model"
 )
 
-// Entries are removed when the last holder or waiter releases the lock.
+// 最後の保持者または待機者がロックを解放すると、項目を削除する。
 type roomLocks struct {
 	mu      sync.Mutex
 	entries map[model.RoomID]*roomLock
@@ -43,8 +43,8 @@ func (l *roomLocks) lock(id model.RoomID) func() {
 	}
 }
 
-// LockRoom coordinates snapshot loading and subscription with mutations and broadcasts.
-// The caller must release the lock immediately after registering the subscription.
+// LockRoom はスナップショット読み込み、購読登録、状態変更、イベント配信の順序を調整する。
+// 呼び出し側は購読登録の直後にロックを解放すること。
 func (s *RoomService) LockRoom(id model.RoomID) func() { return s.locks.lock(id) }
 
 type pendingEvent func(context.Context) error
@@ -55,7 +55,7 @@ func (s *RoomService) mutate(ctx context.Context, id model.RoomID, fn func(conte
 	defer unlock()
 	var events []pendingEvent
 	ctx = context.WithValue(ctx, eventQueueKey{}, &events)
-	// StartPick records exhaustion while still reporting the domain conflict.
+	// 抽選開始不可の競合を返しつつ、球切れ状態を記録する。
 	var domainErr error
 	if err := s.transactionRunner.WithinTransaction(ctx, func(ctx context.Context) error {
 		err := fn(ctx)

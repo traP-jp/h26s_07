@@ -89,13 +89,52 @@ func TestSlowClientReceivesCloseStatus(t *testing.T) {
 }
 
 func TestParticipantJoinedEventIsDisplayOnly(t *testing.T) {
-	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: "alice"}, ParticipantCount: 2}
+	body := openapi.ParticipantJoinedBody{Participant: openapi.User{UserID: "alice"}}
 	event := openapi.DisplayParticipantJoinedEvent{Type: openapi.ParticipantJoined, Body: body}
 	payload, err := marshalWebSocketEvent(openapi.Display, event)
-	if err != nil || !strings.Contains(string(payload), `"participantCount":2`) || !strings.Contains(string(payload), `"userId":"alice"`) {
+	if err != nil || strings.Contains(string(payload), `"participantCount"`) || !strings.Contains(string(payload), `"userId":"alice"`) {
 		t.Fatalf("payload %s, error %v", payload, err)
 	}
 	if _, ok, err := marshalWebSocketEventForMode(openapi.Participant, event); err != nil || ok {
 		t.Fatalf("participant mode accepted display event: ok=%v, error=%v", ok, err)
+	}
+}
+
+func TestInitializedEventIncludesFullActivityLogAndDisplayCounts(t *testing.T) {
+	createdAt := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	room := model.NewRoom(
+		model.RoomID(uuid.New()),
+		"123456",
+		model.RoomSettings{Name: "test", Admins: []model.UserID{"admin"}},
+		createdAt,
+	)
+	room.State = model.RoomStatePlaying
+	room.ReachRecords = []model.ReachRecord{{
+		RecordID: model.RecordID(uuid.New()), UserID: "alice", Line: 1, CreatedAt: createdAt,
+	}}
+	room.BingoRecords = []model.BingoRecord{{
+		RecordID: model.RecordID(uuid.New()), UserID: "bob", Line: 2, Order: 1, CreatedAt: createdAt.Add(time.Minute),
+	}}
+
+	for _, mode := range []openapi.WebSocketMode{openapi.Participant, openapi.Display} {
+		event, ok, err := buildInitializedEvent(room, mode, "alice")
+		if err != nil || !ok {
+			t.Fatalf("buildInitializedEvent(%s): ok=%v, error=%v", mode, ok, err)
+		}
+		payload, err := marshalWebSocketEvent(mode, event)
+		if err != nil {
+			t.Fatalf("marshalWebSocketEvent(%s): %v", mode, err)
+		}
+		text := string(payload)
+		if !strings.Contains(text, `"activityLog":[`) ||
+			!strings.Contains(text, createdAt.Format(time.RFC3339)) ||
+			!strings.Contains(text, createdAt.Add(time.Minute).Format(time.RFC3339)) {
+			t.Fatalf("initialized payload is missing full activity history: %s", text)
+		}
+		for _, obsolete := range []string{`"bingoSummaries"`, `"reachSummaries"`, `"participantCount"`, `"bingoParticipantCount"`, `"reachParticipantCount"`} {
+			if strings.Contains(text, obsolete) {
+				t.Fatalf("initialized payload contains obsolete field %s: %s", obsolete, text)
+			}
+		}
 	}
 }

@@ -4,13 +4,11 @@ import { defineStore } from 'pinia'
 import type {
   User,
   ActivityLogEntry,
-  BingoSummary,
-  BingoUpdate,
   Card,
   CardChanges,
   DisplayGameFinishedBody,
-  DisplayGameStartedBody,
   DisplayInitializedBody,
+  EmptyObject,
   DisplayPickFinishedBody,
   GameSettings,
   Message,
@@ -20,8 +18,6 @@ import type {
   ParticipantPickFinishedBody,
   PickState,
   PickedBall,
-  ReachSummary,
-  ReachUpdate,
   RoomId,
   RoomState,
   DisplayWebSocketEvent,
@@ -35,7 +31,7 @@ export type RoomWebSocketEvent = ParticipantWebSocketEvent | DisplayWebSocketEve
 export type RoomWebSocketConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 
 type InitializedBody = ParticipantInitializedBody | DisplayInitializedBody
-type GameStartedBody = ParticipantGameStartedBody | DisplayGameStartedBody
+type GameStartedBody = ParticipantGameStartedBody | EmptyObject
 type PickFinishedBody = ParticipantPickFinishedBody | DisplayPickFinishedBody
 type GameFinishedBody = ParticipantGameFinishedBody | DisplayGameFinishedBody
 
@@ -68,8 +64,6 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const latestEvent = ref<RoomWebSocketEvent | null>(null)
   const latestBall = ref<PickedBall | null>(null)
   const latestCardChanges = ref<CardChanges | null>(null)
-  const latestNewBingos = ref<BingoUpdate[]>([])
-  const latestNewReaches = ref<ReachUpdate[]>([])
   const participants = ref<User[]>([])
   const activityLog = ref<ActivityLogEntry[]>([])
   const chatMessages = ref<Message[]>([])
@@ -78,10 +72,24 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const settings = ref<GameSettings | null>(null)
   const pickState = ref<PickState | null>(null)
   const pickedBalls = ref<PickedBall[]>([])
-  const bingoSummaries = ref<BingoSummary[]>([])
-  const reachSummaries = ref<ReachSummary[]>([])
   const card = ref<Card | null>(null)
-  const participantCount = ref<number | null>(null)
+  const participantCount = computed(() => participants.value.length)
+  const bingoParticipantCount = computed(() => {
+    const userIds = new Set(
+      activityLog.value.filter((entry) => entry.kind === 'bingo').map((entry) => entry.user.userId),
+    )
+    return userIds.size
+  })
+  const reachParticipantCount = computed(() => {
+    const bingoUserIds = new Set(
+      activityLog.value.filter((entry) => entry.kind === 'bingo').map((entry) => entry.user.userId),
+    )
+    const reachUserIds = new Set(
+      activityLog.value.filter((entry) => entry.kind === 'reach').map((entry) => entry.user.userId),
+    )
+    for (const userId of bingoUserIds) reachUserIds.delete(userId)
+    return reachUserIds.size
+  })
   const qrCodeVisible = ref<boolean | null>(null)
 
   const isConnected = computed(() => status.value === 'open')
@@ -102,16 +110,11 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     latestEvent.value = null
     latestBall.value = null
     latestCardChanges.value = null
-    latestNewBingos.value = []
-    latestNewReaches.value = []
     roomState.value = null
     settings.value = null
     pickState.value = null
     pickedBalls.value = []
-    bingoSummaries.value = []
-    reachSummaries.value = []
     card.value = null
-    participantCount.value = null
     qrCodeVisible.value = null
   }
 
@@ -129,7 +132,6 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
 
     switch (event.type) {
       case 'ParticipantJoined':
-        participantCount.value = event.body.participantCount
         if (
           !participants.value.some(
             (participant) => participant.userId === event.body.participant.userId,
@@ -147,17 +149,12 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         pickState.value = body.pickState
         latestBall.value = body.pickedBalls.at(-1) ?? null
         latestCardChanges.value = null
-        latestNewBingos.value = []
-        latestNewReaches.value = []
         pickedBalls.value = body.pickedBalls
-        bingoSummaries.value = body.bingoSummaries
-        reachSummaries.value = body.reachSummaries
         if (mode.value === 'participant') {
           card.value = (body as ParticipantInitializedBody).card ?? null
         } else {
           const displayBody = body as DisplayInitializedBody
           participants.value = displayBody.participants
-          participantCount.value = displayBody.participantCount
           qrCodeVisible.value = displayBody.qrCodeVisible
         }
         break
@@ -169,8 +166,6 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         pickState.value = 'idle'
         if (mode.value === 'participant') {
           card.value = (body as ParticipantGameStartedBody).card
-        } else {
-          participantCount.value = (body as DisplayGameStartedBody).participantCount
         }
         break
       }
@@ -185,18 +180,13 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
 
         appendActivityLogEntries(body.newActivityLog)
         latestBall.value = body.pickedBall
-        latestNewBingos.value = body.newBingos
-        latestNewReaches.value = body.newReaches
         pickState.value = body.pickState
         pickedBalls.value = body.pickedBalls
-        bingoSummaries.value = body.bingoSummaries
-        reachSummaries.value = body.reachSummaries
         if (mode.value === 'participant') {
           const participantBody = body as ParticipantPickFinishedBody
           card.value = participantBody.card
           latestCardChanges.value = participantBody.cardChanges
         } else {
-          participantCount.value = (body as DisplayPickFinishedBody).participantCount
           latestCardChanges.value = null
         }
         break
@@ -206,12 +196,8 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
 
         roomState.value = body.state
         pickState.value = body.pickState
-        bingoSummaries.value = body.bingoSummaries
-        reachSummaries.value = body.reachSummaries
         if (mode.value === 'participant') {
           card.value = (body as ParticipantGameFinishedBody).card
-        } else {
-          participantCount.value = (body as DisplayGameFinishedBody).participantCount
         }
         break
       }
@@ -330,7 +316,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     reconnectTimer = undefined
     const attempt = reconnectAttempt.value
     const options = { roomId: roomId.value, mode: mode.value }
-    // Replace even an apparently OPEN socket when its application state may be stale.
+    // OPEN に見えるソケットでも、アプリ側の状態が古い可能性があれば置き換える。
     disconnect()
     reconnectAttempt.value = attempt
     connect(options)
@@ -388,15 +374,13 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     latestEvent,
     latestBall,
     latestCardChanges,
-    latestNewBingos,
-    latestNewReaches,
     participants,
     roomState,
     settings,
     pickState,
     pickedBalls,
-    bingoSummaries,
-    reachSummaries,
+    bingoParticipantCount,
+    reachParticipantCount,
     card,
     participantCount,
     qrCodeVisible,
