@@ -223,7 +223,7 @@ function stopBingoFireworks(dispose = false) {
       />
     </div>
     <ChatContainer
-      v-if="roomCode && isActiveRoom"
+      v-if="roomCode"
       class="participant-room__chat"
       :room-code="roomCode"
       textarea
