@@ -29,22 +29,22 @@ type Props = {
   panelOpacity?: number
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  topText: 'GAME',
-  bottomText: 'START',
-  topColor: '#000000',
-  bottomColor: '#000000',
-  textColor: '#ffffff',
-  duration: 2000,
-  easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
-  textStartDelay: 1150,
-  textHoldDelay: 1100,
-  textDuration: 650,
-  textStagger: 180,
-  fadeDuration: 500,
-  rotateFrom: -30,
-  panelOpacity: 0.8,
-})
+const {
+  topText = 'GAME',
+  bottomText = 'START',
+  topColor = '#000000',
+  bottomColor = '#000000',
+  textColor = '#ffffff',
+  duration = 2000,
+  easing = 'cubic-bezier(0.4, 0, 0.2, 1)',
+  textStartDelay = 1150,
+  textHoldDelay = 1100,
+  textDuration = 650,
+  textStagger = 180,
+  fadeDuration = 500,
+  rotateFrom = -30,
+  panelOpacity = 0.8,
+} = defineProps<Props>()
 const emit = defineEmits<{
   complete: []
 }>()
@@ -58,16 +58,16 @@ let completeTimer: number | undefined
 const stageStyle = computed(
   () =>
     ({
-      '--motion-duration': `${props.duration}ms`,
-      '--motion-easing': props.easing,
+      '--motion-duration': `${duration}ms`,
+      '--motion-easing': easing,
       '--transition__duration': 'var(--motion-duration)',
       '--transition__easing': 'var(--motion-easing)',
-      '--top-color': props.topColor,
-      '--bottom-color': props.bottomColor,
-      '--text-color': props.textColor,
-      '--fade-duration': `${props.fadeDuration}ms`,
-      '--rotate-from': `${props.rotateFrom}deg`,
-      '--panel-opacity': String(props.panelOpacity),
+      '--top-color': topColor,
+      '--bottom-color': bottomColor,
+      '--text-color': textColor,
+      '--fade-duration': `${fadeDuration}ms`,
+      '--rotate-from': `${rotateFrom}deg`,
+      '--panel-opacity': String(panelOpacity),
     }) as CSSProperties,
 )
 
@@ -90,24 +90,24 @@ onMounted(async () => {
   const words = textSplitters.flatMap((splitter) => splitter.words)
 
   textAnimation = animate(words, {
-    y: [{ to: ['-100%', '0%'] }, { to: '100%', delay: props.textHoldDelay, ease: 'in(3)' }],
-    duration: props.textDuration,
+    y: [{ to: ['-100%', '0%'] }, { to: '100%', delay: textHoldDelay, ease: 'in(3)' }],
+    duration: textDuration,
     ease: 'out(3)',
-    delay: stagger(props.textStagger),
+    delay: stagger(textStagger),
     loop: false,
     autoplay: false,
     onComplete: () => {
       root.value?.querySelector('.tilt')?.classList.add('is-fading')
       completeTimer = window.setTimeout(() => {
         emit('complete')
-      }, props.fadeDuration)
+      }, fadeDuration)
     },
   }) as TextAnimation
 
   textTimer = window.setTimeout(() => {
     labels.forEach((label) => label.classList.add('is-visible'))
     textAnimation?.play()
-  }, props.textStartDelay)
+  }, textStartDelay)
 })
 
 onBeforeUnmount(() => {

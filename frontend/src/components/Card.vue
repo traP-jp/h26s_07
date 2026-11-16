@@ -9,15 +9,12 @@ interface Props {
   isJoinable?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  isAdmin: false,
-  isJoinable: false,
-})
+const { title, description, roomCode, isAdmin = false, isJoinable = false } = defineProps<Props>()
 
-const joinUrl = computed(() => `/${props.roomCode}/participant`)
-const displayUrl = computed(() => `/${props.roomCode}/display`)
-const settingsUrl = computed(() => `/${props.roomCode}/settings`)
-const controllerUrl = computed(() => `/${props.roomCode}/controller`)
+const joinUrl = computed(() => `/${roomCode}/participant`)
+const displayUrl = computed(() => `/${roomCode}/display`)
+const settingsUrl = computed(() => `/${roomCode}/settings`)
+const controllerUrl = computed(() => `/${roomCode}/controller`)
 
 const emit = defineEmits<{
   join: []
@@ -26,12 +23,12 @@ const emit = defineEmits<{
 
 <template>
   <UCard class="w-full p-1" variant="outline" :ui="{ body: 'p-2 sm:p-2' }">
-    <h3 class="font-bold text-2xl">{{ props.title }}</h3>
-    <p>{{ props.description }}</p>
+    <h3 class="font-bold text-2xl">{{ title }}</h3>
+    <p>{{ description }}</p>
 
     <div class="flex gap-2 mt-2 flex-wrap">
       <UButton
-        v-if="props.isJoinable"
+        v-if="isJoinable"
         @click.stop.prevent="emit('join')"
         color="primary"
         variant="solid"
@@ -65,7 +62,7 @@ const emit = defineEmits<{
       </UButton>
 
       <UButton
-        v-if="props.isAdmin"
+        v-if="isAdmin"
         color="primary"
         variant="outline"
         icon="i-lucide-settings"
@@ -77,7 +74,7 @@ const emit = defineEmits<{
       </UButton>
 
       <UButton
-        v-if="props.isAdmin"
+        v-if="isAdmin"
         color="primary"
         variant="outline"
         icon="i-lucide-gamepad"

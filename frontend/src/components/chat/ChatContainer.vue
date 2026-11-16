@@ -8,19 +8,17 @@ import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoomsStore } from '@/stores/rooms'
 import { storeToRefs } from 'pinia'
 
-const room = withDefaults(
-  defineProps<{
-    roomCode: string
-    textarea?: boolean
-    connect?: boolean
-    variant?: 'default' | 'display' | 'participant'
-  }>(),
-  {
-    textarea: false,
-    connect: true,
-    variant: 'default',
-  },
-)
+const {
+  roomCode,
+  textarea = false,
+  connect = true,
+  variant = 'default',
+} = defineProps<{
+  roomCode: string
+  textarea?: boolean
+  connect?: boolean
+  variant?: 'default' | 'display' | 'participant'
+}>()
 
 const historyMessages = ref<Message[]>([])
 const messages = computed(() => [
@@ -141,12 +139,12 @@ const notificationType = (message: Message) => {
 }
 
 onMounted(async () => {
-  const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
+  const roomId = await roomsStore.getRoomIdByCode(roomCode)
   if (!roomId) return
   activeRoomId.value = roomId
 
-  if (room.connect) {
-    const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
+  if (connect) {
+    const mode: WebSocketMode = textarea ? 'participant' : 'display'
     if (!store.isActiveConnection({ roomId, mode })) store.connect({ roomId, mode })
   }
   await loadMessages(roomId)
@@ -195,7 +193,7 @@ watch(participantChatOpen, (open) => {
 </script>
 
 <template>
-  <div v-if="room.variant === 'participant'" class="participant-chat">
+  <div v-if="variant === 'participant'" class="participant-chat">
     <section class="participant-chat__desktop">
       <div class="participant-chat__header">Chat</div>
       <div ref="participantInlineChatContainer" class="chat-container chat-container--participant">
@@ -268,7 +266,7 @@ watch(participantChatOpen, (open) => {
     <div
       ref="chatContainer"
       class="chat-container"
-      :class="{ 'chat-container--display': room.variant === 'display' }"
+      :class="{ 'chat-container--display': variant === 'display' }"
     >
       <div class="chat-container__messages">
         <div v-for="message in timelineMessages" :key="message.messageId">
@@ -281,7 +279,7 @@ watch(participantChatOpen, (open) => {
       </div>
     </div>
 
-    <div v-if="room.textarea && activeRoomId" style="height: 30px">
+    <div v-if="textarea && activeRoomId" style="height: 30px">
       <PostMessage :room-id="activeRoomId"></PostMessage>
     </div>
   </template>
