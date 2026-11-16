@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Message, DateTime, WebSocketMode } from '@/api/schema'
+import type { ActivityLogEntry, Message, DateTime, WebSocketMode } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
 import MessageContainer from '@/components/chat/MessageContainer.vue'
 import PostMessage from '@/components/chat/PostMessage.vue'
@@ -23,7 +23,7 @@ const {
 const historyMessages = ref<Message[]>([])
 const messages = computed(() => [
   ...historyMessages.value,
-  ...(store.roomId === activeRoomId.value ? store.chatMessages : []),
+  ...(store.roomId === activeRoomId.value ? store.newChatMessages : []),
 ])
 
 const chatContainer = ref<HTMLElement | null>(null)
@@ -60,19 +60,42 @@ const systemMessage = (id: string, content: string, createdAt: DateTime): Messag
   createdAt,
 })
 
-const summaryMessages = computed(() =>
-  activityLog.value.map((entry) =>
+const groupActivityEntriesByCreatedAt = (entries: ActivityLogEntry[]) => {
+  const groups = new Map<DateTime, ActivityLogEntry[]>()
+  for (const entry of entries) {
+    const group = groups.get(entry.createdAt) ?? []
+    group.push(entry)
+    groups.set(entry.createdAt, group)
+  }
+  return [...groups.entries()]
+}
+
+const bingoMessages = (entries: ActivityLogEntry[]) =>
+  groupActivityEntriesByCreatedAt(entries).map(([createdAt, group]) =>
     systemMessage(
-      entry.id,
-      entry.kind === 'reach'
-        ? `${entry.user.userId} さんがリーチ！`
-        : (entry.lineCount ?? 1) > 1
-          ? `${entry.user.userId} さんが ${entry.lineCount} ライン目のビンゴ！`
-          : `${entry.user.userId} さんが ${entry.bingoRank ?? 1} 番目にビンゴ！`,
-      entry.createdAt,
+      `newBingos-${createdAt}`,
+      `${group.map((entry) => entry.user.userId).join('、')} がビンゴしました！`,
+      createdAt,
     ),
-  ),
-)
+  )
+
+const reachMessages = (entries: ActivityLogEntry[]) =>
+  groupActivityEntriesByCreatedAt(entries).map(([createdAt, group]) => {
+    const content =
+      group.length >= 2
+        ? `${group[0]?.user.userId} と他 ${group.length - 1} 人がリーチしました！`
+        : `${group[0]?.user.userId} がリーチしました！`
+
+    return systemMessage(`newReaches-${createdAt}`, content, createdAt)
+  })
+
+const summaryMessages = computed(() => {
+  const bingoEntries = activityLog.value.filter(
+    (entry) => entry.kind === 'bingo' && (entry.lineCount ?? 1) === 1,
+  )
+  const reachEntries = activityLog.value.filter((entry) => entry.kind === 'reach')
+  return [...bingoMessages(bingoEntries), ...reachMessages(reachEntries)]
+})
 
 const timelineMessages = computed(() =>
   mergeMessages([

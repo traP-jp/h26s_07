@@ -66,7 +66,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   const latestCardChanges = ref<CardChanges | null>(null)
   const participants = ref<User[]>([])
   const activityLog = ref<ActivityLogEntry[]>([])
-  const chatMessages = ref<Message[]>([])
+  const newChatMessages = ref<Message[]>([])
 
   const roomState = ref<RoomState | null>(null)
   const settings = ref<GameSettings | null>(null)
@@ -106,7 +106,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   function resetRoomState() {
     participants.value = []
     activityLog.value = []
-    chatMessages.value = []
+    newChatMessages.value = []
     latestEvent.value = null
     latestBall.value = null
     latestCardChanges.value = null
@@ -208,7 +208,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         qrCodeVisible.value = false
         break
       case 'MessageCreated':
-        chatMessages.value.push(event.body.message)
+        newChatMessages.value.push(event.body.message)
         break
       case 'AllPicked':
         pickedBalls.value = event.body.pickedBalls
@@ -364,7 +364,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
 
   return {
     activityLog,
-    chatMessages,
+    newChatMessages,
     reconnectAttempt,
     socket,
     roomId,
