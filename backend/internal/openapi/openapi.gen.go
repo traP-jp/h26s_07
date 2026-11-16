@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -544,10 +545,8 @@ type ActivityLogEntry struct {
 	BingoRank *int `json:"bingoRank,omitempty"`
 
 	// CreatedAt ISO 8601 datetime string。
-	CreatedAt DateTime `json:"createdAt"`
-
-	// ID UUID string。
-	ID        UUID                 `json:"id"`
+	CreatedAt DateTime             `json:"createdAt"`
+	ID        openapi_types.UUID   `json:"id"`
 	Kind      ActivityLogEntryKind `json:"kind"`
 	LineCount *int                 `json:"lineCount,omitempty"`
 	User      User                 `json:"user"`
@@ -579,10 +578,8 @@ type BingoUpdate struct {
 
 // Card participant にだけ送るカード snapshot。
 type Card struct {
-	BingoLines []Line `json:"bingoLines"`
-
-	// CardID UUID string。
-	CardID UUID `json:"cardId"`
+	BingoLines []Line             `json:"bingoLines"`
+	CardID     openapi_types.UUID `json:"cardId"`
 
 	// CardNumber カード生成時に定める 36 桁数字文字列。生成後は変更しない。
 	CardNumber string     `json:"cardNumber"`
@@ -828,10 +825,8 @@ type Message struct {
 	Content string `json:"content"`
 
 	// CreatedAt ISO 8601 datetime string。
-	CreatedAt DateTime `json:"createdAt"`
-
-	// MessageID UUID string。
-	MessageID UUID `json:"messageId"`
+	CreatedAt DateTime           `json:"createdAt"`
+	MessageID openapi_types.UUID `json:"messageId"`
 }
 
 // MessageCreatedBody defines model for MessageCreatedBody.
@@ -1050,17 +1045,14 @@ type Room struct {
 // RoomCode 6 桁の数字文字列。
 type RoomCode = string
 
-// RoomID UUID string。
-type RoomID = UUID
+// RoomID ルーム ID。
+type RoomID = openapi_types.UUID
 
 // RoomState defines model for RoomState.
 type RoomState string
 
 // ShowQRCodeBody defines model for ShowQRCodeBody.
 type ShowQRCodeBody = EmptyObject
-
-// UUID UUID string。
-type UUID = string
 
 // UpdateGameSettingsRequest defines model for UpdateGameSettingsRequest.
 type UpdateGameSettingsRequest struct {

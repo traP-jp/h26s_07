@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Uuid, Message, DateTime, WebSocketMode } from '@/api/schema'
+import type { Message, DateTime, WebSocketMode } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
 import MessageContainer from '@/components/chat/MessageContainer.vue'
 import PostMessage from '@/components/chat/PostMessage.vue'
@@ -31,7 +31,7 @@ const messages = computed(() => [
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
-const activeRoomId = ref<Uuid | null>(null)
+const activeRoomId = ref<string | null>(null)
 const participantChatOpen = ref(false)
 const participantChatClosing = ref(false)
 let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
@@ -56,7 +56,7 @@ const mergeMessages = (items: Message[]) => {
 }
 
 const systemMessage = (id: string, content: string, createdAt: DateTime): Message => ({
-  messageId: id as Uuid,
+  messageId: id,
   content,
   author: { userId: '' },
   createdAt,
@@ -117,7 +117,7 @@ const closeParticipantChat = () => {
   participantChatOpen.value = false
 }
 
-const loadMessages = async (roomId: Uuid) => {
+const loadMessages = async (roomId: string) => {
   try {
     const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
       params: { path: { roomId } },

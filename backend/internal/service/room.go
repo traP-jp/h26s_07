@@ -155,7 +155,7 @@ func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user
 			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
 			Content:   createdMessage.Content,
 			CreatedAt: createdMessage.CreatedAt,
-			MessageID: openapi.UUID(uuid.UUID(createdMessage.MessageID).String()),
+			MessageID: uuid.UUID(createdMessage.MessageID),
 		}},
 	})
 	if err != nil {
@@ -167,7 +167,7 @@ func (s *RoomService) postMessage(ctx context.Context, roomID model.RoomID, user
 			Author:    openapi.User{UserID: openapi.UserID(createdMessage.Author)},
 			Content:   createdMessage.Content,
 			CreatedAt: createdMessage.CreatedAt,
-			MessageID: openapi.UUID(uuid.UUID(createdMessage.MessageID).String()),
+			MessageID: uuid.UUID(createdMessage.MessageID),
 		}},
 	})
 	if err != nil {
@@ -274,7 +274,7 @@ func convertCardToOpenAPI(room *model.Room, card model.Card) openapi.Card {
 		cells = append(cells, convertCardCellToOpenAPI(cell))
 	}
 	return openapi.Card{
-		CardID:      uuid.UUID(card.CardID).String(),
+		CardID:      uuid.UUID(card.CardID),
 		CardNumber:  string(card.CardNumber),
 		OwnerUserID: openapi.UserID(card.OwnerUserID),
 		Cells:       cells,

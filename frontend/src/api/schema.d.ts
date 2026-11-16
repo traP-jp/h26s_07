@@ -290,8 +290,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description UUID string。 */
-        UUID: string;
         /**
          * Format: date-time
          * @description ISO 8601 datetime string。
@@ -299,8 +297,11 @@ export interface components {
         DateTime: string;
         /** @description traP ID。 */
         UserId: string;
-        /** @description ルーム ID。 */
-        RoomId: components["schemas"]["UUID"];
+        /**
+         * Format: uuid
+         * @description ルーム ID。
+         */
+        RoomId: string;
         /**
          * @description 6 桁の数字文字列。
          * @example 123456
@@ -353,7 +354,8 @@ export interface components {
         };
         /** @description participant にだけ送るカード snapshot。 */
         Card: {
-            cardId: components["schemas"]["UUID"];
+            /** Format: uuid */
+            cardId: string;
             /** @description カード生成時に定める 36 桁数字文字列。生成後は変更しない。 */
             cardNumber: string;
             ownerUserId: components["schemas"]["UserId"];
@@ -370,7 +372,8 @@ export interface components {
         };
         Line: number[];
         Message: {
-            messageId: components["schemas"]["UUID"];
+            /** Format: uuid */
+            messageId: string;
             content: string;
             author: components["schemas"]["User"];
             createdAt: components["schemas"]["DateTime"];
@@ -620,7 +623,8 @@ export interface components {
         };
         /** @description First reach per user and every bingo line, ordered by time and record ID. */
         ActivityLogEntry: {
-            id: components["schemas"]["UUID"];
+            /** Format: uuid */
+            id: string;
             /** @enum {string} */
             kind: "reach" | "bingo";
             user: components["schemas"]["User"];
@@ -684,7 +688,6 @@ export interface components {
     headers: never;
     pathItems: never;
 }
-export type Uuid = components['schemas']['UUID'];
 export type DateTime = components['schemas']['DateTime'];
 export type UserId = components['schemas']['UserId'];
 export type RoomId = components['schemas']['RoomId'];

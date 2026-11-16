@@ -521,10 +521,6 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
-    UUID:
-      type: string
-      description: UUID string。
-
     DateTime:
       type: string
       format: date-time
@@ -536,8 +532,8 @@ components:
       description: traP ID。
 
     RoomId:
-      allOf:
-        - $ref: "#/components/schemas/UUID"
+      type: string
+      format: uuid
       description: ルーム ID。
 
     RoomCode:
@@ -709,7 +705,8 @@ components:
       description: participant にだけ送るカード snapshot。
       properties:
         cardId:
-          $ref: "#/components/schemas/UUID"
+          type: string
+          format: uuid
         cardNumber:
           type: string
           description: カード生成時に定める 36 桁数字文字列。生成後は変更しない。
@@ -778,7 +775,8 @@ components:
       additionalProperties: false
       properties:
         messageId:
-          $ref: "#/components/schemas/UUID"
+          type: string
+          format: uuid
         content:
           type: string
         author:
@@ -1596,7 +1594,8 @@ components:
       description: First reach per user and every bingo line, ordered by time and record ID.
       properties:
         id:
-          $ref: "#/components/schemas/UUID"
+          type: string
+          format: uuid
         kind:
           type: string
           enum: [reach, bingo]
