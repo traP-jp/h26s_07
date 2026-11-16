@@ -5,21 +5,27 @@ import UserIcon from '@/components/common/UserIcon.vue'
 defineProps<{
   userId: UserId
   content: string
-  notificationType?: 'bingo' | 'reach' | 'notice'
+  notificationType?: 'bingo' | 'reach' | 'exhausted' | 'notice'
 }>()
 </script>
 
 <template>
-  <div class="message">
-    <UserIcon v-if="userId != ''" :user-id="userId" class="icon"></UserIcon>
+  <div class="message" :class="{ 'message--system': userId === '' }">
+    <UserIcon v-if="userId !== ''" :user-id="userId" class="icon"></UserIcon>
+    <div v-if="userId !== ''" class="message__body">
+      <span class="message__author">{{ userId }}</span>
+      <div class="nakami">{{ content }}</div>
+    </div>
     <div
-      class="nakami"
+      v-else
+      class="nakami special"
       :class="{
-        special: userId == '',
         'special--bingo': notificationType === 'bingo',
         'special--reach': notificationType === 'reach',
+        'special--exhausted': notificationType === 'exhausted',
         'special--notice': notificationType === 'notice',
       }"
+      role="status"
     >
       {{ content }}
     </div>
@@ -29,54 +35,80 @@ defineProps<{
 <style scoped>
 .message {
   display: flex;
-  align-items: start;
-  gap: 8px;
-  padding-left: 8px;
-  padding-top: 8px;
-  padding-right: 8px;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 12px 2px;
 }
 .icon {
-  width: 36px;
-  height: 36px;
-  margin-right: 6px;
+  width: 30px;
+  height: 30px;
+  margin-top: 17px;
   flex-shrink: 0;
-  border-radius: 18px;
+  border-radius: 50%;
   overflow: hidden;
 }
+.message__body {
+  min-width: 0;
+  max-width: 82%;
+}
+.message__author {
+  display: block;
+  margin: 0 0 3px 2px;
+  color: #56616b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
 .nakami.special {
-  width: 100%;
+  width: auto;
   max-width: 100%;
+  margin: 4px auto;
+  padding: 8px 12px;
+  border: 1px solid #d8d1c4;
+  background: #f5f0e5;
+  color: #4a4b45;
   text-align: center;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 1.4em;
-  line-height: 1;
+  border-radius: 999px;
+  font-weight: 650;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: none;
 }
 .nakami.special--bingo {
-  background: #3972b8;
-  color: #ffffff;
-  opacity: 0.9;
+  border-color: #ddc77c;
+  background: #f5ebc8;
+  color: #654d19;
+  font-weight: 800;
 }
 .nakami.special--reach {
-  background: #ffffff;
-  color: #185aa9;
-  opacity: 0.9;
+  border-color: #d8b1a5;
+  background: #f7e9e4;
+  color: #78433b;
+  font-weight: 600;
+}
+.nakami.special--exhausted {
+  border-color: #a9bcb4;
+  background: #eaf0ed;
+  color: #315447;
+  font-weight: 750;
 }
 .nakami.special--notice {
-  border-color: #f1d529;
-  background: #fff2a8;
-  color: #37506f;
+  border-color: #dedbd4;
+  background: #f4f3ef;
+  color: #535b61;
 }
 .nakami {
-  max-width: 75%;
-  padding: 10px 14px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 11px;
   background: #ffffff;
-  border-radius: 0 14px 14px 14px;
-  color: #24364d;
-  opacity: 0.9;
-  line-height: 1.6;
+  border: 1px solid #e7e1d7;
+  border-radius: 3px 12px 12px 12px;
+  color: #28343d;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgb(39 42 46 / 5%);
 }
 </style>
