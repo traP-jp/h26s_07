@@ -3,18 +3,20 @@ import type { Card, CardCell as CardCellType, CardChanges, Line } from '@/api/sc
 import CardCell from '@/components/bingo/CardCell.vue'
 import { computed, ref, watch } from 'vue'
 
-const props = withDefaults(
-  defineProps<{
-    card?: Card | null
-    cardChanges?: CardChanges | null
-    drawKey?: number | null
-    placeholder?: boolean
-  }>(),
-  { cardChanges: null, drawKey: null, placeholder: false },
-)
+const {
+  card = null,
+  cardChanges = null,
+  drawKey = null,
+  placeholder = false,
+} = defineProps<{
+  card?: Card | null
+  cardChanges?: CardChanges | null
+  drawKey?: number | null
+  placeholder?: boolean
+}>()
 
 type CardEffectMode = 'bingo' | 'reach'
-const cardNo = computed(() => props.card?.cardNumber ?? 'not assigned')
+const cardNo = computed(() => card?.cardNumber ?? 'not assigned')
 const title = ['B', 'I', 'N', 'G', 'O']
 const placeholderCells: CardCellType[] = Array.from({ length: 25 }, (_, index) => ({
   index,
@@ -22,7 +24,7 @@ const placeholderCells: CardCellType[] = Array.from({ length: 25 }, (_, index) =
   displayText: index === 12 ? 'FREE' : '?',
   cellState: index === 12 ? 'open' : 'closed',
 }))
-const cells = computed(() => props.card?.cells ?? placeholderCells)
+const cells = computed(() => card?.cells ?? placeholderCells)
 const accessibleRows = computed(() =>
   Array.from({ length: 5 }, (_, row) =>
     Array.from({ length: 5 }, (_, column) => cells.value[column * 5 + row]).filter(
@@ -47,7 +49,7 @@ const cellStateLabel = (cell: CardCellType) => {
 // A reconnect can restore the last card snapshot. Only a changed draw key should replay motion.
 const activeDrawKey = ref<number | null>(null)
 watch(
-  () => [props.drawKey, props.cardChanges] as const,
+  () => [drawKey, cardChanges] as const,
   ([drawKey, cardChanges], [previousDrawKey]) => {
     if (cardChanges == null) {
       activeDrawKey.value = null
@@ -58,56 +60,55 @@ watch(
 )
 
 const activeEffect = computed<{ mode: CardEffectMode; line: Line } | null>(() => {
-  if (props.drawKey == null || activeDrawKey.value !== props.drawKey) return null
-  const bingoLine = props.cardChanges?.newBingoLines.at(-1)
+  if (drawKey == null || activeDrawKey.value !== drawKey) return null
+  const bingoLine = cardChanges?.newBingoLines.at(-1)
   if (bingoLine) return { mode: 'bingo', line: bingoLine }
-  const reachLine = props.cardChanges?.newReachLines.at(-1)
+  const reachLine = cardChanges?.newReachLines.at(-1)
   if (reachLine) return { mode: 'reach', line: reachLine }
   return null
 })
 const activeLine = computed(() => activeEffect.value?.line ?? [])
 const activeEffectKey = computed(() =>
   activeEffect.value
-    ? `${props.drawKey}-${activeEffect.value.mode}-${activeLine.value.join('-')}`
+    ? `${drawKey}-${activeEffect.value.mode}-${activeLine.value.join('-')}`
     : 'none',
 )
 const eventAnnouncement = computed(() => {
-  if (props.drawKey == null || activeDrawKey.value !== props.drawKey || !props.cardChanges) {
+  if (drawKey == null || activeDrawKey.value !== drawKey || !cardChanges) {
     return ''
   }
   if (
-    props.cardChanges.openedCellIndices.length === 0 &&
-    props.cardChanges.newReachLines.length === 0 &&
-    props.cardChanges.newBingoLines.length === 0
+    cardChanges.openedCellIndices.length === 0 &&
+    cardChanges.newReachLines.length === 0 &&
+    cardChanges.newBingoLines.length === 0
   ) {
     return ''
   }
 
-  const result = props.cardChanges.newBingoLines.length
+  const result = cardChanges.newBingoLines.length
     ? 'ビンゴです。'
-    : props.cardChanges.newReachLines.length
+    : cardChanges.newReachLines.length
       ? 'リーチです。'
       : ''
 
-  return `数字 ${props.drawKey} が抽選されました。${result}`
+  return `数字 ${drawKey} が抽選されました。${result}`
 })
 
 const isInLine = (lines: Line[] | undefined, cellIndex: number) =>
   lines?.some((line) => line.includes(cellIndex)) ?? false
 
 const gridCellClass = (cell: CardCellType) => ({
-  'grid-cell--line-bingo': isInLine(props.card?.bingoLines, cell.index),
-  'grid-cell--line-reach': isInLine(props.card?.reachLines, cell.index),
+  'grid-cell--line-bingo': isInLine(card?.bingoLines, cell.index),
+  'grid-cell--line-reach': isInLine(card?.reachLines, cell.index),
   'grid-cell--active-line': activeLine.value.includes(cell.index),
   'grid-cell--active-bingo':
     activeEffect.value?.mode === 'bingo' && activeLine.value.includes(cell.index),
   'grid-cell--active-reach':
     activeEffect.value?.mode === 'reach' && activeLine.value.includes(cell.index),
-  'grid-cell--reach-missing':
-    isInLine(props.card?.reachLines, cell.index) && cell.cellState === 'closed',
+  'grid-cell--reach-missing': isInLine(card?.reachLines, cell.index) && cell.cellState === 'closed',
   'grid-cell--new-draw':
-    activeDrawKey.value === props.drawKey &&
-    (props.cardChanges?.openedCellIndices.includes(cell.index) ?? false),
+    activeDrawKey.value === drawKey &&
+    (cardChanges?.openedCellIndices.includes(cell.index) ?? false),
 })
 
 const gridCellStyle = (cell: CardCellType) => {
@@ -201,7 +202,7 @@ const activeLineStyle = computed(() => {
 
       <div class="card-no">Card No. {{ cardNo }}</div>
 
-      <div v-if="props.placeholder || !props.card" class="bingo-placeholder-message">
+      <div v-if="placeholder || !card" class="bingo-placeholder-message">
         カードはまだ配られていません
       </div>
     </div>

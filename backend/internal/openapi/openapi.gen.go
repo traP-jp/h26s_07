@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -539,15 +540,13 @@ func (e WebSocketMode) Valid() bool {
 	}
 }
 
-// ActivityLogEntry First reach per user and every bingo line, ordered by time and record ID.
+// ActivityLogEntry 各参加者の初回リーチと、成立した各ビンゴを時刻および記録 ID 順に並べた履歴。
 type ActivityLogEntry struct {
 	BingoRank *int `json:"bingoRank,omitempty"`
 
-	// CreatedAt ISO 8601 datetime string。
-	CreatedAt DateTime `json:"createdAt"`
-
-	// ID UUID string。
-	ID        UUID                 `json:"id"`
+	// CreatedAt ISO 8601 形式の日時文字列。
+	CreatedAt DateTime             `json:"createdAt"`
+	ID        openapi_types.UUID   `json:"id"`
 	Kind      ActivityLogEntryKind `json:"kind"`
 	LineCount *int                 `json:"lineCount,omitempty"`
 	User      User                 `json:"user"`
@@ -565,30 +564,21 @@ type AllPickedBody struct {
 type BingoSummary struct {
 	BingoOrders []int `json:"bingoOrders"`
 
-	// CreatedAt ISO 8601 datetime string。
+	// CreatedAt ISO 8601 形式の日時文字列。
 	CreatedAt DateTime `json:"createdAt"`
 	User      User     `json:"user"`
 }
 
-// BingoUpdate PickFinished の body で使う新規ビンゴ情報。カード詳細、ライン index、cell index は含めない。
-type BingoUpdate struct {
-	BingoOrders    []int `json:"bingoOrders"`
-	NewBingoOrders []int `json:"newBingoOrders"`
-	User           User  `json:"user"`
-}
-
-// Card participant にだけ送るカード snapshot。
+// Card 参加者にだけ送るカードの状態一式。
 type Card struct {
-	BingoLines []Line `json:"bingoLines"`
-
-	// CardID UUID string。
-	CardID UUID `json:"cardId"`
+	BingoLines []Line             `json:"bingoLines"`
+	CardID     openapi_types.UUID `json:"cardId"`
 
 	// CardNumber カード生成時に定める 36 桁数字文字列。生成後は変更しない。
 	CardNumber string     `json:"cardNumber"`
 	Cells      []CardCell `json:"cells"`
 
-	// OwnerUserID traP ID。
+	// OwnerUserID traP のユーザー ID。
 	OwnerUserID UserID `json:"ownerUserId"`
 	ReachLines  []Line `json:"reachLines"`
 }
@@ -599,14 +589,14 @@ type CardCell struct {
 	DisplayText string        `json:"displayText"`
 	Index       int           `json:"index"`
 
-	// Number 中央 FREE は null。
+	// Number 中央のフリー枠は null。
 	Number *int `json:"number"`
 }
 
 // CardCellState defines model for CardCellState.
 type CardCellState string
 
-// CardChanges participant の PickFinished にだけ含める演出用差分。
+// CardChanges 参加者向け PickFinished にだけ含める演出用の差分。
 type CardChanges struct {
 	NewBingoLines     []Line `json:"newBingoLines"`
 	NewReachLines     []Line `json:"newReachLines"`
@@ -620,11 +610,11 @@ type CreateMessageRequest struct {
 
 // CreateRoomRequest defines model for CreateRoomRequest.
 type CreateRoomRequest struct {
-	// Settings 作成・更新時に渡すゲーム設定。adminUserIds は指定した場合だけ admin 一覧を置き換える。
+	// Settings 作成・更新時に渡すゲーム設定。adminUserIds を指定した場合は管理者一覧を置き換える。
 	Settings GameSettingsInput `json:"settings"`
 }
 
-// DateTime ISO 8601 datetime string。
+// DateTime ISO 8601 形式の日時文字列。
 type DateTime = time.Time
 
 // DisplayAllPickedEvent defines model for DisplayAllPickedEvent.
@@ -638,11 +628,8 @@ type DisplayAllPickedEventType string
 
 // DisplayGameFinishedBody defines model for DisplayGameFinishedBody.
 type DisplayGameFinishedBody struct {
-	BingoSummaries   []BingoSummary                   `json:"bingoSummaries"`
-	ParticipantCount int                              `json:"participantCount"`
-	PickState        DisplayGameFinishedBodyPickState `json:"pickState"`
-	ReachSummaries   []ReachSummary                   `json:"reachSummaries"`
-	State            DisplayGameFinishedBodyState     `json:"state"`
+	PickState DisplayGameFinishedBodyPickState `json:"pickState"`
+	State     DisplayGameFinishedBodyState     `json:"state"`
 }
 
 // DisplayGameFinishedBodyPickState defines model for DisplayGameFinishedBody.PickState.
@@ -674,14 +661,9 @@ type DisplayGameSettingsUpdatedEvent struct {
 // DisplayGameSettingsUpdatedEventType defines model for DisplayGameSettingsUpdatedEvent.Type.
 type DisplayGameSettingsUpdatedEventType string
 
-// DisplayGameStartedBody defines model for DisplayGameStartedBody.
-type DisplayGameStartedBody struct {
-	ParticipantCount int `json:"participantCount"`
-}
-
 // DisplayGameStartedEvent defines model for DisplayGameStartedEvent.
 type DisplayGameStartedEvent struct {
-	Body DisplayGameStartedBody      `json:"body"`
+	Body EmptyObject                 `json:"body"`
 	Type DisplayGameStartedEventType `json:"type"`
 }
 
@@ -699,16 +681,13 @@ type DisplayHideQRCodeEventType string
 
 // DisplayInitializedBody defines model for DisplayInitializedBody.
 type DisplayInitializedBody struct {
-	ActivityLog      []ActivityLogEntry `json:"activityLog"`
-	BingoSummaries   []BingoSummary     `json:"bingoSummaries"`
-	ParticipantCount int                `json:"participantCount"`
-	Participants     []User             `json:"participants"`
-	PickState        PickState          `json:"pickState"`
-	PickedBalls      []PickedBall       `json:"pickedBalls"`
-	QrCodeVisible    bool               `json:"qrCodeVisible"`
-	ReachSummaries   []ReachSummary     `json:"reachSummaries"`
-	Settings         GameSettings       `json:"settings"`
-	State            RoomState          `json:"state"`
+	ActivityLog   []ActivityLogEntry `json:"activityLog"`
+	Participants  []User             `json:"participants"`
+	PickState     PickState          `json:"pickState"`
+	PickedBalls   []PickedBall       `json:"pickedBalls"`
+	QrCodeVisible bool               `json:"qrCodeVisible"`
+	Settings      GameSettings       `json:"settings"`
+	State         RoomState          `json:"state"`
 }
 
 // DisplayInitializedEvent defines model for DisplayInitializedEvent.
@@ -749,17 +728,12 @@ type DisplayPickCanceledEventType string
 
 // DisplayPickFinishedBody defines model for DisplayPickFinishedBody.
 type DisplayPickFinishedBody struct {
-	BingoSummaries   []BingoSummary     `json:"bingoSummaries"`
-	NewActivityLog   []ActivityLogEntry `json:"newActivityLog"`
-	NewBingos        []BingoUpdate      `json:"newBingos"`
-	NewReaches       []ReachUpdate      `json:"newReaches"`
-	ParticipantCount int                `json:"participantCount"`
-	PickState        PickState          `json:"pickState"`
+	NewActivityLog []ActivityLogEntry `json:"newActivityLog"`
+	PickState      PickState          `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
-	PickedBall     PickedBall     `json:"pickedBall"`
-	PickedBalls    []PickedBall   `json:"pickedBalls"`
-	ReachSummaries []ReachSummary `json:"reachSummaries"`
+	PickedBall  PickedBall   `json:"pickedBall"`
+	PickedBalls []PickedBall `json:"pickedBalls"`
 }
 
 // DisplayPickFinishedEvent defines model for DisplayPickFinishedEvent.
@@ -789,7 +763,7 @@ type DisplayShowQRCodeEvent struct {
 // DisplayShowQRCodeEventType defines model for DisplayShowQRCodeEvent.Type.
 type DisplayShowQRCodeEventType string
 
-// DisplayWebSocketEvent display mode に送信される WebSocket event。body は event type ごとの display schema を使い、card を含めない。
+// DisplayWebSocketEvent 表示用モードに送信する WebSocket イベント。本文はイベントの種類に対応する表示用スキーマを使い、カードを含めない。
 type DisplayWebSocketEvent struct {
 	union json.RawMessage
 }
@@ -809,7 +783,7 @@ type GameSettings struct {
 	Name        string `json:"name"`
 }
 
-// GameSettingsInput 作成・更新時に渡すゲーム設定。adminUserIds は指定した場合だけ admin 一覧を置き換える。
+// GameSettingsInput 作成・更新時に渡すゲーム設定。adminUserIds を指定した場合は管理者一覧を置き換える。
 type GameSettingsInput struct {
 	AdminUserIds *[]UserID `json:"adminUserIds,omitempty"`
 	Description  string    `json:"description"`
@@ -827,11 +801,9 @@ type Message struct {
 	Author  User   `json:"author"`
 	Content string `json:"content"`
 
-	// CreatedAt ISO 8601 datetime string。
-	CreatedAt DateTime `json:"createdAt"`
-
-	// MessageID UUID string。
-	MessageID UUID `json:"messageId"`
+	// CreatedAt ISO 8601 形式の日時文字列。
+	CreatedAt DateTime           `json:"createdAt"`
+	MessageID openapi_types.UUID `json:"messageId"`
 }
 
 // MessageCreatedBody defines model for MessageCreatedBody.
@@ -850,13 +822,10 @@ type ParticipantAllPickedEventType string
 
 // ParticipantGameFinishedBody defines model for ParticipantGameFinishedBody.
 type ParticipantGameFinishedBody struct {
-	BingoSummaries []BingoSummary `json:"bingoSummaries"`
-
-	// Card participant にだけ送るカード snapshot。
-	Card           Card                                 `json:"card"`
-	PickState      ParticipantGameFinishedBodyPickState `json:"pickState"`
-	ReachSummaries []ReachSummary                       `json:"reachSummaries"`
-	State          ParticipantGameFinishedBodyState     `json:"state"`
+	// Card 参加者にだけ送るカードの状態一式。
+	Card      Card                                 `json:"card"`
+	PickState ParticipantGameFinishedBodyPickState `json:"pickState"`
+	State     ParticipantGameFinishedBodyState     `json:"state"`
 }
 
 // ParticipantGameFinishedBodyPickState defines model for ParticipantGameFinishedBody.PickState.
@@ -890,7 +859,7 @@ type ParticipantGameSettingsUpdatedEventType string
 
 // ParticipantGameStartedBody defines model for ParticipantGameStartedBody.
 type ParticipantGameStartedBody struct {
-	// Card participant にだけ送るカード snapshot。
+	// Card 参加者にだけ送るカードの状態一式。
 	Card Card `json:"card"`
 }
 
@@ -905,16 +874,14 @@ type ParticipantGameStartedEventType string
 
 // ParticipantInitializedBody defines model for ParticipantInitializedBody.
 type ParticipantInitializedBody struct {
-	ActivityLog    []ActivityLogEntry `json:"activityLog"`
-	BingoSummaries []BingoSummary     `json:"bingoSummaries"`
+	ActivityLog []ActivityLogEntry `json:"activityLog"`
 
-	// Card participant にだけ送るカード snapshot。
-	Card           *Card          `json:"card,omitempty"`
-	PickState      PickState      `json:"pickState"`
-	PickedBalls    []PickedBall   `json:"pickedBalls"`
-	ReachSummaries []ReachSummary `json:"reachSummaries"`
-	Settings       GameSettings   `json:"settings"`
-	State          RoomState      `json:"state"`
+	// Card 参加者にだけ送るカードの状態一式。
+	Card        *Card        `json:"card,omitempty"`
+	PickState   PickState    `json:"pickState"`
+	PickedBalls []PickedBall `json:"pickedBalls"`
+	Settings    GameSettings `json:"settings"`
+	State       RoomState    `json:"state"`
 }
 
 // ParticipantInitializedEvent defines model for ParticipantInitializedEvent.
@@ -928,8 +895,7 @@ type ParticipantInitializedEventType string
 
 // ParticipantJoinedBody defines model for ParticipantJoinedBody.
 type ParticipantJoinedBody struct {
-	Participant      User `json:"participant"`
-	ParticipantCount int  `json:"participantCount"`
+	Participant User `json:"participant"`
 }
 
 // ParticipantMessageCreatedEvent defines model for ParticipantMessageCreatedEvent.
@@ -952,22 +918,17 @@ type ParticipantPickCanceledEventType string
 
 // ParticipantPickFinishedBody defines model for ParticipantPickFinishedBody.
 type ParticipantPickFinishedBody struct {
-	BingoSummaries []BingoSummary `json:"bingoSummaries"`
-
-	// Card participant にだけ送るカード snapshot。
+	// Card 参加者にだけ送るカードの状態一式。
 	Card Card `json:"card"`
 
-	// CardChanges participant の PickFinished にだけ含める演出用差分。
+	// CardChanges 参加者向け PickFinished にだけ含める演出用の差分。
 	CardChanges    CardChanges        `json:"cardChanges"`
 	NewActivityLog []ActivityLogEntry `json:"newActivityLog"`
-	NewBingos      []BingoUpdate      `json:"newBingos"`
-	NewReaches     []ReachUpdate      `json:"newReaches"`
 	PickState      PickState          `json:"pickState"`
 
 	// PickedBall 確定済みの通常数字球。1..75。
-	PickedBall     PickedBall     `json:"pickedBall"`
-	PickedBalls    []PickedBall   `json:"pickedBalls"`
-	ReachSummaries []ReachSummary `json:"reachSummaries"`
+	PickedBall  PickedBall   `json:"pickedBall"`
+	PickedBalls []PickedBall `json:"pickedBalls"`
 }
 
 // ParticipantPickFinishedEvent defines model for ParticipantPickFinishedEvent.
@@ -988,14 +949,14 @@ type ParticipantPickStartedEvent struct {
 // ParticipantPickStartedEventType defines model for ParticipantPickStartedEvent.Type.
 type ParticipantPickStartedEventType string
 
-// ParticipantSummary 参加者一覧や display 向けの概要。admin 権限、カード詳細、リーチ情報、ビンゴ情報は含めない。
+// ParticipantSummary 参加者一覧や表示画面向けの概要。管理者権限、カード詳細、リーチ情報、ビンゴ情報は含めない。
 type ParticipantSummary struct {
-	// JoinedAt ISO 8601 datetime string。
+	// JoinedAt ISO 8601 形式の日時文字列。
 	JoinedAt DateTime `json:"joinedAt"`
 	User     User     `json:"user"`
 }
 
-// ParticipantWebSocketEvent participant mode に送信される WebSocket event。body は event type ごとの participant schema を使う。
+// ParticipantWebSocketEvent 参加者用モードに送信する WebSocket イベント。本文はイベントの種類に対応する参加者用スキーマを使う。
 type ParticipantWebSocketEvent struct {
 	union json.RawMessage
 }
@@ -1014,21 +975,16 @@ type PickedBall = int
 
 // ReachSummary 現在リーチしていて、まだビンゴしていない参加者の概要。
 type ReachSummary struct {
-	// CreatedAt ISO 8601 datetime string。
+	// CreatedAt ISO 8601 形式の日時文字列。
 	CreatedAt DateTime `json:"createdAt"`
 	User      User     `json:"user"`
-}
-
-// ReachUpdate PickFinished の body で使う初リーチ情報。カード詳細、リーチライン index、cell index は含めない。
-type ReachUpdate struct {
-	User User `json:"user"`
 }
 
 // Room defines model for Room.
 type Room struct {
 	BingoSummaries []BingoSummary `json:"bingoSummaries"`
 
-	// CreatedAt ISO 8601 datetime string。
+	// CreatedAt ISO 8601 形式の日時文字列。
 	CreatedAt      DateTime             `json:"createdAt"`
 	Participants   []ParticipantSummary `json:"participants"`
 	PickState      PickState            `json:"pickState"`
@@ -1043,15 +999,15 @@ type Room struct {
 	Settings GameSettings `json:"settings"`
 	State    RoomState    `json:"state"`
 
-	// UpdatedAt ISO 8601 datetime string。
+	// UpdatedAt ISO 8601 形式の日時文字列。
 	UpdatedAt DateTime `json:"updatedAt"`
 }
 
 // RoomCode 6 桁の数字文字列。
 type RoomCode = string
 
-// RoomID UUID string。
-type RoomID = UUID
+// RoomID ルーム ID。
+type RoomID = openapi_types.UUID
 
 // RoomState defines model for RoomState.
 type RoomState string
@@ -1059,22 +1015,19 @@ type RoomState string
 // ShowQRCodeBody defines model for ShowQRCodeBody.
 type ShowQRCodeBody = EmptyObject
 
-// UUID UUID string。
-type UUID = string
-
 // UpdateGameSettingsRequest defines model for UpdateGameSettingsRequest.
 type UpdateGameSettingsRequest struct {
-	// Settings 作成・更新時に渡すゲーム設定。adminUserIds は指定した場合だけ admin 一覧を置き換える。
+	// Settings 作成・更新時に渡すゲーム設定。adminUserIds を指定した場合は管理者一覧を置き換える。
 	Settings GameSettingsInput `json:"settings"`
 }
 
 // User defines model for User.
 type User struct {
-	// UserID traP ID。
+	// UserID traP のユーザー ID。
 	UserID UserID `json:"userId"`
 }
 
-// UserID traP ID。
+// UserID traP のユーザー ID。
 type UserID = string
 
 // WebSocketEventBase defines model for WebSocketEventBase.
@@ -1109,7 +1062,7 @@ type forwardedUserContextKey string
 
 // ConnectRoomWebSocketParams defines parameters for ConnectRoomWebSocket.
 type ConnectRoomWebSocketParams struct {
-	// Mode participant, display のいずれか。card が必要な参加者は participant mode、card を受け取らない表示・運営画面は display mode で接続する。
+	// Mode 参加者用または表示用のいずれか。カードが必要な参加者は参加者用モード、カードを受け取らない表示・運営画面は表示用モードで接続する。
 	Mode WebSocketMode `form:"mode" json:"mode"`
 }
 

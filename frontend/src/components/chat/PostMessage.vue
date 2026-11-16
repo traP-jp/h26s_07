@@ -2,13 +2,10 @@
 import { computed, ref, useId } from 'vue'
 import { apiClient } from '@/api/apiClient'
 
-const room = withDefaults(
-  defineProps<{
-    roomId: string
-    variant?: 'default' | 'light'
-  }>(),
-  { variant: 'default' },
-)
+const { roomId, variant = 'default' } = defineProps<{
+  roomId: string
+  variant?: 'default' | 'light'
+}>()
 
 const newMessage = ref('')
 const sending = ref(false)
@@ -25,7 +22,7 @@ const post = async () => {
   sendError.value = ''
   try {
     const response = await apiClient.POST('/api/rooms/{roomId}/chats', {
-      params: { path: { roomId: room.roomId } },
+      params: { path: { roomId } },
       body: { content: newMessage.value },
     })
     if (response.error) throw new Error(`HTTP Error: ${response.error}`)
@@ -40,11 +37,7 @@ const post = async () => {
 </script>
 
 <template>
-  <form
-    class="wrapper"
-    :class="{ 'wrapper--light': room.variant === 'light' }"
-    @submit.prevent="post"
-  >
+  <form class="wrapper" :class="{ 'wrapper--light': variant === 'light' }" @submit.prevent="post">
     <label class="sr-only" :for="inputId">メッセージ</label>
     <input
       :id="inputId"

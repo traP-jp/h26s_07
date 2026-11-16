@@ -52,7 +52,7 @@ func testService(t *testing.T) (*RoomService, *repository.GormRoomRepository, *t
 	return service, repo, events, room.RoomID
 }
 
-func TestJoinBroadcastsParticipantCountOnce(t *testing.T) {
+func TestJoinBroadcastsParticipantOnce(t *testing.T) {
 	s, _, events, id := testService(t)
 	ctx := context.Background()
 	mustSucceed(t, s.PostParticipants(ctx, id, "bob"))
@@ -60,7 +60,7 @@ func TestJoinBroadcastsParticipantCountOnce(t *testing.T) {
 		t.Fatalf("got %d events, want 1", len(events.events))
 	}
 	display, ok := events.events[0].(openapi.DisplayParticipantJoinedEvent)
-	if !ok || display.Body.Participant.UserID != "bob" || display.Body.ParticipantCount != 2 {
+	if !ok || display.Body.Participant.UserID != "bob" {
 		t.Fatalf("unexpected display event: %#v", events.events[0])
 	}
 	events.events = nil
@@ -245,7 +245,7 @@ func TestCreateRetriesActiveCodeCollision(t *testing.T) {
 func TestRoomLockCoversBroadcastAndSnapshotRegistration(t *testing.T) {
 	s, repo, events, id := testService(t)
 	ctx := context.Background()
-	// Simulate snapshot loading and registration while a mutation waits.
+	// 状態変更が待機している間に、スナップショット読み込みと購読登録を行う状況を再現する。
 	unlock := s.LockRoom(id)
 	snapshot, err := s.GetRoom(ctx, id)
 	mustSucceed(t, err)
@@ -263,7 +263,7 @@ func TestRoomLockCoversBroadcastAndSnapshotRegistration(t *testing.T) {
 	registered = true
 	unlock()
 	mustSucceed(t, <-done)
-	// A blocked broadcaster must prevent the next mutation from committing.
+	// 配信処理が停止している間、次の状態変更が確定しないことを確認する。
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	var once sync.Once
@@ -277,7 +277,7 @@ func TestRoomLockCoversBroadcastAndSnapshotRegistration(t *testing.T) {
 	}
 	next := make(chan error, 1)
 	go func() { _, err := s.PostMessage(ctx, id, "alice", "third"); next <- err }()
-	// The room mutex remains held until both events have been broadcast.
+	// 両方のイベントを配信し終えるまで、ルームのロックが保持されることを確認する。
 	s.locks.mu.Lock()
 	entry := s.locks.entries[id]
 	if entry == nil {

@@ -5,7 +5,7 @@ import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 export function useDisplayEffects() {
   const roomWebSocketStore = useRoomWebSocketStore()
-  const { bingoSummaries, latestEvent } = storeToRefs(roomWebSocketStore)
+  const { bingoParticipantCount, latestEvent } = storeToRefs(roomWebSocketStore)
 
   const showCutin = ref(false)
   const cutinKey = ref(0)
@@ -46,12 +46,12 @@ export function useDisplayEffects() {
     }
   })
 
-  watch(bingoSummaries, (summaries = [], previousSummaries = []) => {
+  watch(bingoParticipantCount, (count, previousCount = 0) => {
     if (latestEvent.value?.type === 'Initialized') {
       return
     }
 
-    const increasedBingoCount = summaries.length - previousSummaries.length
+    const increasedBingoCount = count - previousCount
 
     if (increasedBingoCount < 1) {
       return

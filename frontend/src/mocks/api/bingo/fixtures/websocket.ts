@@ -1,4 +1,4 @@
-import type { ActivityLogEntry, Card, Message, PickedBall, WebSocketEventType } from '@/api/schema'
+import type { Card, Message, PickedBall, WebSocketEventType } from '@/api/schema'
 import type { MockSocketConnection } from '../core'
 import { fallbackRoom, mockRooms } from './rooms'
 
@@ -209,13 +209,20 @@ const pickSnapshots = [
       newReachLines: [],
       newBingoLines: [],
     },
-    bingoSummaries: [],
-    reachSummaries: [
-      { user: demoUsers.kurosaki, createdAt: '2026-06-27T11:11:00.000Z' },
-      { user: demoUsers.rurun, createdAt: '2026-06-27T11:11:00.000Z' },
+    newActivityLog: [
+      {
+        id: 'reach-17-kurosaki',
+        kind: 'reach',
+        user: demoUsers.kurosaki,
+        createdAt: '2026-06-27T11:11:00.000Z',
+      },
+      {
+        id: 'reach-17-rurun',
+        kind: 'reach',
+        user: demoUsers.rurun,
+        createdAt: '2026-06-27T11:11:00.000Z',
+      },
     ],
-    newBingos: [],
-    newReaches: [{ user: demoUsers.kurosaki }, { user: demoUsers.rurun }],
   },
   {
     pickedBall: 22,
@@ -226,16 +233,28 @@ const pickSnapshots = [
       newReachLines: [demoBingoLine],
       newBingoLines: [],
     },
-    bingoSummaries: [
-      { user: demoUsers.kurosaki, bingoOrders: [1], createdAt: '2026-06-27T11:12:00.000Z' },
+    newActivityLog: [
+      {
+        id: 'reach-22-howard127',
+        kind: 'reach',
+        user: demoUsers.howard127,
+        createdAt: '2026-06-27T11:12:00.000Z',
+      },
+      {
+        id: 'reach-22-kurao',
+        kind: 'reach',
+        user: demoUsers.kurao,
+        createdAt: '2026-06-27T11:12:00.000Z',
+      },
+      {
+        id: 'bingo-22-kurosaki',
+        kind: 'bingo',
+        user: demoUsers.kurosaki,
+        createdAt: '2026-06-27T11:12:00.000Z',
+        bingoRank: 1,
+        lineCount: 1,
+      },
     ],
-    reachSummaries: [
-      { user: demoUsers.rurun, createdAt: '2026-06-27T11:11:00.000Z' },
-      { user: demoUsers.howard127, createdAt: '2026-06-27T11:12:00.000Z' },
-      { user: demoUsers.kurao, createdAt: '2026-06-27T11:12:00.000Z' },
-    ],
-    newBingos: [{ user: demoUsers.kurosaki, newBingoOrders: [1], bingoOrders: [1] }],
-    newReaches: [{ user: demoUsers.howard127 }, { user: demoUsers.kurao }],
   },
   {
     pickedBall: 45,
@@ -246,17 +265,22 @@ const pickSnapshots = [
       newReachLines: [],
       newBingoLines: [demoBingoLine],
     },
-    bingoSummaries: [
-      { user: demoUsers.kurosaki, bingoOrders: [1], createdAt: '2026-06-27T11:12:00.000Z' },
-      { user: demoUsers.rurun, bingoOrders: [2], createdAt: '2026-06-27T11:13:00.000Z' },
+    newActivityLog: [
+      {
+        id: 'reach-45-minami',
+        kind: 'reach',
+        user: demoUsers.minami,
+        createdAt: '2026-06-27T11:13:00.000Z',
+      },
+      {
+        id: 'bingo-45-rurun',
+        kind: 'bingo',
+        user: demoUsers.rurun,
+        createdAt: '2026-06-27T11:13:00.000Z',
+        bingoRank: 2,
+        lineCount: 1,
+      },
     ],
-    reachSummaries: [
-      { user: demoUsers.howard127, createdAt: '2026-06-27T11:12:00.000Z' },
-      { user: demoUsers.kurao, createdAt: '2026-06-27T11:12:00.000Z' },
-      { user: demoUsers.minami, createdAt: '2026-06-27T11:13:00.000Z' },
-    ],
-    newBingos: [{ user: demoUsers.rurun, newBingoOrders: [2], bingoOrders: [2] }],
-    newReaches: [{ user: demoUsers.minami }],
   },
   {
     pickedBall: 61,
@@ -267,74 +291,53 @@ const pickSnapshots = [
       newReachLines: [],
       newBingoLines: [],
     },
-    bingoSummaries: [
-      { user: demoUsers.kurosaki, bingoOrders: [1], createdAt: '2026-06-27T11:12:00.000Z' },
-      { user: demoUsers.rurun, bingoOrders: [2], createdAt: '2026-06-27T11:13:00.000Z' },
-      { user: demoUsers.howard127, bingoOrders: [3], createdAt: '2026-06-27T11:14:00.000Z' },
-      { user: demoUsers.kurao, bingoOrders: [4], createdAt: '2026-06-27T11:14:00.000Z' },
+    newActivityLog: [
+      {
+        id: 'reach-61-yamada',
+        kind: 'reach',
+        user: demoUsers.yamada,
+        createdAt: '2026-06-27T11:14:00.000Z',
+      },
+      {
+        id: 'bingo-61-howard127',
+        kind: 'bingo',
+        user: demoUsers.howard127,
+        createdAt: '2026-06-27T11:14:00.000Z',
+        bingoRank: 3,
+        lineCount: 1,
+      },
+      {
+        id: 'bingo-61-kurao',
+        kind: 'bingo',
+        user: demoUsers.kurao,
+        createdAt: '2026-06-27T11:14:00.000Z',
+        bingoRank: 4,
+        lineCount: 1,
+      },
     ],
-    reachSummaries: [
-      { user: demoUsers.minami, createdAt: '2026-06-27T11:13:00.000Z' },
-      { user: demoUsers.yamada, createdAt: '2026-06-27T11:14:00.000Z' },
-    ],
-    newBingos: [
-      { user: demoUsers.howard127, newBingoOrders: [3], bingoOrders: [3] },
-      { user: demoUsers.kurao, newBingoOrders: [4], bingoOrders: [4] },
-    ],
-    newReaches: [{ user: demoUsers.yamada }],
   },
 ]
 
 const lastPickSnapshot = pickSnapshots[3]!
 
-function activityForSnapshot(snapshot: (typeof pickSnapshots)[number]): ActivityLogEntry[] {
-  return [
-    ...snapshot.newReaches.map(({ user }) => ({
-      id: `reach-${snapshot.pickedBall}-${user.userId}`,
-      kind: 'reach' as const,
-      user,
-      createdAt: snapshot.reachSummaries.find((item) => item.user.userId === user.userId)!
-        .createdAt,
-    })),
-    ...snapshot.newBingos.map(({ user, bingoOrders }) => ({
-      id: `bingo-${snapshot.pickedBall}-${user.userId}`,
-      kind: 'bingo' as const,
-      user,
-      createdAt: snapshot.bingoSummaries.find((item) => item.user.userId === user.userId)!
-        .createdAt,
-      bingoRank: bingoOrders[0],
-      lineCount: bingoOrders.length,
-    })),
-  ]
-}
-
 const pickFinishedEvent = (snapshot: (typeof pickSnapshots)[number]): ModeWebSocketEvent => ({
   participant: {
     type: 'PickFinished',
     body: {
-      newActivityLog: activityForSnapshot(snapshot),
+      newActivityLog: snapshot.newActivityLog,
       pickedBall: snapshot.pickedBall,
       pickState: 'idle',
       card: snapshot.card,
       cardChanges: snapshot.cardChanges,
       pickedBalls: snapshot.pickedBalls,
-      bingoSummaries: snapshot.bingoSummaries,
-      reachSummaries: snapshot.reachSummaries,
-      newBingos: snapshot.newBingos,
-      newReaches: snapshot.newReaches,
     },
   },
   display: {
     type: 'PickFinished',
     body: {
-      newActivityLog: activityForSnapshot(snapshot),
+      newActivityLog: snapshot.newActivityLog,
       pickedBall: snapshot.pickedBall,
       pickState: 'idle',
-      participantCount: 6,
-      bingoSummaries: snapshot.bingoSummaries,
-      reachSummaries: snapshot.reachSummaries,
-      newBingos: snapshot.newBingos,
-      newReaches: snapshot.newReaches,
       pickedBalls: snapshot.pickedBalls,
     },
   },
@@ -355,7 +358,7 @@ export const playingWebSocketScript: MockRoomWebSocketScript = {
       delayMs: 0,
       event: {
         participant: { type: 'GameStarted', body: { card: mockCards[0]! } },
-        display: { type: 'GameStarted', body: { participantCount: 6 } },
+        display: { type: 'GameStarted', body: {} },
       },
     },
     { delayMs: 1800, event: pickStartedEvent },
@@ -377,8 +380,7 @@ export const playingWebSocketScript: MockRoomWebSocketScript = {
         pickedBall: 2,
         pickedBalls: [...lastPickSnapshot.pickedBalls, 2],
         cardChanges: emptyCardChanges,
-        newBingos: [],
-        newReaches: [],
+        newActivityLog: [],
       }),
     },
     { delayMs: 13000, event: pickStartedEvent },
@@ -389,8 +391,7 @@ export const playingWebSocketScript: MockRoomWebSocketScript = {
         pickedBall: 24,
         pickedBalls: [...lastPickSnapshot.pickedBalls, 2, 24],
         cardChanges: emptyCardChanges,
-        newBingos: [],
-        newReaches: [],
+        newActivityLog: [],
       }),
     },
     { delayMs: 15000, event: pickStartedEvent },
@@ -401,8 +402,7 @@ export const playingWebSocketScript: MockRoomWebSocketScript = {
         pickedBall: 28,
         pickedBalls: [...lastPickSnapshot.pickedBalls, 2, 24, 28],
         cardChanges: emptyCardChanges,
-        newBingos: [],
-        newReaches: [],
+        newActivityLog: [],
       }),
     },
     { delayMs: 17000, event: pickStartedEvent },
@@ -413,8 +413,7 @@ export const playingWebSocketScript: MockRoomWebSocketScript = {
         pickedBall: 32,
         pickedBalls: [...lastPickSnapshot.pickedBalls, 2, 24, 28, 32],
         cardChanges: emptyCardChanges,
-        newBingos: [],
-        newReaches: [],
+        newActivityLog: [],
       }),
     },
   ],
@@ -431,8 +430,6 @@ export const finishedWebSocketScript: MockRoomWebSocketScript = {
             state: 'finished',
             pickState: 'idle',
             card: lastPickSnapshot.card,
-            bingoSummaries: lastPickSnapshot.bingoSummaries,
-            reachSummaries: lastPickSnapshot.reachSummaries,
           },
         },
         display: {
@@ -440,9 +437,6 @@ export const finishedWebSocketScript: MockRoomWebSocketScript = {
           body: {
             state: 'finished',
             pickState: 'idle',
-            participantCount: 6,
-            bingoSummaries: lastPickSnapshot.bingoSummaries,
-            reachSummaries: lastPickSnapshot.reachSummaries,
           },
         },
       },

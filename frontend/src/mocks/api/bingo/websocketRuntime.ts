@@ -128,14 +128,10 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
     | {
         card?: Card
         pickedBalls?: number[]
-        bingoSummaries?: typeof room.bingoSummaries
-        reachSummaries?: typeof room.reachSummaries
       }
     | undefined
   const pickedBalls =
     latestPickBody?.pickedBalls ?? (room.state === 'waiting' ? [] : initialPickedBalls)
-  const bingoSummaries = latestPickBody?.bingoSummaries ?? room.bingoSummaries
-  const reachSummaries = latestPickBody?.reachSummaries ?? room.reachSummaries
 
   if (connection.mode === 'participant') {
     const participantIndex = room.participants.findIndex(
@@ -155,8 +151,6 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
         settings: room.settings,
         pickState: pickStateByConnection.get(key) ?? room.pickState,
         pickedBalls,
-        bingoSummaries,
-        reachSummaries,
         ...(card ? { card } : {}),
       },
     }
@@ -170,11 +164,8 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
       state: room.state,
       settings: room.settings,
       pickState: pickStateByConnection.get(key) ?? room.pickState,
-      participantCount: room.participants.length,
       pickedBalls,
       qrCodeVisible: room.qrCodeVisible,
-      bingoSummaries,
-      reachSummaries,
     },
   }
 }

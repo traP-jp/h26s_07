@@ -19,7 +19,7 @@ export const participantHandlers = [
     sendEvent(
       {
         type: 'ParticipantJoined',
-        body: { participant, participantCount: room.participants.length },
+        body: { participant },
       },
       { roomId: room.roomId, mode: 'display' },
     )

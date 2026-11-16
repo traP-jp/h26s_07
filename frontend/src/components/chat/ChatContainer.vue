@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Uuid, Message, DateTime, WebSocketMode } from '@/api/schema'
+import type { RoomId, ActivityLogEntry, Message, DateTime, WebSocketMode } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
 import MessageContainer from '@/components/chat/MessageContainer.vue'
 import PostMessage from '@/components/chat/PostMessage.vue'
@@ -8,32 +8,30 @@ import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoomsStore } from '@/stores/rooms'
 import { storeToRefs } from 'pinia'
 
-const room = withDefaults(
-  defineProps<{
-    roomCode: string
-    textarea?: boolean
-    connect?: boolean
-    variant?: 'default' | 'display' | 'participant'
-  }>(),
-  {
-    textarea: false,
-    connect: true,
-    variant: 'default',
-  },
-)
+const {
+  roomCode,
+  textarea = false,
+  connect = true,
+  variant = 'default',
+} = defineProps<{
+  roomCode: string
+  textarea?: boolean
+  connect?: boolean
+  variant?: 'default' | 'display' | 'participant'
+}>()
 
 const historyMessages = ref<Message[]>([])
 const historyStatus = ref<'loading' | 'ready' | 'error' | 'forbidden'>('loading')
 const messages = computed(() => [
   ...historyMessages.value,
-  ...(store.roomId === activeRoomId.value ? store.chatMessages : []),
+  ...(store.roomId === activeRoomId.value ? store.newChatMessages : []),
 ])
 
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
 const participantDrawer = ref<HTMLElement | null>(null)
-const activeRoomId = ref<Uuid | null>(null)
+const activeRoomId = ref<RoomId | null>(null)
 const participantChatOpen = ref(false)
 const participantChatClosing = ref(false)
 let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
@@ -60,25 +58,47 @@ const mergeMessages = (items: Message[]) => {
 }
 
 const systemMessage = (id: string, content: string, createdAt: DateTime): Message => ({
-  messageId: id as Uuid,
+  messageId: id,
   content,
   author: { userId: '' },
   createdAt,
 })
 
-const summaryMessages = computed(() =>
-  activityLog.value.map((entry) =>
+const groupActivityEntriesByCreatedAt = (entries: ActivityLogEntry[]) => {
+  const groups = new Map<DateTime, ActivityLogEntry[]>()
+  for (const entry of entries) {
+    const group = groups.get(entry.createdAt) ?? []
+    group.push(entry)
+    groups.set(entry.createdAt, group)
+  }
+  return [...groups.entries()]
+}
+
+const bingoMessages = (entries: ActivityLogEntry[]) =>
+  groupActivityEntriesByCreatedAt(entries).map(([createdAt, group]) =>
     systemMessage(
-      entry.id,
-      entry.kind === 'reach'
-        ? `${entry.user.userId} さんがリーチ！`
-        : (entry.lineCount ?? 1) > 1
-          ? `${entry.user.userId} さんが ${entry.lineCount} ライン目のビンゴ！`
-          : `${entry.user.userId} さんが ${entry.bingoRank ?? 1} 番目にビンゴ！`,
-      entry.createdAt,
+      `newBingos-${createdAt}`,
+      `${group.map((entry) => entry.user.userId).join('、')} がビンゴしました！`,
+      createdAt,
     ),
-  ),
-)
+  )
+
+const reachMessages = (entries: ActivityLogEntry[]) =>
+  groupActivityEntriesByCreatedAt(entries).map(([createdAt, group]) => {
+    const content =
+      group.length >= 2
+        ? `${group[0]?.user.userId} と他 ${group.length - 1} 人がリーチしました！`
+        : `${group[0]?.user.userId} がリーチしました！`
+    return systemMessage(`newReaches-${createdAt}`, content, createdAt)
+  })
+
+const summaryMessages = computed(() => {
+  const bingoEntries = activityLog.value.filter(
+    (entry) => entry.kind === 'bingo' && (entry.lineCount ?? 1) === 1,
+  )
+  const reachEntries = activityLog.value.filter((entry) => entry.kind === 'reach')
+  return [...bingoMessages(bingoEntries), ...reachMessages(reachEntries)]
+})
 
 const timelineMessages = computed(() =>
   mergeMessages([
@@ -130,7 +150,7 @@ const closeParticipantChat = () => {
   participantChatOpen.value = false
 }
 
-const loadMessages = async (roomId: Uuid) => {
+const loadMessages = async (roomId: RoomId) => {
   if (isUnmounted) return
 
   const requestGeneration = ++historyRequestGeneration
@@ -167,6 +187,8 @@ const loadMessages = async (roomId: Uuid) => {
 const notificationType = (message: Message) => {
   if (message.author.userId !== '') return undefined
   if (message.messageId.startsWith('exhausted:')) return 'exhausted'
+  if (message.messageId.startsWith('newBingos-')) return 'bingo'
+  if (message.messageId.startsWith('newReaches-')) return 'reach'
   return activityLog.value.find((entry) => entry.id === message.messageId)?.kind ?? 'notice'
 }
 
@@ -175,13 +197,13 @@ const initializeChat = async () => {
 
   historyStatus.value = 'loading'
   try {
-    const roomId = await roomsStore.getRoomIdByCode(room.roomCode)
+    const roomId = await roomsStore.getRoomIdByCode(roomCode)
     if (isUnmounted) return
     if (!roomId) throw new Error('Room not found')
     activeRoomId.value = roomId
 
-    if (room.connect) {
-      const mode: WebSocketMode = room.textarea ? 'participant' : 'display'
+    if (connect) {
+      const mode: WebSocketMode = textarea ? 'participant' : 'display'
       if (!store.isActiveConnection({ roomId, mode })) store.connect({ roomId, mode })
     }
     await loadMessages(roomId)
@@ -246,7 +268,7 @@ watch(participantChatOpen, (open) => {
 </script>
 
 <template>
-  <div v-if="room.variant === 'participant'" class="participant-chat">
+  <div v-if="variant === 'participant'" class="participant-chat">
     <section class="participant-chat__desktop">
       <div class="participant-chat__header">Chat</div>
       <div
@@ -386,7 +408,7 @@ watch(participantChatOpen, (open) => {
     <div
       ref="chatContainer"
       class="chat-container"
-      :class="{ 'chat-container--display': room.variant === 'display' }"
+      :class="{ 'chat-container--display': variant === 'display' }"
       tabindex="0"
       role="region"
       aria-label="チャット履歴"
@@ -425,7 +447,7 @@ watch(participantChatOpen, (open) => {
       </div>
     </div>
 
-    <div v-if="room.textarea && activeRoomId" style="height: 30px">
+    <div v-if="textarea && activeRoomId" style="height: 30px">
       <PostMessage :room-id="activeRoomId"></PostMessage>
     </div>
   </template>

@@ -17,20 +17,21 @@ import { storeToRefs } from 'pinia'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 const roomWebSocketStore = useRoomWebSocketStore()
-const { bingoSummaries, participantCount, reachSummaries } = storeToRefs(roomWebSocketStore)
+const { bingoParticipantCount, participantCount, reachParticipantCount } =
+  storeToRefs(roomWebSocketStore)
 
 const stats = computed(() => [
   {
     label: '参加',
-    value: participantCount.value ?? 0,
+    value: participantCount.value,
   },
   {
     label: 'ビンゴ',
-    value: bingoSummaries.value.length,
+    value: bingoParticipantCount.value,
   },
   {
     label: 'リーチ',
-    value: reachSummaries.value.length,
+    value: reachParticipantCount.value,
   },
 ])
 </script>
