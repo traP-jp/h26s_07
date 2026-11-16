@@ -71,14 +71,14 @@ import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useDisplayEffects } from '@/composables/useDisplayEffects'
 import { useNumberBallFavicon } from '@/composables/useNumberBallFavicon'
 import { usePickRollingEffect } from '@/composables/usePickRollingEffect'
-import { useRoomsStore } from '@/stores/rooms'
+import { useRoomConnection } from '@/composables/useRoomConnection'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 import GameStartCutin from '@/components/GameStartCutin.vue'
 
-const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
 const { latestBall, mode, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
+const { connectToRoom } = useRoomConnection({ mode: 'display' })
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
@@ -102,25 +102,12 @@ async function toggleFullscreen() {
   await displayPageElement.value?.requestFullscreen()
 }
 
-async function connectToRoom(roomCode: string) {
-  resetDisplayEffects()
-  if (mode.value === 'display') roomWebSocketStore.disconnect()
-
-  if (!roomCode) return
-
-  const room = await roomsStore.getRoomByCode(roomCode)
-
-  const nextRoomId = room?.roomId ?? null
-  if (!nextRoomId) return
-
-  if (!roomWebSocketStore.isActiveConnection({ roomId: nextRoomId, mode: 'display' })) {
-    roomWebSocketStore.connect({ roomId: nextRoomId, mode: 'display' })
-  }
-}
-
 watch(
   () => props.roomCode,
-  (roomCode) => void connectToRoom(roomCode),
+  (roomCode) => {
+    resetDisplayEffects()
+    void connectToRoom(roomCode)
+  },
   { immediate: true },
 )
 

@@ -8,16 +8,20 @@ import { useRoute } from 'vue-router'
 import type { RoomCode, Card, RoomId } from '@/api/schema'
 import { useRoomsStore } from '@/stores/rooms'
 import { useCurrentUserStore } from '@/stores/currentUser'
+import { useRoomConnection } from '@/composables/useRoomConnection'
 import { storeToRefs } from 'pinia'
 import { Fireworks } from 'fireworks-js'
 
 const route = useRoute()
 const roomCode = computed(() => route.params.roomCode as RoomCode | undefined)
-const roomId = ref<RoomId | null>(null)
 const roomWebSocketStore = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 const currentUserStore = useCurrentUserStore()
 const { mode, roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
+const { roomId, isActiveRoom, errorMessage, connectToRoom } = useRoomConnection({
+  mode: 'participant',
+  join: true,
+})
 
 const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
 
@@ -26,46 +30,17 @@ const fireworksOverlay = ref<HTMLElement | null>(null)
 let fireworks: Fireworks | undefined
 let fireworksStopTimer: ReturnType<typeof setTimeout> | undefined
 const isGameWaiting = computed(() => roomState.value === 'waiting')
-const isActiveRoom = computed(() => roomId.value !== null && connectedRoomId.value === roomId.value)
-const errorMessage = ref('')
 
 let permissionCheckKey: RoomId | null = null
 
-async function connectToRoom(nextRoomCode: RoomCode | undefined) {
-  if (mode.value === 'participant') roomWebSocketStore.disconnect()
-  roomId.value = null
-  displayCard.value = null
-  errorMessage.value = ''
-
-  try {
-    if (!nextRoomCode) return
-
-    const userId = await currentUserStore.getUserId()
-    const room = await roomsStore.getRoomByCode(nextRoomCode)
-    const nextRoomId = room?.roomId ?? null
-    roomId.value = nextRoomId
-
-    if (!nextRoomId) return
-
-    const isParticipant =
-      room?.participants.some((participant) => participant.user.userId === userId) ?? false
-
-    if (!isParticipant) {
-      if (room?.state !== 'waiting') {
-        errorMessage.value = 'このルームには参加できません。'
-        return
-      }
-
-      await roomsStore.joinRoom(nextRoomId)
-    }
-
-    roomWebSocketStore.connect({ roomId: nextRoomId, mode: 'participant', userId })
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
-  }
-}
-
-watch(roomCode, (code) => void connectToRoom(code), { immediate: true })
+watch(
+  roomCode,
+  (code) => {
+    displayCard.value = null
+    void connectToRoom(code)
+  },
+  { immediate: true },
+)
 
 watch(
   () => roomWebSocketStore.status,
