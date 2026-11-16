@@ -28,7 +28,6 @@
         <div class="display-page__chat">
           <div class="display-page__chat-header">Chat</div>
           <ChatContainer
-            v-if="isActiveRoom"
             :key="props.roomCode"
             :room-code="props.roomCode"
             :textarea="false"
