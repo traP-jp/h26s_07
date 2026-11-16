@@ -44,13 +44,10 @@
         :icon="isFullscreen ? 'i-lucide-minimize' : 'i-lucide-expand'"
         @click="toggleFullscreen"
       />
-      <DisplayParticipantQrCode
-        :room-code="props.roomCode"
-        :open="isActiveRoom && (qrCodeVisible ?? false)"
-      />
+      <DisplayParticipantQrCode :room-code="props.roomCode" :open="qrCodeVisible ?? false" />
 
       <GameStartCutin
-        v-if="isActiveRoom && showCutin"
+        v-if="showCutin"
         :key="cutinKey"
         @complete="handleCutinComplete"
         class="z-1"
@@ -65,7 +62,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import type { RoomId } from '@/api/schema'
 import Iridescence from '@/components/backgrounds/Iridescence.vue'
 import NumberBall from '@/components/common/NumberBall.vue'
 import BallStateGrid from '@/components/display/BallStateGrid.vue'
@@ -86,15 +82,11 @@ const { latestBall, mode, pickedBalls, qrCodeVisible, roomState } = storeToRefs(
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
-const roomId = ref<RoomId | null>(null)
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
 const { bottomText, cutinKey, handleCutinComplete, resetDisplayEffects, showCutin, topText } =
   useDisplayEffects()
 useNumberBallFavicon()
 
-const isActiveRoom = computed(
-  () => roomId.value !== null && roomWebSocketStore.roomId === roomId.value,
-)
 const isGameWaiting = computed(() => roomState.value === 'waiting')
 
 function syncFullscreenState() {
@@ -113,14 +105,12 @@ async function toggleFullscreen() {
 async function connectToRoom(roomCode: string) {
   resetDisplayEffects()
   if (mode.value === 'display') roomWebSocketStore.disconnect()
-  roomId.value = null
 
   if (!roomCode) return
 
   const room = await roomsStore.getRoomByCode(roomCode)
 
   const nextRoomId = room?.roomId ?? null
-  roomId.value = nextRoomId
   if (!nextRoomId) return
 
   if (!roomWebSocketStore.isActiveConnection({ roomId: nextRoomId, mode: 'display' })) {
