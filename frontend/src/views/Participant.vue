@@ -8,7 +8,6 @@ import { useRoute } from 'vue-router'
 import type { RoomCode, Card, RoomId } from '@/api/schema'
 import { useRoomsStore } from '@/stores/rooms'
 import { useCurrentUserStore } from '@/stores/currentUser'
-import { useRoomConnection } from '@/composables/useRoomConnection'
 import { storeToRefs } from 'pinia'
 import { Fireworks } from 'fireworks-js'
 
@@ -18,10 +17,7 @@ const roomWebSocketStore = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
 const currentUserStore = useCurrentUserStore()
 const { mode, roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
-const { roomId, isActiveRoom, errorMessage, connectToRoom } = useRoomConnection({
-  mode: 'participant',
-  join: true,
-})
+const { activeRoomId: roomId, isActiveRoom, joinError: errorMessage } = storeToRefs(roomsStore)
 
 const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
 
@@ -37,7 +33,7 @@ watch(
   roomCode,
   (code) => {
     displayCard.value = null
-    void connectToRoom(code)
+    void roomsStore.connectToRoom(code, { mode: 'participant', join: true })
   },
   { immediate: true },
 )

@@ -71,14 +71,14 @@ import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useDisplayEffects } from '@/composables/useDisplayEffects'
 import { useNumberBallFavicon } from '@/composables/useNumberBallFavicon'
 import { usePickRollingEffect } from '@/composables/usePickRollingEffect'
-import { useRoomConnection } from '@/composables/useRoomConnection'
+import { useRoomsStore } from '@/stores/rooms'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 import GameStartCutin from '@/components/GameStartCutin.vue'
 
+const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
 const { latestBall, mode, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
-const { connectToRoom } = useRoomConnection({ mode: 'display' })
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
@@ -104,7 +104,7 @@ async function toggleFullscreen() {
 watch(
   () => props.roomCode,
   (roomCode) => {
-    void connectToRoom(roomCode)
+    void roomsStore.connectToRoom(roomCode, { mode: 'display' })
   },
   { immediate: true },
 )
