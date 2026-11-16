@@ -83,8 +83,7 @@ const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
-const { bottomText, cutinKey, handleCutinComplete, resetDisplayEffects, showCutin, topText } =
-  useDisplayEffects()
+const { bottomText, cutinKey, handleCutinComplete, showCutin, topText } = useDisplayEffects()
 useNumberBallFavicon()
 
 const isGameWaiting = computed(() => roomState.value === 'waiting')
@@ -105,7 +104,6 @@ async function toggleFullscreen() {
 watch(
   () => props.roomCode,
   (roomCode) => {
-    resetDisplayEffects()
     void connectToRoom(roomCode)
   },
   { immediate: true },

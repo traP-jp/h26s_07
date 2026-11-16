@@ -11,23 +11,13 @@ export function useDisplayEffects() {
   const cutinKey = ref(0)
   const topText = ref('GAME')
   const bottomText = ref('START')
-  let cutinGeneration = 0
 
   async function playCutin() {
-    const generation = ++cutinGeneration
     showCutin.value = false
     await nextTick()
-    if (generation !== cutinGeneration) return
 
     cutinKey.value += 1
     showCutin.value = true
-  }
-
-  function resetDisplayEffects() {
-    cutinGeneration += 1
-    showCutin.value = false
-    topText.value = 'GAME'
-    bottomText.value = 'START'
   }
 
   function handleCutinComplete() {
@@ -66,7 +56,6 @@ export function useDisplayEffects() {
     bottomText,
     cutinKey,
     handleCutinComplete,
-    resetDisplayEffects,
     showCutin,
     topText,
   }
