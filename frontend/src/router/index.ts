@@ -75,13 +75,11 @@ const router = createRouter({
       name: 'display',
       component: () => import('@/views/Display.vue'),
       props: true,
-      beforeEnter: validateDisplayRoomCode,
     },
     {
       path: '/:roomCode/participant',
       name: 'participant',
       component: () => import('@/views/Participant.vue'),
-      beforeEnter: validateDisplayRoomCode,
     },
     {
       path: '/404',
@@ -95,6 +93,17 @@ const router = createRouter({
       }),
     },
   ],
+})
+
+router.beforeEach((to, from) => {
+  if (
+    (to.name === 'display' || to.name === 'participant') &&
+    (to.name !== from.name || to.params.roomCode !== from.params.roomCode)
+  ) {
+    return validateDisplayRoomCode(to)
+  }
+
+  return true
 })
 
 export default router

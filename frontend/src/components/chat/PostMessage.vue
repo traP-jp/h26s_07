@@ -1,36 +1,36 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { apiClient } from '@/api/apiClient'
+
 const { roomId, variant = 'default' } = defineProps<{
   roomId: string
   variant?: 'default' | 'light'
 }>()
 
 const newMessage = ref('')
-type RequestBody = {
-  content: string
-}
-const post = async () => {
-  if (newMessage.value.length == 0) return
+const sending = ref(false)
+const sendError = ref('')
+const messageLength = computed(() => Array.from(newMessage.value).length)
+const canSend = computed(
+  () => newMessage.value.trim().length > 0 && messageLength.value <= 500 && !sending.value,
+)
 
-  const data: RequestBody = {
-    content: newMessage.value,
-  }
-  if (newMessage.value.length > 500) {
-    throw new Error('Error 400 : Message Invalid')
-  }
+const post = async () => {
+  if (!canSend.value || sending.value) return
+  sending.value = true
+  sendError.value = ''
   try {
     const response = await apiClient.POST('/api/rooms/{roomId}/chats', {
       params: { path: { roomId } },
-      body: data,
+      body: { content: newMessage.value },
     })
-    if (response.error) {
-      throw new Error(`HTTP Error: ${response.error}`)
-    } else {
-      newMessage.value = ''
-    }
+    if (response.error) throw new Error(`HTTP Error: ${response.error}`)
+    newMessage.value = ''
   } catch (error) {
     console.error('Error', error)
+    sendError.value = '送信できませんでした。時間をおいて再度お試しください。'
+  } finally {
+    sending.value = false
   }
 }
 </script>
@@ -50,6 +50,7 @@ const post = async () => {
         <path d="M0 0v12.75l30 2.25-30 2.25v12.75l30-15z"></path>
       </svg>
     </div>
+    <p v-if="sendError" role="status">{{ sendError }}</p>
   </div>
 </template>
 
