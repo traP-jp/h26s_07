@@ -1,5 +1,28 @@
 import type { Room } from '@/api/schema'
 
+export const chatScrollRoom: Room = {
+  roomId: '00000000-0000-4000-8000-000000000012',
+  roomCode: '222222',
+  state: 'waiting',
+  pickState: 'idle',
+  qrCodeVisible: false,
+  participants: [
+    { user: { userId: 'mumumu' }, joinedAt: '2026-06-28T11:01:00.000Z' },
+    { user: { userId: 'rurun' }, joinedAt: '2026-06-28T11:02:00.000Z' },
+    { user: { userId: 'kurao' }, joinedAt: '2026-06-28T11:03:00.000Z' },
+  ],
+  bingoSummaries: [],
+  reachSummaries: [],
+  settings: {
+    name: 'チャットスクロール確認',
+    description:
+      'チャットを上にスクロールして、新着が来ても読んでいる位置が保たれるか確認できます。',
+    admins: [{ userId: 'mumumu' }],
+  },
+  createdAt: '2026-06-28T11:00:00.000Z',
+  updatedAt: '2026-06-28T11:04:00.000Z',
+}
+
 export const mockRooms: Room[] = [
   {
     roomId: '00000000-0000-4000-8000-000000000011',
@@ -439,5 +462,6 @@ export const mockRooms: Room[] = [
     createdAt: '2026-06-27T19:00:00.000Z',
     updatedAt: '2026-06-27T19:01:00.000Z',
   },
+  chatScrollRoom,
 ]
 export const fallbackRoom = mockRooms[0] as Room

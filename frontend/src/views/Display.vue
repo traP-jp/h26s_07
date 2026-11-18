@@ -206,11 +206,7 @@ onBeforeUnmount(() => {
 }
 
 .display-page__chat-header {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 2;
+  flex: 0 0 auto;
   padding: 16px 18px 12px;
   border-bottom: 1px solid rgb(255 255 255 / 0.48);
   background: rgb(255 255 255 / 0.82);

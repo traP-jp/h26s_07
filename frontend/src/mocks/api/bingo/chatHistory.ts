@@ -1,13 +1,15 @@
 import type { Message } from '@/api/schema'
 
-import { mockMessages } from './fixtures/chats'
+import { chatScrollHistory, mockMessages } from './fixtures/chats'
+import { chatScrollRoom } from './fixtures/rooms'
 
 const messagesByRoom = new Map<string, Message[]>()
 
 export function messagesForRoom(roomId: string): Message[] {
   let messages = messagesByRoom.get(roomId)
   if (!messages) {
-    messages = mockMessages.map((message) => ({ ...message, author: { ...message.author } }))
+    const history = roomId === chatScrollRoom.roomId ? chatScrollHistory : mockMessages
+    messages = history.map((message) => ({ ...message, author: { ...message.author } }))
     messagesByRoom.set(roomId, messages)
   }
 

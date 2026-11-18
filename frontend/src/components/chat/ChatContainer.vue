@@ -146,17 +146,32 @@ const latestMessagePreview = computed(() => {
   return `${latestMessage.author.userId}: ${latestMessage.content}`
 })
 
-const scrollToBottom = async () => {
-  await nextTick()
-  for (const element of [
+watch(timelineMessages, async () => {
+  // 描画前の位置で判定し、過去ログを読んでいる画面は現在位置を保つ。
+  const followingContainers = [
     chatContainer.value,
     participantInlineChatContainer.value,
     participantDrawerChatContainer.value,
-  ]) {
-    if (!element) continue
+  ].filter(
+    (element): element is HTMLElement =>
+      element !== null &&
+      element.clientHeight > 0 &&
+      element.scrollHeight - element.clientHeight - element.scrollTop <= 2,
+  )
+
+  await nextTick()
+  for (const element of followingContainers) {
     element.scrollTop = element.scrollHeight
   }
-}
+})
+
+watch(
+  participantDrawerChatContainer,
+  (element) => {
+    if (element) element.scrollTop = element.scrollHeight
+  },
+  { flush: 'post' },
+)
 
 const closeParticipantChat = () => {
   participantChatOpen.value = false
@@ -182,7 +197,6 @@ const loadMessages = async (roomId: RoomId) => {
     if (response.data && isCurrentRequest()) {
       // 履歴APIは全件返すため、再取得しても同じIDは重ねない。
       historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
-      void scrollToBottom()
     }
   } catch {
     // 履歴取得に失敗してもWebSocketの新着メッセージは表示する。
@@ -222,19 +236,11 @@ onBeforeUnmount(() => {
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
 })
 
-watch(
-  () => timelineMessages.value.length,
-  () => {
-    void scrollToBottom()
-  },
-)
-
 watch(participantChatOpen, (open) => {
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
 
   if (open) {
     participantChatClosing.value = false
-    void scrollToBottom()
     return
   }
 
@@ -354,7 +360,7 @@ watch(participantChatOpen, (open) => {
 
 .chat-container.chat-container--display {
   flex: 1 1 auto;
-  height: 100%;
+  height: auto;
   min-height: 0;
   padding: 8px 0 14px;
 }

@@ -1,6 +1,7 @@
 import type { ActivityLogEntry, Card } from '@/api/schema'
 import { sendEvent, sendEventToConnection, type MockSocketConnection } from './core'
 import { appendMessageToRoom } from './chatHistory'
+import { chatScrollLiveMessages } from './fixtures/chats'
 import {
   demoChatMessages,
   eventForMode,
@@ -10,6 +11,7 @@ import {
   roomByPathParam,
   scriptForRoom,
 } from './fixtures/index'
+import { chatScrollRoom } from './fixtures/rooms'
 import { mockCards } from './fixtures/websocket'
 
 const scheduledDemoChatRoomIds = new Set<string>()
@@ -219,7 +221,10 @@ function scheduleDemoChatMessages(connection: MockSocketConnection): void {
 
   scheduledDemoChatRoomIds.add(roomId)
 
-  for (const [index, messageTemplate] of demoChatMessages.entries()) {
+  const isChatScrollRoom = roomId === chatScrollRoom.roomId
+  const messages = isChatScrollRoom ? chatScrollLiveMessages : demoChatMessages
+
+  for (const [index, messageTemplate] of messages.entries()) {
     window.setTimeout(
       () => {
         const message = {
@@ -231,7 +236,7 @@ function scheduleDemoChatMessages(connection: MockSocketConnection): void {
         // 履歴へ保存したroomイベントなので、同じroomの再接続先にも配信する。
         sendEvent({ type: 'MessageCreated', body: { message } }, { roomId })
       },
-      2000 + index * 2000,
+      (index + 1) * 2_000,
     )
   }
 }
