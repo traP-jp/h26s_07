@@ -6,7 +6,6 @@ import type { Room, RoomCode, RoomId } from '@/api/schema'
 
 export const useRoomsStore = defineStore('rooms', () => {
   const rooms = ref<Room[]>([])
-  const initialized = ref(false)
 
   const roomsByCode = computed(() => {
     const byCode = new Map<RoomCode, Room>()
@@ -32,20 +31,13 @@ export const useRoomsStore = defineStore('rooms', () => {
     }
 
     rooms.value = data
-    initialized.value = true
   }
 
-  async function init(force = false): Promise<void> {
-    if (initialized.value && !force) {
-      return
-    }
-
+  async function init(): Promise<void> {
     await fetchRooms()
   }
 
   async function getRoomByCode(roomCode: RoomCode): Promise<Room | null> {
-    await init()
-    if (!roomsByCode.value.has(roomCode)) await init(true)
     return roomsByCode.value.get(roomCode) ?? null
   }
 
@@ -67,12 +59,11 @@ export const useRoomsStore = defineStore('rooms', () => {
       throw new Error('Failed to join room')
     }
 
-    // The join is committed by the POST. A follow-up room-list refresh is
-    // best-effort; its failure must not make the caller treat the join as failed.
+    // 参加処理は POST で完了しているため、ルーム一覧の更新失敗で参加自体を失敗扱いしない。
     try {
       await fetchRooms()
     } catch {
-      // Keep the existing room cache and let the caller continue with the join.
+      // 既存のルーム一覧を維持して、参加処理を続行する。
     }
   }
 

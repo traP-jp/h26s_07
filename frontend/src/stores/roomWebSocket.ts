@@ -130,7 +130,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     if (!roomCode) return
 
     try {
-      const userId = join ? await currentUserStore.getUserId() : undefined
+      const userId = join ? currentUserStore.userId : undefined
       const room = await roomsStore.getRoomByCode(roomCode)
       const roomId = room?.roomId ?? null
 

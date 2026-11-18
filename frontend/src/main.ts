@@ -6,6 +6,8 @@ import ui from '@nuxt/ui/vue-plugin'
 import './assets/css/main.css'
 import App from './App.vue'
 import router from './router'
+import { useCurrentUserStore } from './stores/currentUser'
+import { useRoomsStore } from './stores/rooms'
 
 // mockを起動する
 if (import.meta.env.DEV && import.meta.env.VITE_API_MOCK === 'true') {
@@ -20,6 +22,10 @@ app.use(pinia)
 app.use(router)
 app.use(ui)
 
+const currentUserStore = useCurrentUserStore()
+await currentUserStore.init()
+const roomsStore = useRoomsStore()
+await roomsStore.init()
 await router.isReady()
 
 app.mount('#app')

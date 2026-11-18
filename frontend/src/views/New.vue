@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import type { FormError, FormSubmitEvent } from '@nuxt/ui'
 import { useRouter } from 'vue-router'
 import { useRoomsStore } from '@/stores/rooms'
@@ -20,14 +20,7 @@ type FormState = {
 const state = reactive<FormState>({
   name: '',
   description: '',
-  adminUserIds: [],
-})
-
-onMounted(async () => {
-  const userId = await currentUserStore.getUserId()
-  if (userId && state.adminUserIds.length === 0) {
-    state.adminUserIds = [userId]
-  }
+  adminUserIds: currentUserStore.userId ? [currentUserStore.userId] : [],
 })
 
 function validate(formState: FormState): FormError[] {
@@ -61,7 +54,7 @@ async function onSubmit(event: FormSubmitEvent<FormState>) {
     alert('新しいページの作成に失敗しました。')
     throw new Error('新しいページの作成に失敗しました。')
   } else {
-    await useRoomsStore().init(true)
+    await useRoomsStore().fetchRooms()
     router.push(`/${data.roomCode}/settings`)
   }
 }
