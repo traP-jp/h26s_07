@@ -15,10 +15,6 @@ export const useRoomsStore = defineStore('rooms', () => {
   const activeRoomId = ref<RoomId | null>(null)
   const joinError = ref('')
 
-  const isActiveRoom = computed(
-    () => activeRoomId.value !== null && roomWebSocketStore.roomId === activeRoomId.value,
-  )
-
   const roomsByCode = computed(() => {
     const byCode = new Map<RoomCode, Room>()
     for (const room of rooms.value) {
@@ -134,7 +130,6 @@ export const useRoomsStore = defineStore('rooms', () => {
     rooms,
     roomsByCode,
     activeRoomId,
-    isActiveRoom,
     joinError,
     fetchRooms,
     init,

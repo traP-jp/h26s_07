@@ -5,9 +5,9 @@ import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
 import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
-import type { RoomCode, Card, RoomId } from '@/api/schema'
+import type { RoomCode } from '@/api/schema'
 import { useRoomsStore } from '@/stores/rooms'
-import { useCurrentUserStore } from '@/stores/currentUser'
+import { useRoomConnection } from '@/composables/useRoomConnection'
 import { storeToRefs } from 'pinia'
 import { Fireworks } from 'fireworks-js'
 
@@ -15,94 +15,20 @@ const route = useRoute()
 const roomCode = computed(() => route.params.roomCode as RoomCode | undefined)
 const roomWebSocketStore = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
-const currentUserStore = useCurrentUserStore()
-const { mode, roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
-const { activeRoomId: roomId, isActiveRoom, joinError: errorMessage } = storeToRefs(roomsStore)
+const { roomState, card, latestCardChanges } = storeToRefs(roomWebSocketStore)
+const { joinError: errorMessage } = storeToRefs(roomsStore)
 
-const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
-
-const displayCard = ref<Card | null>(null)
 const fireworksOverlay = ref<HTMLElement | null>(null)
 let fireworks: Fireworks | undefined
 let fireworksStopTimer: ReturnType<typeof setTimeout> | undefined
 const isGameWaiting = computed(() => roomState.value === 'waiting')
 
-let permissionCheckKey: RoomId | null = null
-
-watch(
-  roomCode,
-  (code) => {
-    displayCard.value = null
-    void roomsStore.connectToRoom(code, { mode: 'participant', join: true })
-  },
-  { immediate: true },
-)
-
-watch(
-  () => roomWebSocketStore.status,
-  (status) => {
-    if (
-      (status !== 'error' && status !== 'closed') ||
-      mode.value !== 'participant' ||
-      roomId.value === null ||
-      connectedRoomId.value !== roomId.value
-    ) {
-      return
-    }
-
-    const expectedRoomId = roomId.value
-    const expectedUserId = currentUserStore.userId
-    if (expectedUserId === null) return
-    if (permissionCheckKey === expectedRoomId) return
-
-    permissionCheckKey = expectedRoomId
-    void roomsStore
-      .fetchRooms()
-      .then(() => {
-        if (
-          roomId.value !== expectedRoomId ||
-          connectedRoomId.value !== expectedRoomId ||
-          mode.value !== 'participant'
-        ) {
-          return
-        }
-
-        const room = roomsStore.rooms.find((item) => item.roomId === expectedRoomId)
-        const stillParticipant =
-          room?.participants.some((participant) => participant.user.userId === expectedUserId) ??
-          false
-
-        if (!stillParticipant) {
-          errorMessage.value = 'このルームには参加できません。'
-          roomId.value = null
-          displayCard.value = null
-          roomWebSocketStore.disconnect()
-        }
-      })
-      .catch(() => {
-        // A failed permission refresh is indistinguishable from a transient network outage.
-      })
-      .finally(() => {
-        if (permissionCheckKey === expectedRoomId) permissionCheckKey = null
-      })
-  },
-)
+useRoomConnection(roomCode, { mode: 'participant', join: true })
 
 onBeforeUnmount(() => {
   stopBingoFireworks(true)
-
-  if (mode.value === 'participant' && connectedRoomId.value === roomId.value) {
-    roomWebSocketStore.disconnect()
-  }
 })
 
-watch(
-  card,
-  (value) => {
-    displayCard.value = value
-  },
-  { immediate: true },
-)
 watch(
   () => latestCardChanges.value?.newBingoLines,
   async (newBingoLines) => {
@@ -181,16 +107,16 @@ function stopBingoFireworks(dispose = false) {
     <ConnectionBadge />
     <UAlert v-if="errorMessage" :description="errorMessage" color="error" />
     <div class="participant-room__card">
-      <div v-if="!isActiveRoom || isGameWaiting" class="participant-room__waiting">
+      <div v-if="isGameWaiting" class="participant-room__waiting">
         <p class="participant-room__waiting-title">ゲームはまだ始まっていません</p>
         <p class="participant-room__waiting-text">開始されるまでお待ちください</p>
       </div>
       <BingoCardPaper
         v-else
         class="participant-room__bingo-card"
-        :card="displayCard"
+        :card="card"
         :card-changes="latestCardChanges"
-        :placeholder="displayCard === null"
+        :placeholder="card === null"
       />
     </div>
     <ChatContainer

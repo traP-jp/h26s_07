@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import Iridescence from '@/components/backgrounds/Iridescence.vue'
@@ -71,14 +71,13 @@ import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useDisplayEffects } from '@/composables/useDisplayEffects'
 import { useNumberBallFavicon } from '@/composables/useNumberBallFavicon'
 import { usePickRollingEffect } from '@/composables/usePickRollingEffect'
-import { useRoomsStore } from '@/stores/rooms'
+import { useRoomConnection } from '@/composables/useRoomConnection'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 import GameStartCutin from '@/components/GameStartCutin.vue'
 
-const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
-const { latestBall, mode, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
+const { latestBall, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
@@ -101,13 +100,7 @@ async function toggleFullscreen() {
   await displayPageElement.value?.requestFullscreen()
 }
 
-watch(
-  () => props.roomCode,
-  (roomCode) => {
-    void roomsStore.connectToRoom(roomCode, { mode: 'display' })
-  },
-  { immediate: true },
-)
+useRoomConnection(() => props.roomCode, { mode: 'display' })
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFullscreenState)
@@ -115,10 +108,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFullscreenState)
-
-  if (mode.value === 'display') {
-    roomWebSocketStore.disconnect()
-  }
 })
 </script>
 

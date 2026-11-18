@@ -1,5 +1,4 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 
 import type { PickedBall } from '@/api/schema'
@@ -14,7 +13,6 @@ function createRandomPickedBall() {
 export function usePickRollingEffect() {
   const roomWebSocketStore = useRoomWebSocketStore()
   const { latestBall, latestEvent, pickState, roomState } = storeToRefs(roomWebSocketStore)
-  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const rollingPickedBall = ref<PickedBall | null>(null)
   const drumroll = useSoundEffect('drumroll', { loop: true })
   const cymbal = useSoundEffect('cymbal')
@@ -70,28 +68,14 @@ export function usePickRollingEffect() {
   }
 
   watch(
-    [pickState, prefersReducedMotion],
-    ([state, reduceMotion]) => {
-      stopRollingBall()
-      if (state === 'picking') {
-        if (reduceMotion) {
-          rollingPickedBall.value = null
-        } else {
-          startRollingBall()
-        }
-      } else {
-        rollingPickedBall.value = null
-      }
-    },
-    { immediate: true },
-  )
-
-  watch(
     pickState,
     (state) => {
+      stopRollingBall()
       if (state === 'picking') {
+        startRollingBall()
         drumroll.play()
       } else {
+        rollingPickedBall.value = null
         drumroll.stop()
       }
     },
