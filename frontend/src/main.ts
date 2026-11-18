@@ -19,13 +19,14 @@ const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
-app.use(router)
 app.use(ui)
 
 const currentUserStore = useCurrentUserStore()
 await currentUserStore.init()
 const roomsStore = useRoomsStore()
 await roomsStore.init()
+
+app.use(router)
 await router.isReady()
 
 app.mount('#app')
