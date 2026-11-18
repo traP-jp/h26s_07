@@ -6,7 +6,6 @@ import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
 import type { RoomCode } from '@/api/schema'
-import { useRoomsStore } from '@/stores/rooms'
 import { useRoomConnection } from '@/composables/useRoomConnection'
 import { storeToRefs } from 'pinia'
 import { Fireworks } from 'fireworks-js'
@@ -14,9 +13,8 @@ import { Fireworks } from 'fireworks-js'
 const route = useRoute()
 const roomCode = computed(() => route.params.roomCode as RoomCode | undefined)
 const roomWebSocketStore = useRoomWebSocketStore()
-const roomsStore = useRoomsStore()
 const { roomState, card, latestCardChanges } = storeToRefs(roomWebSocketStore)
-const { joinError: errorMessage } = storeToRefs(roomsStore)
+const { joinError: errorMessage } = storeToRefs(roomWebSocketStore)
 
 const fireworksOverlay = ref<HTMLElement | null>(null)
 let fireworks: Fireworks | undefined
@@ -123,7 +121,6 @@ function stopBingoFireworks(dispose = false) {
       class="participant-room__chat"
       :room-code="roomCode"
       textarea
-      :connect="false"
       variant="participant"
     />
 

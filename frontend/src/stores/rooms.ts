@@ -2,18 +2,11 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { apiClient } from '@/api/apiClient'
-import type { Room, RoomCode, RoomId, WebSocketMode } from '@/api/schema'
-import { useCurrentUserStore } from '@/stores/currentUser'
-import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
+import type { Room, RoomCode, RoomId } from '@/api/schema'
 
 export const useRoomsStore = defineStore('rooms', () => {
-  const roomWebSocketStore = useRoomWebSocketStore()
-  const currentUserStore = useCurrentUserStore()
-
   const rooms = ref<Room[]>([])
   const initialized = ref(false)
-  const activeRoomId = ref<RoomId | null>(null)
-  const joinError = ref('')
 
   const roomsByCode = computed(() => {
     const byCode = new Map<RoomCode, Room>()
@@ -83,59 +76,13 @@ export const useRoomsStore = defineStore('rooms', () => {
     }
   }
 
-  async function connectToRoom(
-    roomCode: RoomCode | undefined,
-    { mode, join = false }: { mode: WebSocketMode; join?: boolean },
-  ): Promise<void> {
-    if (roomWebSocketStore.mode === mode) roomWebSocketStore.disconnect()
-    activeRoomId.value = null
-    joinError.value = ''
-
-    if (!roomCode) return
-
-    try {
-      const userId = join ? await currentUserStore.getUserId() : undefined
-      const room = await getRoomByCode(roomCode)
-      const roomId = room?.roomId ?? null
-      activeRoomId.value = roomId
-
-      if (!roomId) return
-
-      if (join) {
-        const isParticipant =
-          room?.participants.some((participant) => participant.user.userId === userId) ?? false
-
-        if (!isParticipant) {
-          if (room?.state !== 'waiting') {
-            joinError.value = 'このルームには参加できません。'
-            return
-          }
-
-          await joinRoom(roomId)
-        }
-
-        roomWebSocketStore.connect({ roomId, mode, userId })
-        return
-      }
-
-      if (!roomWebSocketStore.isActiveConnection({ roomId, mode })) {
-        roomWebSocketStore.connect({ roomId, mode })
-      }
-    } catch (error) {
-      joinError.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
-    }
-  }
-
   return {
     rooms,
     roomsByCode,
-    activeRoomId,
-    joinError,
     fetchRooms,
     init,
     getRoomByCode,
     getRoomIdByCode,
     joinRoom,
-    connectToRoom,
   }
 })

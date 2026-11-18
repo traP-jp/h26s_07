@@ -31,7 +31,6 @@
             :key="props.roomCode"
             :room-code="props.roomCode"
             :textarea="false"
-            :connect="false"
             variant="display"
           />
         </div>
