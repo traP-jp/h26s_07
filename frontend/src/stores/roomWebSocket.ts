@@ -18,12 +18,15 @@ import type {
   ParticipantPickFinishedBody,
   PickState,
   PickedBall,
+  RoomCode,
   RoomId,
   RoomState,
   DisplayWebSocketEvent,
   ParticipantWebSocketEvent,
   WebSocketMode,
 } from '@/api/schema'
+import { useCurrentUserStore } from '@/stores/currentUser'
+import { useRoomsStore } from '@/stores/rooms'
 
 export type RoomWebSocketEvent = ParticipantWebSocketEvent | DisplayWebSocketEvent
 
@@ -40,19 +43,31 @@ type ConnectOptions = {
   mode: WebSocketMode
 }
 
-function createRoomWebSocketUrl(roomId: RoomId, mode: WebSocketMode) {
-  const url = new URL(`/api/rooms/${roomId}/ws`, window.location.origin)
-  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-  url.searchParams.set('mode', mode)
-  return url.toString()
-}
-
 export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
+  const currentUserStore = useCurrentUserStore()
+  const roomsStore = useRoomsStore()
+
+  function createRoomWebSocketUrl(roomId: RoomId, mode: WebSocketMode) {
+    const url = new URL(`/api/rooms/${roomId}/ws`, window.location.origin)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    url.searchParams.set('mode', mode)
+    if (
+      import.meta.env.DEV &&
+      import.meta.env.VITE_API_MOCK === 'true' &&
+      mode === 'participant' &&
+      currentUserStore.userId
+    ) {
+      url.searchParams.set('userId', currentUserStore.userId)
+    }
+    return url.toString()
+  }
+
   const socket = shallowRef<WebSocket | null>(null)
   const roomId = ref<RoomId | null>(null)
   const mode = ref<WebSocketMode | null>(null)
   const status = ref<RoomWebSocketConnectionStatus>('idle')
   const reconnectAttempt = ref(0)
+  const joinError = ref('')
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined
   let generation = 0
   let sawOffline = false
@@ -103,6 +118,46 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     )
   }
 
+  async function connectToRoom(
+    roomCode: RoomCode | undefined,
+    options: { mode: WebSocketMode; join?: boolean },
+  ): Promise<void> {
+    const connectionMode = options.mode
+    const join = options.join ?? false
+    if (mode.value === connectionMode) disconnect()
+    joinError.value = ''
+
+    if (!roomCode) return
+
+    try {
+      const userId = join ? currentUserStore.userId : undefined
+      const room = await roomsStore.getRoomByCode(roomCode)
+      const roomId = room?.roomId ?? null
+
+      if (!roomId) return
+
+      if (join) {
+        const isParticipant =
+          room?.participants.some((participant) => participant.user.userId === userId) ?? false
+
+        if (!isParticipant) {
+          if (room?.state !== 'waiting') {
+            joinError.value = 'このルームには参加できません。'
+            return
+          }
+
+          await roomsStore.joinRoom(roomId)
+        }
+      }
+
+      if (!isActiveConnection({ roomId, mode: connectionMode })) {
+        openSocket({ roomId, mode: connectionMode })
+      }
+    } catch (error) {
+      joinError.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
+    }
+  }
+
   function resetRoomState() {
     participants.value = []
     activityLog.value = []
@@ -128,6 +183,28 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function applyEvent(event: RoomWebSocketEvent) {
+    if (
+      event.type === 'ParticipantJoined' &&
+      (!event.body ||
+        !event.body.participant ||
+        typeof event.body.participant.userId !== 'string' ||
+        event.body.participant.userId.length === 0)
+    ) {
+      errorMessage.value = 'Invalid ParticipantJoined event'
+      return
+    }
+
+    if (event.type === 'PickFinished') {
+      const body = event.body as PickFinishedBody
+      // 古い抽選結果や重複イベントでカード状態や演出を巻き戻さない。
+      if (
+        body.pickedBalls.length <= pickedBalls.value.length ||
+        !pickedBalls.value.every((ball, index) => body.pickedBalls[index] === ball)
+      ) {
+        return
+      }
+    }
+
     latestEvent.value = event
 
     switch (event.type) {
@@ -208,7 +285,13 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
         qrCodeVisible.value = false
         break
       case 'MessageCreated':
-        newChatMessages.value.push(event.body.message)
+        if (
+          !newChatMessages.value.some(
+            (message) => message.messageId === event.body.message.messageId,
+          )
+        ) {
+          newChatMessages.value.push(event.body.message)
+        }
         break
       case 'AllPicked':
         pickedBalls.value = event.body.pickedBalls
@@ -220,7 +303,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     }
   }
 
-  function connect(options: ConnectOptions) {
+  function openSocket(options: ConnectOptions) {
     if (isActiveConnection(options)) {
       return
     }
@@ -311,15 +394,20 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   }
 
   function reconnectNow() {
-    if (!enabled || !roomId.value || !mode.value) return
+    const currentRoomId = roomId.value
+    const currentMode = mode.value
+    if (!enabled || !currentRoomId || !currentMode) return
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     const attempt = reconnectAttempt.value
-    const options = { roomId: roomId.value, mode: mode.value }
+    const options = {
+      roomId: currentRoomId,
+      mode: currentMode,
+    }
     // OPEN に見えるソケットでも、アプリ側の状態が古い可能性があれば置き換える。
     disconnect()
     reconnectAttempt.value = attempt
-    connect(options)
+    openSocket(options)
   }
 
   function resumeConnection() {
@@ -347,6 +435,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
   function disconnect() {
     generation += 1
     enabled = false
+    sawOffline = false
     clearTimeout(reconnectTimer)
     reconnectTimer = undefined
     window.removeEventListener('offline', markOffline)
@@ -366,6 +455,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     activityLog,
     newChatMessages,
     reconnectAttempt,
+    joinError,
     socket,
     roomId,
     mode,
@@ -386,8 +476,7 @@ export const useRoomWebSocketStore = defineStore('roomWebSocket', () => {
     qrCodeVisible,
     isConnected,
     canUseParticipantCard,
-    isActiveConnection,
-    connect,
+    connectToRoom,
     disconnect,
     resetRoomState,
   }

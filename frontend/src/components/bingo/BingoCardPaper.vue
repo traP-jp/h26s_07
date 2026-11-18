@@ -606,19 +606,4 @@ watch(
     transform: translate(calc(-50% + var(--particle-x)), calc(-50% + var(--particle-y))) scale(0.95);
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .grid-cell--active-reach::before,
-  .grid-cell--active-bingo::before,
-  .grid-cell--reach-missing :deep(.ball),
-  .line-effect,
-  .line-effect::before,
-  .line-effect::after,
-  .bingo-celebration,
-  .bingo-celebration__text,
-  .bingo-celebration__particle {
-    animation-duration: 1ms;
-    animation-iteration-count: 1;
-  }
-}
 </style>

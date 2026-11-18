@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { ActivityLogEntry, Message, DateTime, WebSocketMode } from '@/api/schema'
+import type { RoomId, ActivityLogEntry, Message, DateTime } from '@/api/schema'
 import { apiClient } from '@/api/apiClient'
 import MessageContainer from '@/components/chat/MessageContainer.vue'
 import PostMessage from '@/components/chat/PostMessage.vue'
@@ -11,12 +11,10 @@ import { storeToRefs } from 'pinia'
 const {
   roomCode,
   textarea = false,
-  connect = true,
   variant = 'default',
 } = defineProps<{
   roomCode: string
   textarea?: boolean
-  connect?: boolean
   variant?: 'default' | 'display' | 'participant'
 }>()
 
@@ -29,10 +27,11 @@ const messages = computed(() => [
 const chatContainer = ref<HTMLElement | null>(null)
 const participantInlineChatContainer = ref<HTMLElement | null>(null)
 const participantDrawerChatContainer = ref<HTMLElement | null>(null)
-const activeRoomId = ref<string | null>(null)
+const activeRoomId = ref<RoomId | null>(null)
 const participantChatOpen = ref(false)
 const participantChatClosing = ref(false)
 let participantChatClosingTimer: ReturnType<typeof setTimeout> | undefined
+let isUnmounted = false
 
 const store = useRoomWebSocketStore()
 const roomsStore = useRoomsStore()
@@ -147,50 +146,74 @@ const latestMessagePreview = computed(() => {
   return `${latestMessage.author.userId}: ${latestMessage.content}`
 })
 
-const scrollToBottom = async () => {
-  await nextTick()
-  for (const element of [
+watch(timelineMessages, async () => {
+  // 描画前の位置で判定し、過去ログを読んでいる画面は現在位置を保つ。
+  const followingContainers = [
     chatContainer.value,
     participantInlineChatContainer.value,
     participantDrawerChatContainer.value,
-  ]) {
-    if (!element) continue
+  ].filter(
+    (element): element is HTMLElement =>
+      element !== null &&
+      element.clientHeight > 0 &&
+      element.scrollHeight - element.clientHeight - element.scrollTop <= 2,
+  )
+
+  await nextTick()
+  for (const element of followingContainers) {
     element.scrollTop = element.scrollHeight
   }
-}
+})
+
+watch(
+  participantDrawerChatContainer,
+  (element) => {
+    if (element) element.scrollTop = element.scrollHeight
+  },
+  { flush: 'post' },
+)
 
 const closeParticipantChat = () => {
   participantChatOpen.value = false
 }
 
-const loadMessages = async (roomId: string) => {
+const loadMessages = async (roomId: RoomId) => {
+  if (isUnmounted) return
+
+  const isCurrentRequest = () => !isUnmounted && activeRoomId.value === roomId
+
   try {
     const response = await apiClient.GET('/api/rooms/{roomId}/chats', {
       params: { path: { roomId } },
     })
 
-    if (response.response.status === 403) return
+    if (response.response.status === 403) {
+      if (isCurrentRequest()) {
+        historyMessages.value = []
+      }
+      return
+    }
 
-    if (response.data && activeRoomId.value === roomId) {
+    if (response.data && isCurrentRequest()) {
       // 履歴APIは全件返すため、再取得しても同じIDは重ねない。
       historyMessages.value = mergeMessages([...historyMessages.value, ...response.data])
-      void scrollToBottom()
     }
   } catch {
-    // 履歴取得に失敗しても、WebSocket の新着メッセージは表示する。
+    // 履歴取得に失敗してもWebSocketの新着メッセージは表示する。
   }
 }
 
 onMounted(async () => {
-  const roomId = await roomsStore.getRoomIdByCode(roomCode)
-  if (!roomId) return
-  activeRoomId.value = roomId
+  try {
+    const roomId = await roomsStore.getRoomIdByCode(roomCode)
+    if (isUnmounted) return
+    if (!roomId) throw new Error('Room not found')
+    activeRoomId.value = roomId
 
-  if (connect) {
-    const mode: WebSocketMode = textarea ? 'participant' : 'display'
-    if (!store.isActiveConnection({ roomId, mode })) store.connect({ roomId, mode })
+    await loadMessages(roomId)
+  } catch {
+    // ルーム情報や履歴を取得できない場合は、履歴を表示せずにおく。
   }
-  await loadMessages(roomId)
 })
 
 watch(
@@ -209,22 +232,15 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  isUnmounted = true
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
 })
-
-watch(
-  () => timelineMessages.value.length,
-  () => {
-    void scrollToBottom()
-  },
-)
 
 watch(participantChatOpen, (open) => {
   if (participantChatClosingTimer) clearTimeout(participantChatClosingTimer)
 
   if (open) {
     participantChatClosing.value = false
-    void scrollToBottom()
     return
   }
 
@@ -344,7 +360,7 @@ watch(participantChatOpen, (open) => {
 
 .chat-container.chat-container--display {
   flex: 1 1 auto;
-  height: 100%;
+  height: auto;
   min-height: 0;
   padding: 8px 0 14px;
 }

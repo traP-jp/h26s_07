@@ -72,11 +72,4 @@ const props = defineProps<{
     transform: scale(1);
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .ball {
-    transition-duration: 1ms;
-    animation-duration: 1ms;
-  }
-}
 </style>

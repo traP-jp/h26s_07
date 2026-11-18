@@ -1,6 +1,6 @@
 import type { Card, Message, PickedBall, WebSocketEventType } from '@/api/schema'
 import type { MockSocketConnection } from '../core'
-import { fallbackRoom, mockRooms } from './rooms'
+import { chatScrollRoom, fallbackRoom, mockRooms } from './rooms'
 
 export const initialPickedBalls: PickedBall[] = [4, 18, 33]
 export const demoBingoLine = [1, 6, 11, 16, 21]
@@ -466,6 +466,7 @@ export const roomWebSocketScripts: Record<string, MockRoomWebSocketScript> = {
   '890123': playingWebSocketScript,
   '901234': finishedWebSocketScript,
   '012345': waitingWebSocketScript,
+  [chatScrollRoom.roomCode]: { onConnect: [] },
 }
 
 export function roomByPathParam(roomParam: string) {

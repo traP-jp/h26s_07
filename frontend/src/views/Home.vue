@@ -1,44 +1,29 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import type { Room, UserId } from '@/api/schema'
+import { ref, computed } from 'vue'
+import type { Room } from '@/api/schema'
 
-import { apiClient } from '@/api/apiClient'
 import { useCurrentUserStore } from '@/stores/currentUser'
+import { useRoomsStore } from '@/stores/rooms'
+import { storeToRefs } from 'pinia'
 
 const currentUserStore = useCurrentUserStore()
+const roomsStore = useRoomsStore()
+const { rooms } = storeToRefs(roomsStore)
 
-const loading = ref(true)
-const errorMessage = ref('')
-const rooms = ref(new Array<Room>())
-const currentUserId = ref<UserId>()
+const currentUserId = currentUserStore.userId
 
 const joinModalOpen = ref(false)
 const selectedRoom = ref<Room | null>(null)
 
-onMounted(async () => {
-  loading.value = true
-
-  currentUserId.value = await currentUserStore.getUserId()
-
-  const { data, error } = await apiClient.GET('/api/rooms')
-  if (error) {
-    errorMessage.value = error.message
-  } else {
-    rooms.value = data
-  }
-
-  loading.value = false
-})
-
 const joinedRooms = computed(() => {
   return rooms.value.filter((room) =>
-    room.participants.some((participant) => participant.user.userId === currentUserId.value),
+    room.participants.some((participant) => participant.user.userId === currentUserId),
   )
 })
 
 const adminRooms = computed(() => {
   return rooms.value.filter((room) =>
-    room.settings.admins.some((admin) => admin.userId === currentUserId.value),
+    room.settings.admins.some((admin) => admin.userId === currentUserId),
   )
 })
 
@@ -46,7 +31,7 @@ const waitingRooms = computed(() => {
   return rooms.value.filter(
     (room) =>
       room.state == 'waiting' &&
-      !room.participants.some((participant) => participant.user.userId === currentUserId.value),
+      !room.participants.some((participant) => participant.user.userId === currentUserId),
   )
 })
 
@@ -74,56 +59,47 @@ function confirmJoinRoom() {
 
 <template>
   <UContainer class="pt-6">
-    <div v-if="loading">読み込み中...</div>
+    <h2 class="text-3xl font-bold mb-4">
+      <UIcon name="i-lucide-zap" class="text-yellow-400 inline" />
+      あなたが参加しているルーム
+    </h2>
 
-    <div v-else-if="errorMessage">
-      ルーム情報の取得に失敗しました。 <br />
-      {{ errorMessage }}
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
+      <template v-for="room in joinedRooms" :key="room.roomCode">
+        <Card
+          :title="room.settings.name"
+          :description="room.settings.description"
+          :room-code="room.roomCode"
+        ></Card>
+      </template>
     </div>
 
-    <template v-else>
-      <h2 class="text-3xl font-bold mb-4">
-        <UIcon name="i-lucide-zap" class="text-yellow-400 inline" />
-        あなたが参加しているルーム
-      </h2>
+    <h2 class="text-3xl font-bold mb-4">あなたが管理しているルーム</h2>
 
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
-        <template v-for="room in joinedRooms" :key="room.roomCode">
-          <Card
-            :title="room.settings.name"
-            :description="room.settings.description"
-            :room-code="room.roomCode"
-          ></Card>
-        </template>
-      </div>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
+      <template v-for="room in adminRooms" :key="room.roomCode">
+        <Card
+          :title="room.settings.name"
+          :description="room.settings.description"
+          :room-code="room.roomCode"
+          is-Admin
+        ></Card>
+      </template>
+    </div>
 
-      <h2 class="text-3xl font-bold mb-4">あなたが管理しているルーム</h2>
+    <h2 class="text-3xl font-bold mb-4">参加者を募集しているルーム</h2>
 
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
-        <template v-for="room in adminRooms" :key="room.roomCode">
-          <Card
-            :title="room.settings.name"
-            :description="room.settings.description"
-            :room-code="room.roomCode"
-            is-Admin
-          ></Card>
-        </template>
-      </div>
-
-      <h2 class="text-3xl font-bold mb-4">参加者を募集しているルーム</h2>
-
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
-        <template v-for="room in waitingRooms" :key="room.roomCode">
-          <Card
-            :title="room.settings.name"
-            :description="room.settings.description"
-            :room-code="room.roomCode"
-            is-joinable
-            @join="openJoinModal(room)"
-          ></Card>
-        </template>
-      </div>
-    </template>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
+      <template v-for="room in waitingRooms" :key="room.roomCode">
+        <Card
+          :title="room.settings.name"
+          :description="room.settings.description"
+          :room-code="room.roomCode"
+          is-joinable
+          @join="openJoinModal(room)"
+        ></Card>
+      </template>
+    </div>
 
     <UModal v-model:open="joinModalOpen">
       <template #content>

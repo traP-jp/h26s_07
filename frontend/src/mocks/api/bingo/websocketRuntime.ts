@@ -1,6 +1,7 @@
-import type { ActivityLogEntry } from '@/api/schema'
+import type { ActivityLogEntry, Card } from '@/api/schema'
 import { sendEvent, sendEventToConnection, type MockSocketConnection } from './core'
 import { appendMessageToRoom } from './chatHistory'
+import { chatScrollLiveMessages } from './fixtures/chats'
 import {
   demoChatMessages,
   eventForMode,
@@ -10,10 +11,20 @@ import {
   roomByPathParam,
   scriptForRoom,
 } from './fixtures/index'
+import { chatScrollRoom } from './fixtures/rooms'
+import { mockCards } from './fixtures/websocket'
 
 const scheduledDemoChatRoomIds = new Set<string>()
 const activityLogsByRoom = new Map<string, ActivityLogEntry[]>()
+const participantCards = new Map<string, Card>()
 const activityLogIdsByConnection = new WeakMap<MockSocketConnection, Set<string>>()
+const scriptProgressByConnection = new Map<string, number>()
+const latestPickByConnection = new Map<string, MockWebSocketEvent>()
+const pickStateByConnection = new Map<string, 'idle' | 'picking'>()
+
+function connectionKey(connection: MockSocketConnection): string {
+  return `${connection.roomId}:${connection.mode}:${connection.userId}`
+}
 
 function orderedActivityLog(entries: ActivityLogEntry[]): ActivityLogEntry[] {
   return [...entries].sort((a, b) => {
@@ -42,19 +53,107 @@ function appendActivityLog(roomId: string, entries: ActivityLogEntry[]): void {
   activityLogsByRoom.set(roomId, orderedActivityLog([...uniqueEntries.values()]))
 }
 
+function participantCard(
+  connection: MockSocketConnection,
+  template: Card,
+  pickedBalls: number[],
+): Card {
+  const key = `${connection.roomId}:${connection.userId}`
+  let card = participantCards.get(key)
+  if (!card) {
+    card = {
+      ...template,
+      cardId: crypto.randomUUID(),
+      ownerUserId: connection.userId,
+    }
+  }
+  const matchesLayout =
+    card.cells.length === template.cells.length &&
+    card.cells.every(
+      (cell, index) =>
+        cell.index === template.cells[index]?.index &&
+        cell.number === template.cells[index]?.number,
+    )
+  const nextCard = matchesLayout
+    ? {
+        ...template,
+        cardId: card.cardId,
+        cardNumber: card.cardNumber,
+        ownerUserId: connection.userId,
+      }
+    : card
+  const updatedCard = cardWithPickedBalls(nextCard, pickedBalls)
+  participantCards.set(key, updatedCard)
+  return updatedCard
+}
+
+function cardWithPickedBalls(card: Card, pickedBalls: number[]): Card {
+  const picked = new Set(pickedBalls)
+  return {
+    ...card,
+    cells: card.cells.map((cell) =>
+      cell.number !== null && picked.has(cell.number) && cell.cellState === 'closed'
+        ? { ...cell, cellState: 'open' }
+        : cell,
+    ),
+  }
+}
+
+export function eventForConnection(
+  connection: MockSocketConnection,
+  event: MockWebSocketEvent,
+): MockWebSocketEvent {
+  if (connection.mode !== 'participant') return event
+
+  switch (event.type) {
+    case 'GameStarted':
+    case 'PickFinished':
+    case 'GameFinished': {
+      const body = event.body as { card: Card; pickedBalls?: number[] }
+      const pickedBalls =
+        body.pickedBalls ?? (event.type === 'GameStarted' ? initialPickedBalls : [])
+      return {
+        ...event,
+        body: { ...body, card: participantCard(connection, body.card, pickedBalls) },
+      }
+    }
+    default:
+      return event
+  }
+}
+
 function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent {
   const room = roomByPathParam(connection.roomId)
-  const pickedBalls = room.state === 'waiting' ? [] : initialPickedBalls
+  const key = connectionKey(connection)
+  const latestPick = latestPickByConnection.get(key)
+  const latestPickBody = latestPick?.body as
+    | {
+        card?: Card
+        pickedBalls?: number[]
+      }
+    | undefined
+  const pickedBalls =
+    latestPickBody?.pickedBalls ?? (room.state === 'waiting' ? [] : initialPickedBalls)
 
   if (connection.mode === 'participant') {
+    const participantIndex = room.participants.findIndex(
+      (participant) => participant.user.userId === connection.userId,
+    )
+    const card =
+      room.state === 'waiting' || participantIndex < 0
+        ? undefined
+        : (latestPickBody?.card ??
+          participantCard(connection, mockCards[participantIndex % mockCards.length]!, pickedBalls))
+
     return {
       type: 'Initialized',
       body: {
         activityLog: activityLogsByRoom.get(connection.roomId) ?? [],
         state: room.state,
         settings: room.settings,
-        pickState: room.pickState,
+        pickState: pickStateByConnection.get(key) ?? room.pickState,
         pickedBalls,
+        ...(card ? { card } : {}),
       },
     }
   }
@@ -66,7 +165,7 @@ function initializedEvent(connection: MockSocketConnection): MockWebSocketEvent 
       activityLog: activityLogsByRoom.get(connection.roomId) ?? [],
       state: room.state,
       settings: room.settings,
-      pickState: room.pickState,
+      pickState: pickStateByConnection.get(key) ?? room.pickState,
       pickedBalls,
       qrCodeVisible: room.qrCodeVisible,
     },
@@ -77,7 +176,10 @@ function scheduleScript(
   connection: MockSocketConnection,
   script: MockRoomWebSocketScript['onConnect'],
 ): void {
-  for (const item of script) {
+  const key = connectionKey(connection)
+  const progress = scriptProgressByConnection.get(key) ?? 0
+  script.forEach((item, index) => {
+    if (index < progress) return
     window.setTimeout(() => {
       const event = eventForMode(item.event, connection.mode)
       if (event.type === 'PickFinished') {
@@ -90,18 +192,25 @@ function scheduleScript(
             return true
           }),
         )
-        const orderedEvent = {
+        const connectionEvent = eventForConnection(connection, {
           ...event,
           body: { ...body, newActivityLog },
-        }
-        if (!sendEventToConnection(connection, orderedEvent)) return
+        })
+        const delivered = sendEventToConnection(connection, connectionEvent)
+        if (!delivered) return
         appendActivityLog(connection.roomId, body.newActivityLog)
         activityLogIdsByConnection.set(connection, knownIds)
+        latestPickByConnection.set(key, connectionEvent)
+        pickStateByConnection.set(key, 'idle')
+        scriptProgressByConnection.set(key, index + 1)
         return
       }
-      sendEventToConnection(connection, event)
+      if (sendEventToConnection(connection, eventForConnection(connection, event))) {
+        if (event.type === 'PickStarted') pickStateByConnection.set(key, 'picking')
+        scriptProgressByConnection.set(key, index + 1)
+      }
     }, item.delayMs)
-  }
+  })
 }
 
 function scheduleDemoChatMessages(connection: MockSocketConnection): void {
@@ -112,7 +221,10 @@ function scheduleDemoChatMessages(connection: MockSocketConnection): void {
 
   scheduledDemoChatRoomIds.add(roomId)
 
-  for (const [index, messageTemplate] of demoChatMessages.entries()) {
+  const isChatScrollRoom = roomId === chatScrollRoom.roomId
+  const messages = isChatScrollRoom ? chatScrollLiveMessages : demoChatMessages
+
+  for (const [index, messageTemplate] of messages.entries()) {
     window.setTimeout(
       () => {
         const message = {
@@ -121,10 +233,10 @@ function scheduleDemoChatMessages(connection: MockSocketConnection): void {
           createdAt: new Date().toISOString(),
         }
         appendMessageToRoom(roomId, message)
-        // 履歴に保存したルームイベントなので、同じルームへの再接続先にも配信する。
+        // 履歴へ保存したroomイベントなので、同じroomの再接続先にも配信する。
         sendEvent({ type: 'MessageCreated', body: { message } }, { roomId })
       },
-      2000 + index * 2000,
+      (index + 1) * 2_000,
     )
   }
 }
@@ -133,7 +245,10 @@ export function startMockRoomWebSocket(connection: MockSocketConnection): void {
   const room = roomByPathParam(connection.roomId)
   const script = scriptForRoom(room)
 
-  sendEventToConnection(connection, initializedEvent(connection))
+  const event = initializedEvent(connection)
+  const body = event.body as { activityLog: ActivityLogEntry[] }
+  activityLogIdsByConnection.set(connection, new Set(body.activityLog.map((entry) => entry.id)))
+  sendEventToConnection(connection, event)
   scheduleDemoChatMessages(connection)
 
   if (room.state !== 'waiting' || connection.mode === 'display') {

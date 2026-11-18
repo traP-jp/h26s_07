@@ -1,81 +1,31 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import ConnectionBadge from '@/components/common/ConnectionBadge.vue'
 import BingoCardPaper from '@/components/bingo/BingoCardPaper.vue'
 import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 import { useRoute } from 'vue-router'
-import type { RoomCode, Card, RoomId, UserId } from '@/api/schema'
-import { useRoomsStore } from '@/stores/rooms'
-import { useCurrentUserStore } from '@/stores/currentUser'
+import type { RoomCode } from '@/api/schema'
+import { useRoomConnection } from '@/composables/useRoomConnection'
 import { storeToRefs } from 'pinia'
 import { Fireworks } from 'fireworks-js'
 
 const route = useRoute()
-const roomCode = route.params.roomCode as RoomCode | undefined
-const roomId = ref<RoomId | null>(null)
+const roomCode = computed(() => route.params.roomCode as RoomCode | undefined)
 const roomWebSocketStore = useRoomWebSocketStore()
-const roomsStore = useRoomsStore()
-const currentUserStore = useCurrentUserStore()
-const { roomId: connectedRoomId, roomState } = storeToRefs(roomWebSocketStore)
+const { roomState, card, latestCardChanges } = storeToRefs(roomWebSocketStore)
+const { joinError: errorMessage } = storeToRefs(roomWebSocketStore)
 
-const { card, latestCardChanges } = storeToRefs(roomWebSocketStore)
-
-const displayCard = ref<Card | null>(null)
 const fireworksOverlay = ref<HTMLElement | null>(null)
-const isGameWaiting = computed(() => roomState.value === 'waiting')
 let fireworks: Fireworks | undefined
 let fireworksStopTimer: ReturnType<typeof setTimeout> | undefined
-const errorMessage = ref('')
-const currentUserId = ref<UserId>()
+const isGameWaiting = computed(() => roomState.value === 'waiting')
 
-let disposed = false
-onMounted(async () => {
-  try {
-    if (!roomCode) return
+useRoomConnection(roomCode, { mode: 'participant', join: true })
 
-    currentUserId.value = await currentUserStore.getUserId()
-
-    const room = await roomsStore.getRoomByCode(roomCode)
-    roomId.value = room?.roomId ?? null
-
-    if (!roomId.value) return
-
-    const isParticipant =
-      room?.participants.some((participant) => participant.user.userId === currentUserId.value) ??
-      false
-
-    if (!isParticipant) {
-      if (room?.state !== 'waiting') {
-        errorMessage.value = 'このルームには参加できません。'
-        return
-      }
-
-      await roomsStore.joinRoom(roomId.value)
-    }
-
-    if (disposed) return
-    roomWebSocketStore.connect({ roomId: roomId.value, mode: 'participant' })
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'ルームに参加できませんでした。'
-  }
-})
 onBeforeUnmount(() => {
-  disposed = true
   stopBingoFireworks(true)
-
-  if (roomId.value && connectedRoomId.value === roomId.value) {
-    roomWebSocketStore.disconnect()
-  }
 })
-
-watch(
-  card,
-  (value) => {
-    displayCard.value = value
-  },
-  { immediate: true },
-)
 
 watch(
   () => latestCardChanges.value?.newBingoLines,
@@ -88,7 +38,6 @@ watch(
 )
 
 function playBingoFireworks() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   if (!fireworksOverlay.value) return
 
   stopBingoFireworks(true)
@@ -162,9 +111,9 @@ function stopBingoFireworks(dispose = false) {
       <BingoCardPaper
         v-else
         class="participant-room__bingo-card"
-        :card="displayCard"
+        :card="card"
         :card-changes="latestCardChanges"
-        :placeholder="displayCard === null"
+        :placeholder="card === null"
       />
     </div>
     <ChatContainer
@@ -172,7 +121,6 @@ function stopBingoFireworks(dispose = false) {
       class="participant-room__chat"
       :room-code="roomCode"
       textarea
-      :connect="false"
       variant="participant"
     />
 

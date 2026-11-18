@@ -28,9 +28,9 @@
         <div class="display-page__chat">
           <div class="display-page__chat-header">Chat</div>
           <ChatContainer
+            :key="props.roomCode"
             :room-code="props.roomCode"
             :textarea="false"
-            :connect="false"
             variant="display"
           />
         </div>
@@ -61,7 +61,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import type { RoomId } from '@/api/schema'
 import Iridescence from '@/components/backgrounds/Iridescence.vue'
 import NumberBall from '@/components/common/NumberBall.vue'
 import BallStateGrid from '@/components/display/BallStateGrid.vue'
@@ -71,18 +70,16 @@ import ChatContainer from '@/components/chat/ChatContainer.vue'
 import { useDisplayEffects } from '@/composables/useDisplayEffects'
 import { useNumberBallFavicon } from '@/composables/useNumberBallFavicon'
 import { usePickRollingEffect } from '@/composables/usePickRollingEffect'
-import { useRoomsStore } from '@/stores/rooms'
+import { useRoomConnection } from '@/composables/useRoomConnection'
 import { useRoomWebSocketStore } from '@/stores/roomWebSocket'
 
 import GameStartCutin from '@/components/GameStartCutin.vue'
 
-const roomsStore = useRoomsStore()
 const roomWebSocketStore = useRoomWebSocketStore()
 const { latestBall, pickedBalls, qrCodeVisible, roomState } = storeToRefs(roomWebSocketStore)
 const props = defineProps<{ roomCode: string }>()
 const displayPageElement = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
-const roomId = ref<RoomId | null>(null)
 const { displayBallPalette, displayBallText } = usePickRollingEffect()
 const { bottomText, cutinKey, handleCutinComplete, showCutin, topText } = useDisplayEffects()
 useNumberBallFavicon()
@@ -102,32 +99,14 @@ async function toggleFullscreen() {
   await displayPageElement.value?.requestFullscreen()
 }
 
-onMounted(async () => {
+useRoomConnection(() => props.roomCode, { mode: 'display' })
+
+onMounted(() => {
   document.addEventListener('fullscreenchange', syncFullscreenState)
-
-  if (!props.roomCode) return
-
-  const room = await roomsStore.getRoomByCode(props.roomCode)
-  roomId.value = room?.roomId ?? null
-
-  if (!roomId.value) return
-
-  if (roomWebSocketStore.isActiveConnection({ roomId: roomId.value, mode: 'display' })) {
-    return
-  }
-
-  roomWebSocketStore.connect({ roomId: roomId.value, mode: 'display' })
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFullscreenState)
-
-  if (
-    roomId.value &&
-    roomWebSocketStore.isActiveConnection({ roomId: roomId.value, mode: 'display' })
-  ) {
-    roomWebSocketStore.disconnect()
-  }
 })
 </script>
 
@@ -227,11 +206,7 @@ onBeforeUnmount(() => {
 }
 
 .display-page__chat-header {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 2;
+  flex: 0 0 auto;
   padding: 16px 18px 12px;
   border-bottom: 1px solid rgb(255 255 255 / 0.48);
   background: rgb(255 255 255 / 0.82);
