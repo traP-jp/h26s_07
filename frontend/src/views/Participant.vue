@@ -40,7 +40,6 @@ watch(
 )
 
 function playBingoFireworks() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   if (!fireworksOverlay.value) return
 
   stopBingoFireworks(true)

@@ -54,24 +54,6 @@ let textAnimation: TextAnimation | undefined
 let textSplitters: TextSplitter[] = []
 let textTimer: number | undefined
 let completeTimer: number | undefined
-let motionPreference: MediaQueryList | undefined
-let completed = false
-
-function finishCutin() {
-  if (completed) return
-
-  completed = true
-  window.clearTimeout(textTimer)
-  window.clearTimeout(completeTimer)
-  textAnimation?.cancel?.()
-  textAnimation?.pause?.()
-  textSplitters.forEach((splitter) => splitter.revert?.())
-  emit('complete')
-}
-
-function handleMotionPreferenceChange(event: MediaQueryListEvent) {
-  if (event.matches) finishCutin()
-}
 
 const stageStyle = computed(
   () =>
@@ -90,19 +72,11 @@ const stageStyle = computed(
 )
 
 onMounted(async () => {
-  motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
-  if (motionPreference.matches) {
-    finishCutin()
-    return
-  }
-
-  motionPreference.addEventListener('change', handleMotionPreferenceChange)
-
   const { animate, splitText, stagger } = await import('animejs')
 
   await nextTick()
 
-  if (!root.value || completed || motionPreference.matches) return
+  if (!root.value) return
 
   const labels = Array.from(root.value.querySelectorAll<HTMLElement>('.wipe-label'))
 
@@ -125,7 +99,7 @@ onMounted(async () => {
     onComplete: () => {
       root.value?.querySelector('.tilt')?.classList.add('is-fading')
       completeTimer = window.setTimeout(() => {
-        finishCutin()
+        emit('complete')
       }, fadeDuration)
     },
   }) as TextAnimation
@@ -137,7 +111,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  motionPreference?.removeEventListener('change', handleMotionPreferenceChange)
   window.clearTimeout(textTimer)
   window.clearTimeout(completeTimer)
   textAnimation?.cancel?.()
